@@ -16,20 +16,20 @@ timezone: Asia/Shanghai
 
 title: Whale # the main title
 
-tagline: A text-focused Jekyll theme # it will display as the subtitle
+tagline: Freedom and Life # it will display as the subtitle
 
 description: >- # used by seo meta and the atom feed
   A personal blog website.
 
 # Fill in the protocol & hostname for your site.
 # E.g. 'https://username.github.io', note that it does not end with a '/'.
-url: ""
+url: "https://username.github.io"
 
 github:
-  username: github_username # change to your GitHub username
+  username: HamLET8 # change to your GitHub username
 
 twitter:
-  username: twitter_username # change to your Twitter username
+  username: jin_lve # change to your Twitter username
 
 social:
   # Change to your full name.
@@ -96,7 +96,7 @@ theme_mode: # [light | dark]
 cdn: "https://chirpy-img.netlify.app"
 
 # the avatar on sidebar, support local or CORS resources
-avatar: "/commons/avatar.jpg"
+avatar: "assets/img/web/blue-whale.png"
 
 # The URL of the site-wide social preview image used in SEO `og:image` meta tag.
 # It can be overridden by a customized `page.image` in front matter.
