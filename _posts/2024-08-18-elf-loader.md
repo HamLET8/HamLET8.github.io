@@ -1,7 +1,7 @@
 ---
 title: ELF_Loader
 author: ian
-date: 2024-08-018 10:15:00 +0800
+date: 2024-08-18 10:15:00 +0800
 categories: [Blogging, Linux]
 tags: [System]
 render_with_liquid: false
