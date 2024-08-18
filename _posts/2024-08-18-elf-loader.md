@@ -1,6 +1,6 @@
 ---
 title: ELF_Loader
-author: ian
+author: ian.li
 date: 2024-08-18 10:15:00 +0800
 categories: [Blogging, Linux]
 tags: [System]
@@ -94,6 +94,7 @@ ELF 中有多个段专门用于动态链接, 如:
 如: 可执行文件(elf_phdr)和进程的信息(e_entry), 环境变量, 操作系统会根据 Elf32_auxv_t {size_t a_type, size_t a_val} 的格式将辅助信息放在栈上, 但是 musl 自己声明一个 size_t aux[MAX_CNT] 来接收这些信息 ,将 ELF 中 Elf32_auxv_t 项的类型 a_type 作为下标, a_val 作为数组中的值( dynv 数组类似). ( Elf32_auxv_t 类型参考 7.5.5 )
 
 ````c
+
 for (i=0; i<AUX_CNT; i++) aux[i] = 0;
 
 for (i=0; auxv[i]; i+=2){
@@ -103,8 +104,9 @@ for (i=0; auxv[i]; i+=2){
         aux[auxv[i]] = auxv[i+1];
 
     }
-  ```
-```c
+````
+
+````c
 // 栈指针, .dynamic 段
 hidden void _dlstart_c(size_t *sp, size_t *dynv)
 ````
@@ -165,14 +167,18 @@ dlerror 判断是否调用成功
 使用 -fvisibility=hidden 隐藏所有符号, 使用**attribute**((visibility("default"))) 来修饰想要暴露的接口, 此方法不能隐藏静态库中的符号.
 
 方法二: (链接阶段)
+
 使用链接脚本
--Wl, --version-script ./sym.ver
+
+````c
+-W1, --version-script ./sym.ver
 {
 global: //开放给外部的接口
 \*keyword\*;
 local: //隐藏所有
 \*;
 }
+````
 
 参考： https://www.bilibili.com/video/BV1j14y1m7Zw
 
