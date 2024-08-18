@@ -1,6 +1,6 @@
 ---
 title: ELF_Loader
-author: ian.li
+author: ian
 date: 2024-08-18 10:15:00 +0800
 categories: [Blogging, Linux]
 tags: [System]
