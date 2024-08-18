@@ -7,10 +7,8 @@ author: cotes
 date: 2019-08-09 20:55:00 +0800
 categories: [Blogging, Tutorial]
 tags: [getting started]
-pin: true
 media_subpath: '/posts/20180809'
 ---
-
 ## Prerequisites
 
 Follow the instructions in the [Jekyll Docs](https://jekyllrb.com/docs/installation/) to complete the installation of the basic environment. [Git](https://git-scm.com/) also needs to be installed.
@@ -26,7 +24,7 @@ There are two ways to create a new repository for this theme:
 
 #### Option 1. Using the Chirpy Starter
 
-Sign in to GitHub and browse to [**Chirpy Starter**][starter], click the button <kbd>Use this template</kbd> > <kbd>Create a new repository</kbd>, and name the new repository `USERNAME.github.io`, where `USERNAME` represents your GitHub username.
+Sign in to GitHub and browse to [Chirpy Starter][starter], click the button `<kbd>`Use this template`</kbd>` > `<kbd>`Create a new repository`</kbd>`, and name the new repository `USERNAME.github.io`, where `USERNAME` represents your GitHub username.
 
 #### Option 2. GitHub Fork
 
@@ -39,7 +37,7 @@ $ bash tools/init.sh
 ```
 
 > If you don't want to deploy your site on GitHub Pages, append option `--no-gh` at the end of the above command.
-{: .prompt-info }
+> {: .prompt-info }
 
 The above command will:
 
@@ -91,7 +89,7 @@ You may want to preview the site contents before publishing, so just run it by:
 $ bundle exec jekyll s
 ```
 
-After a few seconds, the local service will be published at _<http://127.0.0.1:4000>_.
+After a few seconds, the local service will be published at _[http://127.0.0.1:4000](http://127.0.0.1:4000)_.
 
 ## Deployment
 
@@ -112,10 +110,8 @@ Prepare the following:
 
 Next, configure the _Pages_ service:
 
-1. Go to your repository on GitHub. Select the _Settings_ tab, then click _Pages_ in the left navigation bar. In the **Source** section (under _Build and deployment_), select [**GitHub Actions**][pages-workflow-src] from the dropdown menu.  
-   ![Build source](pages-source-light.png){: .light .border .normal w='375' h='140' }
+1. Go to your repository on GitHub. Select the _Settings_ tab, then click _Pages_ in the left navigation bar. In the **Source** section (under _Build and deployment_), select [GitHub Actions][pages-workflow-src] from the dropdown menu.![Build source](pages-source-light.png){: .light .border .normal w='375' h='140' }
    ![Build source](pages-source-dark.png){: .dark .normal w='375' h='140' }
-
 2. Push any commits to GitHub to trigger the _Actions_ workflow. In the _Actions_ tab of your repository, you should see the workflow _Build and Deploy_ running. Once the build is complete and successful, the site will be deployed automatically.
 
 You can now visit the URL provided by GitHub to access your site.
