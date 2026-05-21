@@ -13,6 +13,8 @@ const configPath = process.env.REPORT_SOURCES_CONFIG
 const config = await readJson(await exists(configPath) ? configPath : fallbackConfigPath);
 const generatedAt = new Date();
 const reportsRoot = path.join(repoRoot, "reports");
+const catalogPath = path.join(reportsRoot, "catalog.json");
+const previousCatalog = await exists(catalogPath) ? await readJson(catalogPath) : null;
 
 await fs.mkdir(path.join(reportsRoot, "assets"), { recursive: true });
 
@@ -69,11 +71,11 @@ for (const section of config.sections || []) {
   catalog.sections.push(outSection);
 }
 
-await fs.writeFile(
-  path.join(reportsRoot, "catalog.json"),
-  `${JSON.stringify(catalog, null, 2)}\n`,
-  "utf8"
-);
+if (previousCatalog && sameCatalogContent(previousCatalog, catalog)) {
+  catalog.generatedAt = previousCatalog.generatedAt;
+}
+
+await fs.writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`, "utf8");
 
 await fs.writeFile(path.join(reportsRoot, "index.html"), renderPortal(catalog), "utf8");
 
@@ -376,4 +378,17 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function sameCatalogContent(previous, next) {
+  return JSON.stringify(catalogContent(previous)) === JSON.stringify(catalogContent(next));
+}
+
+function catalogContent(catalog) {
+  return {
+    siteTitle: catalog.siteTitle,
+    siteSubtitle: catalog.siteSubtitle,
+    baseUrl: catalog.baseUrl,
+    sections: catalog.sections
+  };
 }
