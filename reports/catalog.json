@@ -1,0 +1,223 @@
+{
+  "siteTitle": "报告阅读入口",
+  "siteSubtitle": "把本地生成的交易系统与技术报告发布到 GitHub Pages，方便在工作场景远程阅读。",
+  "baseUrl": "https://hamlet8.github.io/reports/",
+  "generatedAt": "2026-05-21T16:12:05.003Z",
+  "sections": [
+    {
+      "id": "trading",
+      "title": "交易系统",
+      "description": "交易系统学习、执行规则、复盘与风险认知相关报告。",
+      "collections": [
+        {
+          "id": "trading-system-15-days",
+          "title": "交易系统 15 天学习报告",
+          "description": "Van Tharp 与 Howard Marks 思想融合的交易系统学习序列。",
+          "tags": [
+            "交易系统",
+            "风险",
+            "复盘",
+            "学习"
+          ],
+          "destination": "reports/trading/trading-system-15-days",
+          "entry": "00_plan.html",
+          "entryUrl": "trading/trading-system-15-days/00_plan.html",
+          "reportCount": 8,
+          "documents": [
+            {
+              "title": "15天交易系统阅读学习计划",
+              "path": "00_plan.html",
+              "href": "00_plan.html",
+              "updatedAt": "2026-05-18T16:45:25.244Z"
+            },
+            {
+              "title": "Day 1 - 交易不是预测，而是系统",
+              "path": "day_01.html",
+              "href": "day_01.html",
+              "updatedAt": "2026-05-18T16:45:25.283Z"
+            },
+            {
+              "title": "Day 02/15｜风险不是波动，而是永久损失与失控",
+              "path": "day_02.html",
+              "href": "day_02.html",
+              "updatedAt": "2026-05-18T16:45:25.321Z"
+            },
+            {
+              "title": "Day 03/15｜R 倍数、期望值与交易结果",
+              "path": "day_03.html",
+              "href": "day_03.html",
+              "updatedAt": "2026-05-18T16:45:25.359Z"
+            },
+            {
+              "title": "Day 04/15｜仓位管理如何决定长期生存",
+              "path": "day_04.html",
+              "href": "day_04.html",
+              "updatedAt": "2026-05-18T16:45:25.398Z"
+            },
+            {
+              "title": "Day 05/15｜市场周期与投资者情绪",
+              "path": "day_05.html",
+              "href": "day_05.html",
+              "updatedAt": "2026-05-19T12:05:28.678Z"
+            },
+            {
+              "title": "Day 06/15｜二阶思维与非共识判断",
+              "path": "day_06.html",
+              "href": "day_06.html",
+              "updatedAt": "2026-05-20T12:05:54.421Z"
+            },
+            {
+              "title": "Day 07/15｜胜率、赔率和错误认知",
+              "path": "day_07.html",
+              "href": "day_07.html",
+              "updatedAt": "2026-05-21T12:06:59.383Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tech",
+      "title": "技术报告",
+      "description": "文件系统、SSD / FTL、Linux 存储与代码设计阅读报告。",
+      "collections": [
+        {
+          "id": "ssd-ftl",
+          "title": "SSD / FTL 代码设计阅读",
+          "description": "围绕 SSD / FTL 代码设计、状态边界、恢复路径的 15 天阅读序列。",
+          "tags": [
+            "SSD",
+            "FTL",
+            "代码设计",
+            "存储"
+          ],
+          "destination": "reports/tech/ssd-ftl",
+          "entry": "index.html",
+          "entryUrl": "tech/ssd-ftl/index.html",
+          "reportCount": 10,
+          "documents": [
+            {
+              "title": "SSD / FTL 代码设计报告索引",
+              "path": "index.html",
+              "href": "index.html",
+              "updatedAt": "2026-05-21T12:36:30.242Z"
+            },
+            {
+              "title": "SSD / FTL 代码设计 15 天计划表",
+              "path": "plan.html",
+              "href": "plan.html",
+              "updatedAt": "2026-05-21T12:36:30.278Z"
+            },
+            {
+              "title": "Day 1：模块边界先于函数实现",
+              "path": "day-01.html",
+              "href": "day-01.html",
+              "updatedAt": "2026-05-21T12:36:30.314Z"
+            },
+            {
+              "title": "Day 2：建立 FTL 通用语言",
+              "path": "day-02.html",
+              "href": "day-02.html",
+              "updatedAt": "2026-05-21T12:36:30.349Z"
+            },
+            {
+              "title": "Day 3：接口深度：把参数列表变成领域意图",
+              "path": "day-03.html",
+              "href": "day-03.html",
+              "updatedAt": "2026-05-21T12:36:30.385Z"
+            },
+            {
+              "title": "Day 4：Host Write 曳光弹",
+              "path": "day-04.html",
+              "href": "day-04.html",
+              "updatedAt": "2026-05-21T12:36:30.421Z"
+            },
+            {
+              "title": "Day 5：Mapping Table 的所有权",
+              "path": "day-05.html",
+              "href": "day-05.html",
+              "updatedAt": "2026-05-21T12:36:30.456Z"
+            },
+            {
+              "title": "Day 6：错误路径不是 return 语句",
+              "path": "day-06.html",
+              "href": "day-06.html",
+              "updatedAt": "2026-05-21T12:36:30.493Z"
+            },
+            {
+              "title": "Day 7：Block 与 Page 生命周期状态机",
+              "path": "day-07.html",
+              "href": "day-07.html",
+              "updatedAt": "2026-05-21T12:36:30.528Z"
+            },
+            {
+              "title": "Day 8：Metadata Journal 的最小可恢复记录",
+              "path": "day-08.html",
+              "href": "day-08.html",
+              "updatedAt": "2026-05-21T12:35:56.954Z"
+            }
+          ]
+        },
+        {
+          "id": "storage-radar",
+          "title": "Storage Radar 技术报告",
+          "description": "Linux storage、UFS、F2FS、block layer patch 阅读与技术分析报告。",
+          "tags": [
+            "Linux",
+            "Storage",
+            "UFS",
+            "F2FS"
+          ],
+          "destination": "reports/tech/storage-radar",
+          "entry": "reports/index.html",
+          "entryUrl": "tech/storage-radar/reports/index.html",
+          "reportCount": 7,
+          "documents": [
+            {
+              "title": "Storage Radar",
+              "path": "index.html",
+              "href": "index.html",
+              "updatedAt": "2026-05-20T12:41:43.517Z"
+            },
+            {
+              "title": "Storage Reading Reports",
+              "path": "reports/index.html",
+              "href": "reports/index.html",
+              "updatedAt": "2026-05-20T21:26:18.994Z"
+            },
+            {
+              "title": "F2FS GC_MERGE Deadlock 技术报告",
+              "path": "reports/f2fs-gc-merge-deadlock-technical-report-2026-05-21.html",
+              "href": "reports/f2fs-gc-merge-deadlock-technical-report-2026-05-21.html",
+              "updatedAt": "2026-05-20T16:25:07.618Z"
+            },
+            {
+              "title": "Storage Reading Report · 2026-05-20 · GPT",
+              "path": "reports/report-2026-05-20-gpt.html",
+              "href": "reports/report-2026-05-20-gpt.html",
+              "updatedAt": "2026-05-19T16:16:46.983Z"
+            },
+            {
+              "title": "Storage Technical Report · 2026-05-20 · GPT",
+              "path": "reports/report-2026-05-20-technical-gpt.html",
+              "href": "reports/report-2026-05-20-technical-gpt.html",
+              "updatedAt": "2026-05-20T12:32:46.513Z"
+            },
+            {
+              "title": "Storage Reading Report · 2026-05-20",
+              "path": "reports/report-2026-05-20.html",
+              "href": "reports/report-2026-05-20.html",
+              "updatedAt": "2026-05-19T16:06:43.769Z"
+            },
+            {
+              "title": "Linux Storage Technical Reading · 2026-05-21 · GPT",
+              "path": "reports/report-2026-05-21-gpt-linux-storage.html",
+              "href": "reports/report-2026-05-21-gpt-linux-storage.html",
+              "updatedAt": "2026-05-20T21:25:44.447Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

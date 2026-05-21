@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>SSD / FTL 代码设计 15 天计划表</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+
+		a {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 10;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+
+		.top-actions {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+
+		.pill.primary {
+			border-color: var(--canvas-dark);
+			background: var(--canvas-dark);
+			color: #ffffff;
+		}
+
+		.layout {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+
+		.sidebar {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+
+		.sidebar-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+
+		.nav-list {
+			display: grid;
+			gap: 2px;
+			margin: 0 0 24px;
+			padding: 0;
+			list-style: none;
+		}
+
+		.nav-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+		}
+
+		.nav-list a.active {
+			background: var(--surface);
+			color: var(--ink);
+			font-weight: 600;
+		}
+
+		main {
+			min-width: 0;
+		}
+
+		.hero {
+			padding: 42px 0 28px;
+		}
+
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+
+		h1,
+		h2,
+		h3 {
+			margin: 0;
+			color: var(--ink);
+			font-weight: 600;
+			letter-spacing: 0;
+			line-height: 1.2;
+		}
+
+		h1 {
+			max-width: 860px;
+			font-size: 48px;
+			letter-spacing: -1px;
+		}
+
+		h2 {
+			margin-top: 48px;
+			padding-top: 34px;
+			border-top: 1px solid var(--hairline);
+			font-size: 28px;
+		}
+
+		h3 {
+			margin-top: 24px;
+			font-size: 20px;
+		}
+
+		p {
+			margin: 12px 0;
+			color: var(--charcoal);
+		}
+
+		.lead {
+			max-width: 780px;
+			margin-top: 18px;
+			color: var(--slate);
+			font-size: 18px;
+			line-height: 1.5;
+		}
+
+		.meta-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 24px;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.badge.mint {
+			border-color: rgba(0, 212, 164, 0.32);
+			background: var(--mint-soft);
+			color: #006b55;
+		}
+
+		.cards {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 14px;
+			margin-top: 26px;
+		}
+
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+
+		.card h3 {
+			margin-top: 0;
+			font-size: 18px;
+		}
+
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+
+		.diagram svg {
+			display: block;
+			width: 100%;
+			min-width: 780px;
+			height: auto;
+		}
+
+		.table-wrap {
+			width: 100%;
+			margin: 20px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+
+		table {
+			width: 100%;
+			min-width: 0;
+			border-collapse: collapse;
+			table-layout: fixed;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+
+		tr:last-child td {
+			border-bottom: 0;
+		}
+
+		.phase {
+			display: inline-flex;
+			align-items: center;
+			padding: 2px 8px;
+			border-radius: var(--radius-full);
+			background: var(--canvas-dark);
+			color: #ffffff;
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		@media (max-width: 980px) {
+			.layout {
+				grid-template-columns: 1fr;
+				padding: 24px 20px 56px;
+			}
+
+			.sidebar {
+				position: static;
+				max-height: none;
+				border-bottom: 1px solid var(--hairline);
+				padding-bottom: 18px;
+			}
+
+			.cards {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 680px) {
+			.topbar {
+				align-items: flex-start;
+				flex-direction: column;
+				padding: 12px 18px;
+			}
+
+			.layout {
+				padding: 18px 16px 44px;
+			}
+
+			h1 {
+				font-size: 34px;
+				letter-spacing: -0.5px;
+			}
+
+			h2 {
+				font-size: 24px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill primary" href="plan.html">15 天计划</a>
+			<a class="pill" href="day-01.html">Day 1 报告</a>
+		</nav>
+	</header>
+
+	<div class="layout">
+		<aside class="sidebar" aria-label="计划导航">
+			<p class="sidebar-title">Overview</p>
+			<ul class="nav-list">
+				<li><a class="active" href="#plan">15 天计划表</a></li>
+				<li><a href="#arc">学习路径图</a></li>
+				<li><a href="#coverage">覆盖面检查</a></li>
+			</ul>
+			<p class="sidebar-title">Reports</p>
+			<ul class="nav-list">
+				<li><a href="day-01.html">Day 1：模块边界</a></li>
+				<li><a href="day-02.html">Day 2：领域语言</a></li>
+				<li><a href="day-03.html">Day 3：接口深度</a></li>
+				<li><a href="day-04.html">Day 4：Host Write</a></li>
+				<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+				<li><a href="day-06.html">Day 6：错误路径</a></li>
+				<li><a href="day-07.html">Day 7：状态机</a></li>
+				<li><a href="day-08.html">Day 8：Journal</a></li>
+			</ul>
+		</aside>
+
+		<main>
+			<section class="hero" id="plan">
+				<p class="kicker">SSD / FTL 代码设计学习路径</p>
+				<h1>15 天计划表：从模块边界走到演进路线</h1>
+				<p class="lead">
+					这张计划表独立于每日网页报告。每天围绕一个 SSD / FTL 设计判断展开，
+					四本书作为判断来源分布在完整路径中，目标是逐步覆盖模块边界、领域语言、接口设计、
+					错误路径、状态机、恢复机制、GC 协作、缓存边界、介质健康与长期演进。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">独立计划文件</span>
+					<span class="badge">每日一个 HTML 报告</span>
+					<span class="badge">路径：plan.html + day-01.html ... day-15.html</span>
+				</div>
+				<div class="cards">
+					<div class="card">
+						<h3>阶段 1：切边界</h3>
+						<p>Day 1-5 建立模块边界、领域语言、接口深度、Host Write 骨架和 Mapping 所有权。</p>
+					</div>
+					<div class="card">
+						<h3>阶段 2：稳一致性</h3>
+						<p>Day 6-10 处理错误路径、状态机、Journal、Recovery 和 GC 协作边界。</p>
+					</div>
+					<div class="card">
+						<h3>阶段 3：可演进</h3>
+						<p>Day 11-15 进入策略分离、WriteBooster、Read Retry/ECC、Bad Block 和长期路线。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="arc">
+				<h2>学习路径图</h2>
+				<div class="diagram" aria-label="15 天学习路径图">
+					<svg viewBox="0 0 1080 360" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.lane { fill: #fafafa; stroke: #e5e5e5; stroke-width: 1.2; }
+								.node { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.2; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.5; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="lane" x="24" y="44" width="324" height="254" rx="14"></rect>
+						<text class="t" x="186" y="78" text-anchor="middle">阶段 1：表达系统</text>
+						<rect class="key" x="56" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="115" y="132" text-anchor="middle">Day 1</text>
+						<text class="s" x="115" y="152" text-anchor="middle">模块边界</text>
+						<rect class="node" x="202" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="261" y="132" text-anchor="middle">Day 2-3</text>
+						<text class="s" x="261" y="152" text-anchor="middle">语言 / 接口</text>
+						<rect class="node" x="104" y="198" width="160" height="58" rx="10"></rect>
+						<text class="t" x="184" y="222" text-anchor="middle">Day 4-5</text>
+						<text class="s" x="184" y="242" text-anchor="middle">写路径 / Mapping</text>
+
+						<rect class="lane" x="378" y="44" width="324" height="254" rx="14"></rect>
+						<text class="t" x="540" y="78" text-anchor="middle">阶段 2：守住一致性</text>
+						<rect class="node" x="410" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="469" y="132" text-anchor="middle">Day 6-7</text>
+						<text class="s" x="469" y="152" text-anchor="middle">错误 / 状态</text>
+						<rect class="key" x="556" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="615" y="132" text-anchor="middle">Day 8-9</text>
+						<text class="s" x="615" y="152" text-anchor="middle">Journal / Recovery</text>
+						<rect class="node" x="460" y="198" width="160" height="58" rx="10"></rect>
+						<text class="t" x="540" y="222" text-anchor="middle">Day 10</text>
+						<text class="s" x="540" y="242" text-anchor="middle">GC 领域服务</text>
+
+						<rect class="lane" x="732" y="44" width="324" height="254" rx="14"></rect>
+						<text class="t" x="894" y="78" text-anchor="middle">阶段 3：支持演进</text>
+						<rect class="node" x="764" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="823" y="132" text-anchor="middle">Day 11-12</text>
+						<text class="s" x="823" y="152" text-anchor="middle">策略 / 缓存</text>
+						<rect class="node" x="910" y="108" width="118" height="58" rx="10"></rect>
+						<text class="t" x="969" y="132" text-anchor="middle">Day 13-14</text>
+						<text class="s" x="969" y="152" text-anchor="middle">ECC / 坏块</text>
+						<rect class="key" x="814" y="198" width="160" height="58" rx="10"></rect>
+						<text class="t" x="894" y="222" text-anchor="middle">Day 15</text>
+						<text class="s" x="894" y="242" text-anchor="middle">演进路线</text>
+
+						<path class="line" d="M348 171 L378 171"></path>
+						<path class="line" d="M702 171 L732 171"></path>
+					</svg>
+				</div>
+			</section>
+
+			<section>
+				<h2>15 天计划表</h2>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Day</th>
+								<th>明确主题</th>
+								<th>SSD / FTL 设计判断</th>
+								<th>工程面向</th>
+								<th>四本书思想分布</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><span class="phase">Day 1</span></td>
+								<td>模块边界先于函数实现</td>
+								<td>FTL Core 只编排领域动作，不直接理解 NAND 状态位、block table 内部布局或 SLC cache 私有状态。</td>
+								<td>模块边界、信息隐藏</td>
+								<td>复杂度隔离、正交性、概念完整性、限界上下文</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 2</span></td>
+								<td>建立 FTL 通用语言</td>
+								<td>用 LBA、PPA、open block、victim block、mapping commit、relocation 等词汇替代 type、mode、flag。</td>
+								<td>领域语言、命名、模型一致性</td>
+								<td>DDD 主导，辅以深模块和 DRY</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 3</span></td>
+								<td>接口深度：把参数列表变成领域意图</td>
+								<td>Block Manager 应提供按写入意图分配 page 的接口，而不是暴露万能 alloc 函数。</td>
+								<td>接口设计、封装深度</td>
+								<td>《软件设计哲学》主导，结合 Pragmatic 正交性</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 4</span></td>
+								<td>Host Write 曳光弹</td>
+								<td>先打通一条窄但真实的 Host Write 路径：分配、program、journal、mapping update、旧页失效。</td>
+								<td>主路径、架构骨架</td>
+								<td>Tracer Bullet、设计探索、领域事件</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 5</span></td>
+								<td>Mapping Table 的所有权</td>
+								<td>Mapping 模块拥有 L2P/P2L 一致性；GC、Recovery、WriteBooster 只能通过条件更新接口协作。</td>
+								<td>数据所有权、一致性边界</td>
+								<td>DRY、聚合边界、复杂度局部化</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 6</span></td>
+								<td>错误路径不是 return 语句</td>
+								<td>NAND program/read/erase 结果必须先映射为 FTL 决策，再进入 Block、Mapping、Journal 的补偿路径。</td>
+								<td>错误码、错误矩阵、补偿动作</td>
+								<td>防软件熵、深模块、概念取舍、领域异常</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 7</span></td>
+								<td>Block 与 Page 生命周期状态机</td>
+								<td>block/page 状态必须由状态机驱动，禁止在各模块重复判断 valid/free/bad/open。</td>
+								<td>状态机、不变量</td>
+								<td>概念完整性、DRY、领域状态建模</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 8</span></td>
+								<td>Metadata Journal 的最小可恢复记录</td>
+								<td>Journal 记录领域变更意图，而不是转储内存结构；每条记录都应可重放、可幂等、可校验。</td>
+								<td>日志设计、恢复语义</td>
+								<td>可逆性、信息隐藏、设计约束、领域事件</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 9</span></td>
+								<td>Power Loss Recovery 的阶段边界</td>
+								<td>Recovery 应分为扫描、重放、校验、接管四阶段，避免 mount 路径混入正常写路径细节。</td>
+								<td>恢复机制、启动流程</td>
+								<td>设计演进、契约、防腐层、正交性</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 10</span></td>
+								<td>GC 是领域服务，不是后台线程</td>
+								<td>GC 编排空间回收流程；victim 选择、有效页判断、搬移提交、擦除归还分别由对应模块负责。</td>
+								<td>GC 协作边界</td>
+								<td>领域服务、深模块、概念完整性</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 11</span></td>
+								<td>Victim Selection 与 Wear Leveling 策略分离</td>
+								<td>选择策略输出 score 和理由；GC 流程不直接散落 erase count、valid count、hot/cold 数据判断。</td>
+								<td>策略接口、可演进算法</td>
+								<td>设计取舍、正交性、领域策略</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 12</span></td>
+								<td>SLC Cache / WriteBooster 的边界</td>
+								<td>WriteBooster 是写入加速上下文，不应让主 FTL 写路径理解 SLC/TLC 迁移细节。</td>
+								<td>缓存层、flush 协议、QoS</td>
+								<td>信息隐藏、原型演进、上下文映射</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 13</span></td>
+								<td>Read Retry、ECC 与读路径决策</td>
+								<td>ECC/Read Retry 应返回数据可信度和恢复动作建议，而不是把 PHY 细节泄漏给 Mapping 或 Host Read。</td>
+								<td>读路径、数据完整性</td>
+								<td>接口契约、错误路径、领域语义</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 14</span></td>
+								<td>Bad Block Management 的隔离边界</td>
+								<td>坏块隔离、替换、退役、统计应归 Bad Block Management；其他模块只消费可用性决策。</td>
+								<td>介质健康、隔离策略</td>
+								<td>防腐层、概念完整性、软件熵控制</td>
+							</tr>
+							<tr>
+								<td><span class="phase">Day 15</span></td>
+								<td>演进路线：从能跑到能长期维护</td>
+								<td>用指标、兼容记录格式、模块契约测试和阶段性重构路线，支撑 FTL 从单路径走向产品级。</td>
+								<td>演进路线、测试、兼容性</td>
+								<td>设计作为过程、务实反馈、领域模型迭代</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="coverage">
+				<h2>覆盖面检查</h2>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>完整路径要求</th>
+								<th>对应天数</th>
+								<th>覆盖方式</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>模块边界</td>
+								<td>Day 1、Day 5、Day 10、Day 14</td>
+								<td>从 FTL Core 边界到 Mapping、GC、Bad Block 的知识所有权。</td>
+							</tr>
+							<tr>
+								<td>领域语言</td>
+								<td>Day 2、Day 3、Day 8</td>
+								<td>把 FTL 词汇变成 struct、enum、接口名和 journal record。</td>
+							</tr>
+							<tr>
+								<td>接口设计</td>
+								<td>Day 3、Day 5、Day 11、Day 13</td>
+								<td>从深接口到策略接口，再到读路径可信度接口。</td>
+							</tr>
+							<tr>
+								<td>错误路径</td>
+								<td>Day 6、Day 13、Day 14</td>
+								<td>NAND 结果、ECC 结果、坏块结果都先转成 FTL 决策。</td>
+							</tr>
+							<tr>
+								<td>状态机与恢复机制</td>
+								<td>Day 7、Day 8、Day 9</td>
+								<td>用生命周期状态、Journal 和 Recovery 阶段保证掉电后可解释。</td>
+							</tr>
+							<tr>
+								<td>演进路线</td>
+								<td>Day 12、Day 15</td>
+								<td>缓存、策略、兼容记录格式和契约测试支撑长期演进。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+	</div>
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 07/15｜胜率、赔率和错误认知</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}
+    .badge{padding:8px 10px;font-size:12px}
+    .pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}
+    .dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}
+    .kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}
+    @media(max-width:920px){.grid{grid-template-columns:1fr}}
+    section{margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}
+    .card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .card .hd .hint{color:var(--muted);font-size:12px}
+    .card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}
+    .small{font-size:12px;color:var(--muted)}
+    .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    @media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
+    table{border-collapse:collapse;min-width:760px;width:100%}
+    th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}
+    th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}
+    td{font-size:13px}
+    .mono{font-family:var(--mono);font-size:12px}
+    .codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}
+    @media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}
+    @media(max-width:520px){.kv{grid-template-columns:1fr}}
+    .kv .k{color:var(--muted);font-size:12px}
+    .kv .v{font-size:13px}
+    .warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}
+    .warnline b{color:var(--text)}
+    .footer{margin-top:16px;color:var(--muted);font-size:12px}
+    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.04);color:var(--muted)}
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .topbar, section, .card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2 { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer { color:#615d59 !important; }
+    .badge, .pill, .tag, .chip { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path, .svg-wrap svg line { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 07 / 15｜胜率、赔率和错误认知</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws" aria-label="今日关键词">
+          <span class="pill"><span class="dot"></span>胜率</span>
+          <span class="pill"><span class="dot"></span>赔率（盈亏比）</span>
+          <span class="pill"><span class="dot good"></span>期望值</span>
+          <span class="pill"><span class="dot"></span>样本量</span>
+          <span class="pill"><span class="dot warn"></span>结果偏误</span>
+          <span class="pill"><span class="dot bad"></span>过度自信</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>一句话核心判断</b>：交易“好不好”不能用<b>胜率</b>或<b>单笔结果</b>裁决，而要用<b>R 倍数 + 期望值 + 风险上限</b>在足够样本下做判断。</div>
+        <div class="badge"><span class="dot warn"></span><b>今日风险提醒</b>：追求“高胜率的舒服感”最容易引发<b>小赚大亏</b>（尾部一次毁掉多次盈利）与<b>认知自洽</b>（为了一次赢而改变规则）。</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="今日学习目标">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">3–5 项可验证目标</div></div>
+        <div class="bd">
+          <ol>
+            <li>用 <span class="mono">R</span> 语言重新定义“胜率/赔率”，并能写出你的系统如何在统计上赚钱：<b>优势来自哪里</b>、<b>如何验证</b>、<b>如何限制失控</b>。</li>
+            <li>能解释：为什么“胜率越高越好”是一个常见陷阱；以及“低胜率也能赚钱”的条件是什么。</li>
+            <li>能区分三类评估误区：<b>结果偏误</b>（只看输赢）、<b>小样本幻觉</b>（十几次就下结论）、<b>忽略尾部</b>（没把极端亏损纳入风险上限）。</li>
+            <li>做出一个“胜率 × 赔率 × 风控”三角的最小版本度量表：包含 <span class="mono">Pw</span>、<span class="mono">AvgWin(R)</span>、<span class="mono">AvgLoss(R)</span>、<span class="mono">E(R)</span>、最大可接受回撤/连续亏损。</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="card" aria-label="模块导航">
+        <div class="hd"><h2>今日导航</h2><div class="hint">先搭框架，再填细节</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">你要学会的“翻译”</div>
+            <div class="v">把“我觉得会涨/会跌/会回撤”翻译成：<b>入场条件</b>、<b>无效条件</b>、<b>风险（1R）</b>、<b>预期收益分布</b>、<b>执行纪律</b>。</div>
+            <div class="k">今日的核心矛盾</div>
+            <div class="v"><b>心理喜欢高胜率</b> vs <b>系统需要正期望值</b>；<b>短期被奖励</b> vs <b>长期被惩罚</b>（尾部风险）。</div>
+            <div class="k">你需要的最小答案</div>
+            <div class="v">“我愿意承受怎样的亏损序列与回撤？在这个约束下，我的策略是高胜率小赔率，还是低胜率大赔率？如何用样本检验？”</div>
+          </div>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn" aria-hidden="true"></span>
+            <div><b>学习边界</b>：以下内容只用于构建你的交易系统表达与复盘框架，不涉及任何品种推荐、实时信号、或盈利保证。</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" aria-label="两本书的核心思想">
+      <div class="hd"><h2>两本书的核心思想（用自己的话复述）</h2><div class="hint">Tharp × Marks</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Van K. Tharp（系统与期望值）</div>
+            <ul>
+              <li>交易系统的价值不在“预测对不对”，而在<b>长期统计结果</b>：你需要用 <span class="mono">R</span> 把每笔交易的风险标准化，才能比较不同策略、不同阶段的表现。</li>
+              <li>一个系统“好”，通常意味着：在可接受风险下，它拥有<b>正的期望值</b>并能被执行；其中<b>仓位管理</b>决定了收益曲线的形状与生存概率。</li>
+              <li>最大的敌人不是市场，而是<b>执行偏离</b>：当你为了短期舒服（高胜率）而改变止损/加码/不肯退出，系统就失效了。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Howard Marks（风险与行为）</div>
+            <ul>
+              <li>风险不是“价格波动本身”，而是<b>永久损失</b>与<b>失控</b>（在坏情境下没有退出/修复空间）。这意味着要特别关注尾部、流动性与人性的反应。</li>
+              <li>市场会在乐观/悲观中摆动，人的判断会被情绪、共识、近期经历所扭曲；真正的优势来自<b>二阶思维</b>与<b>安全边际</b>——在不确定中仍能活下来。</li>
+              <li>“对”不等于“赚”：如果你为了证明自己正确而把风险上限打开，你可能在最不该输的地方输掉复利能力。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <p class="small">把它们放在一起：Tharp 给你“可度量的系统语言”，Marks 提醒你“度量必须包含尾部与人性偏差”。今天你要把胜率/赔率从情绪词变成系统约束。</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="融合解释">
+      <div class="hd"><h2>融合解释：胜率 × 赔率 × 认知偏差，如何互相约束？</h2><div class="hint">把“舒服感”变成“可控的统计优势”</div></div>
+      <div class="bd">
+        <div class="callout">
+          <b>核心融合句</b>：<b>Tharp</b> 要你用期望值与 R 倍数证明系统“长期可行”；<b>Marks</b> 要你把“长期可行”建立在对尾部风险、周期与人性偏差的敬畏上——也就是<b>正期望值必须在风险上限内实现</b>。
+        </div>
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">常见误解 1：高胜率 = 好系统</div>
+            <ul>
+              <li>Tharp 视角：胜率只是期望值的一部分；如果平均亏损（以 R 计）更大，或偶发极端亏损被忽略，胜率再高也可能是负期望。</li>
+              <li>Marks 视角：高胜率常来自“把风险藏起来”（不止损、摊平、用更大杠杆/更集中去挽回），在好环境里看似稳定，但在坏环境里会被尾部击穿。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">常见误解 2：低胜率 = 坏系统</div>
+            <ul>
+              <li>Tharp 视角：如果盈利单的平均 R 足够大、亏损被严格限定在 1R 附近，低胜率也可能是高期望值（典型：趋势跟随类）。</li>
+              <li>Marks 视角：低胜率系统的关键风险是“心理承受力与执行稳定性”——你必须为连续亏损序列预设仓位与暂停规则，否则即使统计上可行，也会被人性打败。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="callout">
+          <div class="tag">把两本书落地成一张“系统评估卡”</div>
+          <div class="codebox">1) 用 R 定义风险：每笔最大计划亏损 = 1R（可执行、可复盘）
+2) 估计/回测/样本记录：Pw（胜率）、AvgWin(R)、AvgLoss(R)
+3) 计算期望值：E(R)=Pw*AvgWin(R)-(1-Pw)*AvgLoss(R)
+4) 加上 Marks 的约束：尾部情境（滑点/跳空/相关性上升/流动性下降）下最大亏损与回撤是否仍可承受？
+5) 加上行为约束：出现连续亏损、连续盈利后的“自我证明冲动”时，系统如何强制你不变形？</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="图表化理解">
+      <div class="hd"><h2>图表化理解</h2><div class="hint">至少 2 张表/图（本页 3 张）</div></div>
+      <div class="bd">
+        <div class="callout">
+          <b>读图方式</b>：先看“不同胜率与赔率组合的期望值”，再看“错误认知如何把期望值变成负”，最后用流程图把它固化成复盘顺序。
+        </div>
+        <div class="divider"></div>
+
+        <div class="tag">表 1｜胜率 × 赔率 → 期望值（以 R 表达）</div>
+        <div class="tbl-wrap" role="region" aria-label="胜率赔率期望值表" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th>策略画像</th>
+                <th>胜率 Pw</th>
+                <th>平均盈利（R）</th>
+                <th>平均亏损（R）</th>
+                <th>期望值 E(R)</th>
+                <th>常见心理与风控风险</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>高胜率 / 小赔率</b><div class="small">“经常对、赚得小”</div></td>
+                <td class="mono">65%</td>
+                <td class="mono">+0.6R</td>
+                <td class="mono">-1.0R</td>
+                <td class="mono">0.65*0.6-0.35*1.0 = +0.04R</td>
+                <td>容易“怕亏”→不止损/摊平；尾部一次亏损吞掉多次盈利（Marks：隐性风险）。</td>
+              </tr>
+              <tr>
+                <td><b>中胜率 / 中赔率</b><div class="small">“平衡型”</div></td>
+                <td class="mono">50%</td>
+                <td class="mono">+1.2R</td>
+                <td class="mono">-1.0R</td>
+                <td class="mono">0.5*1.2-0.5*1.0 = +0.10R</td>
+                <td>容易在一段不顺时怀疑系统；需要明确样本窗口与复盘规则（Tharp：系统执行）。</td>
+              </tr>
+              <tr>
+                <td><b>低胜率 / 大赔率</b><div class="small">“趋势/突破类常见”</div></td>
+                <td class="mono">35%</td>
+                <td class="mono">+2.5R</td>
+                <td class="mono">-1.0R</td>
+                <td class="mono">0.35*2.5-0.65*1.0 = +0.225R</td>
+                <td>连续亏损较常见；心理与资金曲线波动更大→需要仓位更保守与暂停规则（Marks：生存优先）。</td>
+              </tr>
+              <tr>
+                <td><b>高胜率 / 但尾部失控</b><div class="small">“看似稳定，实则脆弱”</div></td>
+                <td class="mono">75%</td>
+                <td class="mono">+0.4R</td>
+                <td class="mono">-3.0R</td>
+                <td class="mono">0.75*0.4-0.25*3.0 = -0.45R</td>
+                <td>典型“胜率陷阱”：为保持胜率而放大亏损；在周期转折时被击穿（Marks：尾部/流动性/相关性）。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tag">表 2｜错误认知对照表（把“看起来对”变成“长期更差”）</div>
+        <div class="tbl-wrap" role="region" aria-label="错误认知对照表" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th>错误认知（你脑中常出现的句子）</th>
+                <th>为什么危险（统计/行为）</th>
+                <th>Tharp 的纠偏方法（系统语言）</th>
+                <th>Marks 的纠偏方法（风险语言）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>“我最近胜率很高，说明我有感觉。”</td>
+                <td>小样本 + 近期奖励；容易把运气当能力，随后加码或放松纪律。</td>
+                <td>用固定窗口统计 <span class="mono">E(R)</span> 与分布；把加码规则写成“条件触发”，而不是“心情触发”。</td>
+                <td>问自己：如果环境反转/流动性变差，我的最大亏损会不会失控？高胜率是否来自“风险被隐藏”？</td>
+              </tr>
+              <tr>
+                <td>“我这次对了，所以我的规则是对的。”</td>
+                <td>结果偏误：对/错 ≠ 好/坏；一次“对”可能来自坏过程。</td>
+                <td>复盘只评估过程：入场/退出/风险是否符合系统；记录 <span class="mono">R</span>，而不是“赚了多少钱”。</td>
+                <td>把“对的过程”与“可重复的优势”分开；在泡沫期更要防止被市场奖励坏习惯。</td>
+              </tr>
+              <tr>
+                <td>“我只要把胜率提高到 70% 就行。”</td>
+                <td>可能通过扩大亏损/缩小盈利实现，导致尾部风险上升与期望值变负。</td>
+                <td>把胜率、平均盈利、平均亏损三者同时放在一张表里；任何优化都必须提升 <span class="mono">E(R)</span>。</td>
+                <td>检查最坏情境：一次极端亏损能否抹平一个月/一季的收益？安全边际是否足够？</td>
+              </tr>
+              <tr>
+                <td>“我知道它会回来，我先扛一下。”</td>
+                <td>把“观点”当成“控制权”；最容易把 1R 亏损变成 3R、5R、甚至不可控。</td>
+                <td>用无效条件定义“我错了”；止损是系统的一部分，不是情绪的妥协。</td>
+                <td>风险的本质是失控：当你失去退出能力，你就把未来交给了不可知的尾部。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tag">图 3｜胜率/赔率评估流程（从“感觉”到“系统”）</div>
+        <div class="svg-wrap" role="region" aria-label="评估流程图" tabindex="0">
+          <svg viewBox="0 0 980 360" width="100%" height="360" xmlns="http://www.w3.org/2000/svg" aria-label="胜率赔率评估流程图">
+            <rect x="12" y="12" width="956" height="336" rx="16" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.12)"/>
+            <text x="30" y="44" font-size="16" font-weight="700">流程：把“胜率/赔率”变成“可复盘的系统指标”</text>
+            <text x="30" y="66" font-size="12" opacity=".9">顺序：定义 1R → 估计分布 → 期望值 → 尾部约束 → 行为约束 → 再决定仓位与执行</text>
+
+            <g>
+              <rect x="30" y="96" width="270" height="74" rx="14" fill="rgba(110,231,255,.10)" stroke="rgba(110,231,255,.35)"/>
+              <text x="48" y="122" font-size="13" font-weight="700">① 定义 1R（可执行）</text>
+              <text x="48" y="144" font-size="12">入场 + 无效条件 + 退出</text>
+              <text x="48" y="162" font-size="12">把最大计划亏损固定为 1R</text>
+            </g>
+
+            <g>
+              <rect x="340" y="96" width="300" height="74" rx="14" fill="rgba(167,243,208,.10)" stroke="rgba(167,243,208,.38)"/>
+              <text x="358" y="122" font-size="13" font-weight="700">② 记录/样本：分布而非故事</text>
+              <text x="358" y="144" font-size="12">Pw、AvgWin(R)、AvgLoss(R)</text>
+              <text x="358" y="162" font-size="12">用固定窗口统计，避免小样本幻觉</text>
+            </g>
+
+            <g>
+              <rect x="680" y="96" width="260" height="74" rx="14" fill="rgba(255,204,102,.12)" stroke="rgba(255,204,102,.45)"/>
+              <text x="698" y="122" font-size="13" font-weight="700">③ 计算期望值 E(R)</text>
+              <text x="698" y="144" font-size="12">E = Pw*AvgWin - (1-Pw)*AvgLoss</text>
+              <text x="698" y="162" font-size="12">把“赢了/输了”变成“长期是否赚钱”</text>
+            </g>
+
+            <g>
+              <rect x="30" y="206" width="300" height="98" rx="14" fill="rgba(255,107,107,.10)" stroke="rgba(255,107,107,.34)"/>
+              <text x="48" y="232" font-size="13" font-weight="700">④ Marks 约束：尾部是否失控？</text>
+              <text x="48" y="254" font-size="12">滑点/跳空/相关性上升/流动性下降</text>
+              <text x="48" y="272" font-size="12">最坏情境下最大亏损与回撤是否可承受</text>
+              <text x="48" y="290" font-size="12">不通过 → 修改规则或降仓位</text>
+            </g>
+
+            <g>
+              <rect x="360" y="206" width="280" height="98" rx="14" fill="rgba(110,231,255,.10)" stroke="rgba(110,231,255,.35)"/>
+              <text x="378" y="232" font-size="13" font-weight="700">⑤ 行为约束：系统不变形</text>
+              <text x="378" y="254" font-size="12">连续亏损/连续盈利后的冲动</text>
+              <text x="378" y="272" font-size="12">预设暂停规则、最大日/周损失、复盘门槛</text>
+              <text x="378" y="290" font-size="12">用流程阻止“自我证明”</text>
+            </g>
+
+            <g>
+              <rect x="670" y="206" width="270" height="98" rx="14" fill="rgba(167,243,208,.10)" stroke="rgba(167,243,208,.38)"/>
+              <text x="688" y="232" font-size="13" font-weight="700">⑥ 执行与复盘：只改系统</text>
+              <text x="688" y="254" font-size="12">执行：按规则，不按感觉</text>
+              <text x="688" y="272" font-size="12">复盘：用 R 与偏差日志</text>
+              <text x="688" y="290" font-size="12">优化：提升 E(R)，并守住风险上限</text>
+            </g>
+
+            <line x1="300" y1="133" x2="340" y2="133" stroke="rgba(255,255,255,.35)" />
+            <line x1="640" y1="133" x2="680" y2="133" stroke="rgba(255,255,255,.35)" />
+            <line x1="810" y1="170" x2="810" y2="206" stroke="rgba(255,255,255,.35)" />
+            <line x1="330" y1="255" x2="360" y2="255" stroke="rgba(255,255,255,.35)" />
+            <line x1="640" y1="255" x2="670" y2="255" stroke="rgba(255,255,255,.35)" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="交易场景案例">
+      <div class="hd"><h2>交易场景案例（虚构，用于学习）</h2><div class="hint">背景 → 常见错误 → 两本书视角 → 融合判断</div></div>
+      <div class="bd">
+        <div class="callout">
+          <div class="tag">市场背景（虚构）</div>
+          <p>过去两个月市场整体偏强，波动降低，短线回撤很快被买盘修复。你选择了一套“回撤即买、快速止盈”的策略，最近 3 周胜率接近 75%，几乎每天都有小盈利。</p>
+        </div>
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">常见交易者错误</div>
+            <ul>
+              <li>为了维持高胜率，你把原本的止损从 1R “临时放宽”到 2R、3R，理由是“这次只是正常回撤”。</li>
+              <li>因为最近顺利，你开始加大仓位，并把盈利目标压得更近（更快落袋），结果“赚小钱、扛大亏”的结构越来越明显。</li>
+              <li>遇到一次行情结构变化（波动上升、回撤更深），你连续扛单，最终一笔亏损抹去此前多笔盈利。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">更稳健的融合判断（学习版）</div>
+            <ul>
+              <li><b>Tharp 会问</b>：你是否仍在按 1R 定义风险？如果你允许亏损扩大，你的统计（Pw、AvgWin、AvgLoss）就不再同一体系，期望值也失真。</li>
+              <li><b>Marks 会问</b>：你是不是在“好环境里被奖励坏习惯”？当市场从“温和趋势”转向“高波动/下跌”时，这个策略的尾部会怎样？你有没有安全边际与退出能力？</li>
+              <li><b>融合做法</b>：把“高胜率策略”写明边界（什么环境有效/无效），把止损与最大亏损写成系统硬约束；当环境改变时宁可降低参与度，也不要用放大风险来换胜率。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="callout">
+          <div class="tag">把案例写成一条系统规则（示例模板）</div>
+          <div class="codebox">如果（波动指标/结构判断）显示环境从“低波动、回撤快修复”转向“高波动、回撤延续”：
+  - 立即把本策略的允许交易次数/仓位下调（例如降至常态的 50% 或更低）
+  - 严禁把止损从 1R 扩大；若被触发则按系统退出
+  - 触发“复盘门槛”：连续 N 笔或连续亏损达到 M R 时暂停，复盘策略边界与期望值</div>
+          <div class="small">注：参数 N/M 由你根据自身风险承受与样本纪律来设定，本练习仅提供结构。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日反思练习">
+      <div class="hd"><h2>今日反思练习（可执行）</h2><div class="hint">15–25 分钟</div></div>
+      <div class="bd">
+        <div class="callout">
+          <b>练习：建立你的“胜率 × 赔率 × 失控阈值”一页纸</b>
+          <p class="small">目标：你不需要“预测未来”，你只需要知道：在什么统计结构下，你能长期活下来，并能执行。</p>
+        </div>
+        <div class="codebox">Step 1｜选择一个你愿意测试的策略画像（先选其一）
+  A. 高胜率/小赔率（更平滑，但要防尾部）
+  B. 低胜率/大赔率（更波动，但尾部可能更可控：亏损被 1R 限定）
+  C. 中胜率/中赔率（平衡型）
+
+Step 2｜把 1R 写清楚（必须可执行）
+  - 入场条件：
+  - 无效条件（触发即退出）：
+  - 退出方式（止损/止盈/时间/信号）：
+  - 1R 金额（或占比）：________
+
+Step 3｜填入你的“先验估计”（不是预测，是起始假设）
+  Pw（胜率）≈ ____%
+  AvgWin(R) ≈ ____
+  AvgLoss(R) ≈ ____
+  E(R) = Pw*AvgWin - (1-Pw)*AvgLoss ≈ ____
+
+Step 4｜加入 Marks 的两条约束（写成硬规则）
+  - 尾部约束：在滑点/跳空/相关性上升时，单笔最大亏损上限 = ____R（若无法保证，则必须降仓或不做）
+  - 行为约束：连续亏损达到 ____R 或 ____ 笔后，暂停并复盘；连续盈利达到 ____R 后，禁止“自我证明加码”</div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日检查清单">
+      <div class="hd"><h2>今日检查清单（最多 5 条）</h2><div class="hint">写得越具体越好</div></div>
+      <div class="bd">
+        <ul>
+          <li>我今天是否用 <span class="mono">R</span> 来描述交易结果，而不是用“赚/亏多少钱”来评价自己？</li>
+          <li>我是否清楚：我的系统优势来自胜率、赔率，还是两者的组合？（能写出 <span class="mono">E(R)</span>）</li>
+          <li>我是否为“尾部情境”写下了风险上限与降参与规则？（而不是默认“会回来”）</li>
+          <li>我是否定义了连续亏损/连续盈利后的暂停或降仓规则，防止系统变形？</li>
+          <li>我是否承诺在样本不足时不下结论、不改系统，只记录与复盘？</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-label="明日预告">
+      <div class="hd"><h2>明日预告｜Day 08：安全边际与交易系统边界</h2><div class="hint">从“统计优势”走向“边界管理”</div></div>
+      <div class="bd">
+        <p>明天我们把今天的期望值框架再往前推一步：即使一个系统总体是正期望的，<b>在哪些环境/品种/波动结构下它会失效？</b> 如何用“安全边际”的思维为系统设定边界（不做什么、什么时候减仓/停手、什么时候必须复盘）？</p>
+        <div class="chiprow" aria-label="明日关键词">
+          <span class="chip">安全边际</span>
+          <span class="chip">系统边界</span>
+          <span class="chip">不交易规则</span>
+          <span class="chip">最坏情境</span>
+          <span class="chip">生存优先</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">生成时间：2026-05-21（Asia/Shanghai）｜提醒：学习报告的目的，是把你的交易从“感觉与故事”变成“可度量、可约束、可复盘”的系统。</div>
+  </div>
+</body>
+</html>

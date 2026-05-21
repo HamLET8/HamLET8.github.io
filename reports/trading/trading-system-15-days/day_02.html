@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 02/15｜风险不是波动，而是永久损失与失控</title>
+  <style>
+    :root{
+      --bg: #0b1220;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.08);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.72);
+      --faint: rgba(255,255,255,.55);
+      --line: rgba(255,255,255,.14);
+      --accent: #6ee7ff;
+      --accent2:#a7f3d0;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+      --good:#55efc4;
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --radius: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg:#f7fafc;
+        --card: rgba(10,22,40,.05);
+        --card2: rgba(10,22,40,.08);
+        --text: rgba(10,22,40,.92);
+        --muted: rgba(10,22,40,.72);
+        --faint: rgba(10,22,40,.55);
+        --line: rgba(10,22,40,.12);
+        --shadow: 0 18px 60px rgba(10,22,40,.10);
+      }
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 15% -10%, rgba(110,231,255,.26), transparent 60%),
+        radial-gradient(1000px 700px at 90% 0%, rgba(167,243,208,.22), transparent 55%),
+        radial-gradient(900px 700px at 40% 120%, rgba(255,204,102,.10), transparent 55%),
+        var(--bg);
+      line-height: 1.55;
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{
+      display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
+      padding:18px 18px 16px;border:1px solid var(--line);border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      box-shadow: var(--shadow);
+    }
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      padding:8px 10px;border-radius:999px;
+      font-size:12px;color: var(--muted);
+      display:flex;gap:8px;align-items:center;
+      max-width: 100%;
+    }
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent)}
+    .dot.warn{background:var(--warn)}
+    .dot.good{background:var(--good)}
+    .dot.bad{background:var(--bad)}
+    .grid{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 920px){ .grid{grid-template-columns:1fr} }
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.05);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 16px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.00));
+    }
+    .card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .card .hd .hint{color:var(--muted);font-size:12px}
+    .card .bd{padding:14px 16px}
+    .muted{color:var(--muted)}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;
+      border:1px solid var(--line);
+      padding:6px 10px;border-radius:999px;font-size:12px;color:var(--muted);
+      max-width:100%;
+      background: rgba(255,255,255,.04);
+    }
+    .kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kws .pill{white-space:nowrap}
+    .callout{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      border-radius: 14px;
+      padding:12px 12px;
+    }
+    .callout strong{color: var(--text)}
+    .two-col{
+      display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;
+    }
+    @media (max-width: 720px){ .two-col{grid-template-columns:1fr} }
+    ul{margin:0;padding-left:18px}
+    li{margin:6px 0}
+    .tbl-wrap{
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+    }
+    table{border-collapse:collapse;min-width:720px;width:100%}
+    th,td{border-bottom:1px solid var(--line);padding:10px 10px;vertical-align:top}
+    th{position:sticky;top:0;background: rgba(255,255,255,.06);text-align:left;font-size:12px;color:var(--muted)}
+    td{font-size:13px}
+    .small{font-size:12px;color:var(--muted)}
+    .mono{font-family: var(--mono);font-size:12px}
+    .codebox{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding:12px 12px;
+      background: rgba(0,0,0,.22);
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+      white-space: pre;
+      max-width: 100%;
+    }
+    @media (prefers-color-scheme: light){
+      .codebox{background: rgba(10,22,40,.06)}
+    }
+    .svg-wrap{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      padding:10px;
+      overflow:auto;
+    }
+    .footer{
+      margin-top:16px;
+      color: var(--faint);
+      font-size: 12px;
+      text-align:center;
+    }
+    .warnline{
+      display:flex;gap:10px;align-items:flex-start;
+      border:1px solid rgba(255,204,102,.35);
+      background: rgba(255,204,102,.12);
+      padding:12px 12px;border-radius:14px;
+    }
+    .warnline b{color: var(--text)}
+    .kv{
+      display:grid;grid-template-columns: 150px 1fr;gap:10px 12px;
+    }
+    @media (max-width: 520px){ .kv{grid-template-columns: 1fr} }
+    .kv .k{color:var(--muted);font-size:12px}
+    .kv .v{font-size:13px}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" role="banner" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 02 / 15｜风险不是波动，而是永久损失与失控</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws" aria-label="今日关键词">
+          <span class="pill"><span class="dot"></span>风险定义</span>
+          <span class="pill"><span class="dot good"></span>仓位上限</span>
+          <span class="pill"><span class="dot warn"></span>风险预算</span>
+          <span class="pill"><span class="dot"></span>风险失控</span>
+          <span class="pill"><span class="dot warn"></span>回撤与恢复</span>
+          <span class="pill"><span class="dot"></span>安全边际</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge" title="一句话核心判断"><span class="dot good"></span><b>核心判断</b>：先定义“能承受的损失”，再允许“可接受的波动”。</div>
+        <div class="badge" title="今日风险提醒"><span class="dot warn"></span><b>风险提醒</b>：把波动当风险，容易在低位恐慌；把失控当风险，才能在压力下维持系统。</div>
+      </div>
+    </header>
+
+    <section class="grid" aria-label="主体内容">
+      <article class="card" aria-label="今日学习目标">
+        <div class="hd">
+          <h2>今日学习目标</h2>
+          <div class="hint">3–5个可验证目标</div>
+        </div>
+        <div class="bd">
+          <ul>
+            <li>能用一句话区分：<b>波动（价格变化）</b> vs <b>风险（永久损失/失控）</b>。</li>
+            <li>用“<b>R 风险单位</b>”把一次交易的风险写成可度量的数字（而不是模糊的“感觉不舒服”）。</li>
+            <li>会画出一个简单的“<b>风险控制闭环</b>”：定义风险 → 约束仓位 → 执行 → 监控回撤 → 调整/暂停。</li>
+            <li>能解释为什么 Howard Marks 强调的“<b>过度自信 + 周期高点</b>”与 Tharp 强调的“<b>仓位过大</b>”在结果上常常是同一件事。</li>
+            <li>完成一次“<b>风险预算</b>”练习：给自己设定单笔/单日/单周最大风险（学习用），并写出触发条件。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="warnline" role="note" aria-label="学习边界说明">
+            <div class="dot warn" style="margin-top:4px"></div>
+            <div>
+              <b>边界声明</b>：本文只讨论概念、流程与复盘方法。示例数字均为虚构，用于学习“如何度量风险”，不构成任何交易建议或实时信号；不鼓励高杠杆、重仓或冲动短线。
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card" aria-label="顶层概念卡片">
+        <div class="hd">
+          <h2>顶部摘要卡</h2>
+          <div class="hint">用于快速复习</div>
+        </div>
+        <div class="bd">
+          <div class="kv" role="list">
+            <div class="k">今日主题</div><div class="v" role="listitem">风险不是波动，而是永久损失与失控</div>
+            <div class="k">一句话核心判断</div><div class="v" role="listitem">先定义可承受损失，再允许可接受波动。</div>
+            <div class="k">今日关键词</div><div class="v" role="listitem">风险定义｜R 倍数｜风险预算｜仓位上限｜回撤管理｜安全边际</div>
+            <div class="k">今日风险提醒</div><div class="v" role="listitem">若把“波动=风险”，你会不断在情绪点上做决策；若把“失控=风险”，你才会坚持在规则点上行动。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <div class="tag">今日要记住的句子</div>
+            <div style="margin-top:8px"><strong>风险管理不是预测市场会怎么走，而是规定“我最坏能承受什么”，并保证最坏情况发生时我仍能继续学习与生存。</strong></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid" aria-label="两本书核心思想与融合解释" style="margin-top:14px">
+      <article class="card" aria-label="两本书的核心思想">
+        <div class="hd">
+          <h2>两本书的核心思想（用自己的话复述）</h2>
+          <div class="hint">Tharp × Marks</div>
+        </div>
+        <div class="bd">
+          <div class="two-col">
+            <div class="callout">
+              <div class="tag">Van K. Tharp｜系统与风险单位</div>
+              <ul style="margin-top:10px">
+                <li><b>风险要能量化</b>：把每次行动的“最坏损失”写成一个单位（常用 R），你才能比较不同策略与不同情境。</li>
+                <li><b>仓位决定生存</b>：同一套入场/出场，如果仓位过大，会把可控的波动放大成不可控的失控。</li>
+                <li><b>用规则对抗情绪</b>：系统的价值不在于“每次都对”，而在于把错误控制在可承受范围内。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <div class="tag">Howard Marks｜风险与周期</div>
+              <ul style="margin-top:10px">
+                <li><b>风险不是波动</b>：价格上下波动是表象；真正的风险往往来自“付出过高价格、缺乏安全边际、在错误的周期位置过度进取”。</li>
+                <li><b>风险在好时候累积</b>：当大家都觉得“没风险”时（情绪亢奋、信贷宽松），系统最容易被推到失控边缘。</li>
+                <li><b>二阶思维</b>：不仅问“会涨吗”，还要问“如果我错了会怎样？市场预期已包含什么？我的行动会在拥挤时变得多脆弱？”</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" aria-label="融合解释">
+        <div class="hd">
+          <h2>融合解释：系统把风险“落到数字”，周期把风险“拉回现实”</h2>
+          <div class="hint">互补与约束</div>
+        </div>
+        <div class="bd">
+          <ul>
+            <li><b>Marks 负责定义“什么是风险”</b>：永久损失、失控、在周期高点过度进取、缺乏安全边际；它提醒你别把波动当作唯一敌人。</li>
+            <li><b>Tharp 负责把风险变成“可执行规则”</b>：用 R、仓位上限与停损/退出规则，把“别失控”写成每天都能执行的动作。</li>
+            <li><b>互相约束</b>：Marks 的“谨慎/防守”如果没有 Tharp 的量化边界，容易变成“永远不敢行动”；Tharp 的“系统化执行”如果没有 Marks 的周期与安全边际观，容易在“好像有效”的环境里被推到高风险区。</li>
+            <li><b>合起来就是一句话</b>：当外部环境更脆弱（周期后段、情绪拥挤、流动性收紧），内部系统必须更保守（更小风险预算、更严格暂停条件）。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="今日融合公式（学习用伪代码）"># 学习用伪代码：把“风险”写成可执行约束（非交易建议）
+定义：单笔风险 = 1R（你能承受的最大损失单位）
+定义：日风险预算 <= 2R；周风险预算 <= 5R（示例，仅用于演示）
+当（周期/情绪信号显示“风险上升”）：
+  缩小 R 或降低每笔风险比例
+  提高暂停阈值（达到回撤上限则停止）
+否则：
+  仍遵守上限，不因“信心”加码
+</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid" aria-label="图表化理解" style="margin-top:14px">
+      <article class="card" aria-label="图表一：风险定义对照表">
+        <div class="hd">
+          <h2>图表化理解（1/2）｜“波动”与“风险”的对照表</h2>
+          <div class="hint">把常见误区写清楚</div>
+        </div>
+        <div class="bd">
+          <div class="tbl-wrap" role="region" aria-label="风险定义对照表（可横向滚动）">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:160px">项目</th>
+                  <th style="min-width:260px">把波动当风险（常见误区）</th>
+                  <th style="min-width:260px">把失控当风险（更稳健）</th>
+                  <th style="min-width:240px">对应到 Tharp / Marks</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>风险的定义</b></td>
+                  <td>价格上下就等于危险；越平稳越安全。</td>
+                  <td>永久损失、无法继续执行系统、被迫出局或情绪崩溃。</td>
+                  <td>Marks：永久损失/周期；Tharp：可承受损失边界。</td>
+                </tr>
+                <tr>
+                  <td><b>典型反应</b></td>
+                  <td>一波动就改规则、追求“每次都对”。</td>
+                  <td>先看是否触及风险预算/回撤阈值，再决定是否继续。</td>
+                  <td>Tharp：纪律与一致性；Marks：在坏环境里先防守。</td>
+                </tr>
+                <tr>
+                  <td><b>最大盲点</b></td>
+                  <td>在周期高位“看起来很稳”的阶段过度暴露。</td>
+                  <td>承认不知道未来，用上限约束自己。</td>
+                  <td>Marks：风险在好时候累积；Tharp：仓位过大是失控起点。</td>
+                </tr>
+                <tr>
+                  <td><b>复盘重点</b></td>
+                  <td>我是不是“看错了”？</td>
+                  <td>我的风险是否超标？规则是否被情绪破坏？我是否在脆弱环境加码？</td>
+                  <td>两书共同点：复盘“过程”而非“结果”。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="small" style="margin-top:10px">提示：你可以把“风险定义”写进交易系统的第一页，用来防止自己在压力下偷换概念。</div>
+        </div>
+      </article>
+
+      <article class="card" aria-label="图表二：回撤与恢复">
+        <div class="hd">
+          <h2>图表化理解（2/2）｜回撤越深，恢复越难</h2>
+          <div class="hint">让“失控”的代价可视化</div>
+        </div>
+        <div class="bd">
+          <div class="tbl-wrap" role="region" aria-label="回撤与恢复表（可横向滚动）">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:160px">账户回撤（示例）</th>
+                  <th style="min-width:240px">回到原点需要的涨幅</th>
+                  <th style="min-width:220px">学习含义</th>
+                  <th style="min-width:220px">系统应对（不含品种/信号）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>-10%</b></td>
+                  <td class="mono">+11.1%</td>
+                  <td>可恢复，但会影响情绪与纪律。</td>
+                  <td>检查是否超出风险预算；减少频率/缩小 R。</td>
+                </tr>
+                <tr>
+                  <td><b>-20%</b></td>
+                  <td class="mono">+25.0%</td>
+                  <td>恢复成本显著上升，冲动更容易出现。</td>
+                  <td>触发“暂停复盘”机制：停止新动作，先复盘过程。</td>
+                </tr>
+                <tr>
+                  <td><b>-30%</b></td>
+                  <td class="mono">+42.9%</td>
+                  <td>失控风险上升，容易做出报复性决策。</td>
+                  <td>降低最大仓位上限；强化情绪与规则检查。</td>
+                </tr>
+                <tr>
+                  <td><b>-50%</b></td>
+                  <td class="mono">+100%</td>
+                  <td>需要翻倍才能回本，“继续学习”的时间成本巨大。</td>
+                  <td>把“避免大回撤”设为系统第一目标（Marks + Tharp）。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="divider"></div>
+          <div class="svg-wrap" role="img" aria-label="风险控制闭环（示意图）">
+            <svg viewBox="0 0 980 330" width="980" height="330" style="max-width:100%;height:auto;display:block">
+              <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="rgba(110,231,255,.95)"/>
+                  <stop offset="1" stop-color="rgba(167,243,208,.95)"/>
+                </linearGradient>
+                <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="rgba(0,0,0,.35)"/>
+                </filter>
+              </defs>
+              <rect x="18" y="18" width="944" height="294" rx="18" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.14)"/>
+
+              <g font-family="ui-sans-serif, system-ui" font-size="14" fill="rgba(255,255,255,.92)">
+                <g filter="url(#s)">
+                  <rect x="55" y="62" width="210" height="72" rx="16" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/>
+                  <text x="73" y="92">1) 定义风险</text>
+                  <text x="73" y="116" font-size="12" fill="rgba(255,255,255,.72)">R、风险预算、回撤阈值</text>
+                </g>
+                <g filter="url(#s)">
+                  <rect x="305" y="62" width="210" height="72" rx="16" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/>
+                  <text x="323" y="92">2) 约束暴露</text>
+                  <text x="323" y="116" font-size="12" fill="rgba(255,255,255,.72)">仓位上限、分散、杠杆边界</text>
+                </g>
+                <g filter="url(#s)">
+                  <rect x="555" y="62" width="210" height="72" rx="16" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/>
+                  <text x="573" y="92">3) 执行系统</text>
+                  <text x="573" y="116" font-size="12" fill="rgba(255,255,255,.72)">按规则，不因情绪加码</text>
+                </g>
+                <g filter="url(#s)">
+                  <rect x="805" y="62" width="140" height="72" rx="16" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/>
+                  <text x="822" y="92">4) 监控</text>
+                  <text x="822" y="116" font-size="12" fill="rgba(255,255,255,.72)">回撤/偏离</text>
+                </g>
+
+                <g filter="url(#s)">
+                  <rect x="305" y="196" width="460" height="86" rx="18" fill="url(#g)" opacity=".20" stroke="rgba(255,255,255,.18)"/>
+                  <text x="328" y="228">5) 调整/暂停（防止失控）</text>
+                  <text x="328" y="252" font-size="12" fill="rgba(255,255,255,.80)">周期更脆弱 → 降低风险预算；规则被破坏 → 先停止新动作，复盘再恢复。</text>
+                  <text x="328" y="274" font-size="12" fill="rgba(255,255,255,.80)">目标：让最坏情境发生时仍可继续学习与执行。</text>
+                </g>
+              </g>
+
+              <g stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none">
+                <path d="M265 98 L305 98" />
+                <path d="M515 98 L555 98" />
+                <path d="M765 98 L805 98" />
+                <path d="M875 134 C875 170 780 170 780 196" />
+                <path d="M535 196 C535 160 120 160 120 134" />
+              </g>
+              <g fill="rgba(255,255,255,.60)">
+                <polygon points="298,98 306,93 306,103"/>
+                <polygon points="548,98 556,93 556,103"/>
+                <polygon points="798,98 806,93 806,103"/>
+                <polygon points="780,196 775,204 785,204"/>
+                <polygon points="120,134 112,139 112,129"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid" aria-label="交易场景案例" style="margin-top:14px">
+      <article class="card" aria-label="交易场景案例（虚构学习用）">
+        <div class="hd">
+          <h2>交易场景案例（虚构学习用）</h2>
+          <div class="hint">同一问题，两种视角，一种整合</div>
+        </div>
+        <div class="bd">
+          <div class="callout">
+            <div class="tag">背景（虚构）</div>
+            <p style="margin:10px 0 0">
+              某学习者在一段持续上行行情中连续几次获利，开始相信“波动变小＝风险变小”。他把仓位逐步加大，并把止损位置越设越远，理由是“只要不被洗出去就行”。随后市场出现一次较深回撤，他在下跌中不断加码，试图“摊平成本”，最终出现远超预期的亏损与强烈情绪波动。
+            </p>
+          </div>
+          <div class="two-col" style="margin-top:12px">
+            <div class="callout">
+              <div class="tag">常见错误（把波动当风险）</div>
+              <ul style="margin-top:10px">
+                <li>把近期平稳误认为“永久安全”，忽视周期位置与拥挤度。</li>
+                <li>用“更远的止损”自我安慰，实际上在扩大最坏损失。</li>
+                <li>把加码当作“更确定”，忽略自己是在放大失控概率。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <div class="tag">Tharp 会怎么看</div>
+              <ul style="margin-top:10px">
+                <li>你没有定义清晰的 <b>1R</b>，也没有遵守风险预算；仓位变化缺乏规则。</li>
+                <li>止损变远导致每笔 R 变大，进一步推高风险暴露。</li>
+                <li>连续获利后的加码常是“情绪驱动”，不是系统驱动。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="two-col" style="margin-top:12px">
+            <div class="callout">
+              <div class="tag">Marks 会怎么看</div>
+              <ul style="margin-top:10px">
+                <li>风险往往在“看起来最安全”的阶段累积：情绪乐观、估值/预期偏高、流动性宽松。</li>
+                <li>你缺少安全边际：盈利让你忽略了“如果我错了会怎样”。</li>
+                <li>在周期后段把暴露推高，是把未来的不确定性“借到现在”。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <div class="tag">整合后的更稳健判断</div>
+              <ul style="margin-top:10px">
+                <li>先把“最坏情况”写成数字：单笔最大损失（1R）与累计风险预算。</li>
+                <li>当外部风险更脆弱（拥挤/情绪高涨/回撤加大）时，系统必须自动“降速”：降低风险预算、减少动作频率、设定暂停机制。</li>
+                <li>复盘重点从“我是不是看错”转为“我是不是失控”：仓位、规则、情绪、周期位置。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card" aria-label="学习用小型仓位示例表">
+        <div class="hd">
+          <h2>学习用表｜把风险预算写成数字（示例）</h2>
+          <div class="hint">不含任何品种建议</div>
+        </div>
+        <div class="bd">
+          <div class="tbl-wrap" role="region" aria-label="风险预算与暂停条件（可横向滚动）">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:190px">项目</th>
+                  <th style="min-width:230px">示例设定（虚构）</th>
+                  <th style="min-width:260px">目的</th>
+                  <th style="min-width:240px">触发后的动作（学习用）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>单笔风险上限</b></td>
+                  <td class="mono">1R（如 账户的 0.5%）</td>
+                  <td>防止一次错误造成不可恢复伤害。</td>
+                  <td>若无法将最坏损失限制在 1R 内：不执行。</td>
+                </tr>
+                <tr>
+                  <td><b>当日风险预算</b></td>
+                  <td class="mono">2R</td>
+                  <td>限制“情绪连锁反应”。</td>
+                  <td>达到 2R：停止新增动作，只做复盘记录。</td>
+                </tr>
+                <tr>
+                  <td><b>当周风险预算</b></td>
+                  <td class="mono">5R</td>
+                  <td>避免在坏环境里持续硬扛。</td>
+                  <td>达到 5R：进入“冷却期”，复盘并调整规则。</td>
+                </tr>
+                <tr>
+                  <td><b>最大回撤阈值</b></td>
+                  <td class="mono">-10%（示例）</td>
+                  <td>把“失控”从事后变成事前。</td>
+                  <td>触发：降低风险预算并进行系统健康检查。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="small" style="margin-top:10px">你可以把“示例数字”替换成对你而言合理且能执行的范围；关键不是数值大小，而是“写下来并遵守”。</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid" aria-label="今日反思练习与检查清单" style="margin-top:14px">
+      <article class="card" aria-label="今日反思练习">
+        <div class="hd">
+          <h2>今日反思练习（可执行）</h2>
+          <div class="hint">用 15 分钟完成</div>
+        </div>
+        <div class="bd">
+          <p style="margin:0 0 10px"><b>练习：写出你的“风险定义 + 风险预算 + 暂停机制”一页纸（学习用）。</b></p>
+          <ol style="margin:0;padding-left:18px">
+            <li style="margin:8px 0">用一句话写出你认可的风险定义：<span class="mono">“风险 = ______（永久损失/失控）”</span>。</li>
+            <li style="margin:8px 0">设定你的 <b>1R</b>（可以用金额或百分比），并写出理由：<span class="mono">“1R = ______；因为我能承受______”</span>。</li>
+            <li style="margin:8px 0">写出日/周风险预算与暂停条件：<span class="mono">“当日>=__R 或 当周>=__R 或 回撤>=__% → 我将______”</span>。</li>
+            <li style="margin:8px 0">加入 Marks 的“周期约束”：列出 2 个你认为风险更高的环境（例如“情绪拥挤/波动骤增/流动性收紧”等），并写出你会如何自动降低风险预算。</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="练习模板（可复制填写）"># Day 02 一页纸（学习用）
+风险定义（我自己的话）：
+- 风险 = ______________________________________
+
+风险单位（R）：
+- 1R = _________________________________________
+- 我选择这个值的理由：___________________________
+
+风险预算与暂停机制：
+- 单笔风险上限：____R
+- 当日风险预算：____R（触发后：__________________）
+- 当周风险预算：____R（触发后：__________________）
+- 最大回撤阈值：____%（触发后：__________________）
+
+周期/情绪约束（Marks）：
+- 高风险环境 A：________________ → 风险预算调整：____
+- 高风险环境 B：________________ → 风险预算调整：____
+</div>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="参考答案（学习用示范填写）"># Day 02 一页纸：参考答案（学习用示范，不构成投资建议）
+风险定义（我自己的话）：
+- 风险 = 不是价格短期波动，而是本金出现难以恢复的永久损失，或我在情绪、仓位、杠杆、规则上失控，导致系统无法继续执行。
+
+风险单位（R）：
+- 1R = 账户权益的 0.5%（例如 100,000 元账户中，1R = 500 元）；若使用期权，则以该期权结构的最大可定义亏损来换算 R。
+- 我选择这个值的理由：连续几次错误也不会让我被迫停止学习；亏损足够小，能让我继续按系统复盘，而不是急于翻本。
+
+风险预算与暂停机制：
+- 单笔风险上限：1R
+- 当日风险预算：2R（触发后：当天停止新增交易，只记录和复盘，不做报复性操作）
+- 当周风险预算：5R（触发后：暂停新的风险暴露，检查系统规则、情绪状态和市场环境）
+- 最大回撤阈值：10%（触发后：进入防守模式，降低单笔 R，减少频率，完成系统健康检查后再恢复）
+
+周期/情绪约束（Marks）：
+- 高风险环境 A：市场情绪明显乐观、估值或预期偏高、很多人认为“下跌风险很小” → 风险预算调整：单笔风险从 1R 降到 0.5R，减少同时持有的风险暴露。
+- 高风险环境 B：波动突然放大、流动性变差、连续跳空或我自己出现急躁/想翻本情绪 → 风险预算调整：停止新增交易 24-48 小时，只做复盘；恢复后先用半 R 测试执行质量。
+
+补充规则：
+- 若一笔交易无法在下单前写清楚“最坏可能亏多少”，则不进入系统。
+- 若期权结构存在无法承受或无法明确计算的尾部风险，则不把它当作合格的学习交易。
+- 我的第一目标不是抓住最大机会，而是避免一次失控破坏长期学习能力。
+</div>
+        </div>
+      </article>
+
+      <aside class="card" aria-label="今日检查清单">
+        <div class="hd">
+          <h2>今日检查清单（≤5项）</h2>
+          <div class="hint">用来防止失控</div>
+        </div>
+        <div class="bd">
+          <ul>
+            <li>我能否清楚写出本次行动的最坏损失（1R）？写不出来就不行动。</li>
+            <li>我是否在“感觉更安全/更确定”时偷偷扩大了仓位或放宽了规则？</li>
+            <li>我是否把“短期波动”误当作“长期风险”，从而在情绪点上做决定？</li>
+            <li>我是否知道今天/本周已消耗了多少风险预算（已用 R）？</li>
+            <li>若触发暂停条件，我是否愿意按规则停止并复盘，而不是继续试图证明自己？</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card" aria-label="明日预告" style="margin-top:14px">
+      <div class="hd">
+        <h2>明日预告｜Day 03：R 倍数、期望值与交易结果</h2>
+        <div class="hint">把“好系统”转成可统计的语言</div>
+      </div>
+      <div class="bd">
+        <p style="margin:0">
+          今天你把“风险”从情绪词变成了可量化边界（R 与预算）。明天我们会进一步把结果表达成 <b>R 倍数</b> 并引入 <b>期望值（Expectancy）</b>：
+          你将学会用“胜率 × 平均盈利R − 亏损率 × 平均亏损R”的方式，把系统质量从“感觉”变成“可复盘的统计假设”，同时继续用 Marks 的风险视角提醒自己：统计并不等于确定性，环境变化会改变分布，安全边际与风险预算永远优先。
+        </p>
+      </div>
+    </section>
+
+    <div class="footer">
+      本页面为自我学习笔记风格的网页简报：不含实时行情、不含品种推荐、不提供买卖指令。建议保存为离线文件，配合你的交易日志长期复盘。
+    </div>
+  </div>
+</body>
+</html>

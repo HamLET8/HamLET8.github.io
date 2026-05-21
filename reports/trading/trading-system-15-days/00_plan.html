@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>15天交易系统阅读学习计划</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #607080;
+      --line: #d8dee6;
+      --blue: #2463eb;
+      --green: #13795b;
+      --amber: #a15c07;
+      --red: #b42318;
+      --soft-blue: #eaf1ff;
+      --soft-green: #e8f5ef;
+      --soft-amber: #fff4df;
+      --soft-red: #fff0ed;
+      --shadow: 0 18px 45px rgba(31, 41, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f2d46, #214f63 48%, #27624f);
+      color: #fff;
+      border-radius: 8px;
+      padding: clamp(28px, 5vw, 54px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 260px;
+      height: 260px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transform: rotate(25deg);
+    }
+
+    .kicker {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.74);
+      margin: 0 0 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.4rem);
+      line-height: 1.08;
+      max-width: 820px;
+    }
+
+    .hero p {
+      max-width: 780px;
+      margin: 18px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: clamp(1rem, 2.2vw, 1.18rem);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .meta-card {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .meta-card strong {
+      display: block;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .meta-card span {
+      display: block;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 0.88rem;
+      margin-top: 2px;
+    }
+
+    section {
+      margin-top: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(20px, 4vw, 34px);
+      box-shadow: 0 10px 26px rgba(31, 41, 51, 0.04);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(1.35rem, 2.8vw, 2rem);
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.04rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+      color: var(--muted);
+    }
+
+    .notice {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      align-items: start;
+      background: var(--soft-red);
+      border: 1px solid #ffd4cc;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .notice .icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #ffe0da;
+      color: var(--red);
+      font-weight: 800;
+      font-size: 1.2rem;
+    }
+
+    .notice strong {
+      color: var(--red);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf2f7;
+      color: #314255;
+      font-size: 0.88rem;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:first-child {
+      font-weight: 800;
+      color: var(--blue);
+      white-space: nowrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft-blue);
+      color: var(--blue);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin: 0 6px 6px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fbfcfe;
+    }
+
+    .card p {
+      margin-bottom: 0;
+      font-size: 0.95rem;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .flow-step {
+      min-height: 104px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fbfcfe;
+      padding: 14px;
+      position: relative;
+    }
+
+    .flow-step strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 5px;
+    }
+
+    .flow-step span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .footer {
+      margin-top: 22px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 860px) {
+      .page {
+        width: min(100% - 20px, 1180px);
+        padding-top: 16px;
+      }
+
+      .meta-grid,
+      .grid,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 26px 20px;
+      }
+
+      section {
+        padding: 20px 16px;
+      }
+
+      .notice {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        min-width: 820px;
+      }
+    }
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root {
+      color-scheme: light;
+      --bg: #f6f5f4;
+      --panel: #ffffff;
+      --ink: rgba(0,0,0,.95);
+      --card: #ffffff;
+      --card2: #f6f5f4;
+      --text: rgba(0,0,0,.95);
+      --muted: #615d59;
+      --faint: #8f8983;
+      --line: rgba(0,0,0,.10);
+      --blue: #0075de;
+      --green: #1aae39;
+      --amber: #dd5b00;
+      --red: #c7352f;
+      --soft-blue: #f2f9ff;
+      --soft-green: #edf8ef;
+      --soft-amber: #fff3e7;
+      --soft-red: #fff0ee;
+      --accent: #0075de;
+      --accent2: #005bab;
+      --warn: #dd5b00;
+      --bad: #c7352f;
+      --good: #1aae39;
+      --shadow: rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px;
+      --radius: 12px;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html, body { background: #f6f5f4 !important; color: rgba(0,0,0,.95) !important; }
+    body { font-family: var(--sans) !important; }
+    .hero, .topbar {
+      background: #ffffff !important;
+      border: 1px solid rgba(0,0,0,.10) !important;
+      border-radius: 16px !important;
+      box-shadow: var(--shadow) !important;
+      color: rgba(0,0,0,.95) !important;
+    }
+    section, .card, .meta-card, .callout {
+      background: #ffffff !important;
+      border: 1px solid rgba(0,0,0,.10) !important;
+      border-radius: 12px !important;
+      box-shadow: var(--shadow) !important;
+      color: rgba(0,0,0,.95) !important;
+    }
+    .card .hd, thead th { background: #f6f5f4 !important; border-color: rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color: rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color: #31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #615d59 !important; }
+    .badge, .pill, .tag {
+      background: #f2f9ff !important;
+      border: 1px solid rgba(0,117,222,.18) !important;
+      color: #097fe8 !important;
+    }
+    .warnline {
+      background: #fff3e7 !important;
+      border: 1px solid rgba(221,91,0,.22) !important;
+      color: #31302e !important;
+    }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #ffffff !important;
+      border: 1px solid rgba(0,0,0,.10) !important;
+      border-radius: 12px !important;
+      box-shadow: var(--shadow) !important;
+    }
+    table, th, td { border-color: rgba(0,0,0,.10) !important; }
+    table { background: #ffffff !important; }
+    th { background: #f6f5f4 !important; color: #615d59 !important; }
+    td { background: transparent !important; color: #31302e !important; }
+    tr:nth-child(even) td { background: #fbfaf9 !important; }
+    .codebox, .mono { color: #31302e !important; }
+    .svg-wrap svg { background: #ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: #f6f5f4 !important;
+      stroke: rgba(0,0,0,.12) !important;
+    }
+    .svg-wrap svg text { fill: rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #615d59 !important; }
+    .svg-wrap svg path { stroke: rgba(49,48,46,.55) !important; }
+    .divider { background: rgba(0,0,0,.10) !important; }
+    a { color: #0075de !important; }
+
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="kicker">Learning Program · Van K. Tharp × Howard Marks</p>
+      <h1>15天交易系统阅读学习计划</h1>
+      <p>用《通向财务自由之路》的系统化交易框架，结合《最重要的事》的风险、周期和逆向思维，建立一套以学习、约束和复盘为核心的个人交易认知框架。</p>
+      <div class="meta-grid">
+        <div class="meta-card"><strong>周期</strong><span>15天，每天一个主题</span></div>
+        <div class="meta-card"><strong>目标</strong><span>建立可复盘的交易系统语言</span></div>
+        <div class="meta-card"><strong>重点</strong><span>风险、仓位、周期、心理</span></div>
+        <div class="meta-card"><strong>边界</strong><span>学习用途，不提供投资建议</span></div>
+      </div>
+    </header>
+
+    <section>
+      <div class="notice">
+        <div class="icon">!</div>
+        <div>
+          <h2>学习边界</h2>
+          <p><strong>本计划仅用于阅读学习和个人方法论训练。</strong>它不提供任何买卖建议、标的推荐、实时交易信号、收益承诺，也不鼓励高杠杆、集中持仓或冲动短线交易。</p>
+          <p>每天的案例均为虚构教学场景，重点是识别决策结构、风险暴露和行为偏差，而不是预测市场方向。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>15天总路线图</h2>
+      <p>每天围绕一个核心问题推进：先建立系统语言，再拆解风险、仓位、期望值和心理，最后整合成个人交易原则与检查清单。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>天数</th>
+              <th>主题</th>
+              <th>Tharp 视角</th>
+              <th>Marks 视角</th>
+              <th>当日产出</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Day 1</td>
+              <td>交易不是预测，而是系统</td>
+              <td>交易系统由信念、入场、退出、仓位和复盘组成，重点是可重复执行。</td>
+              <td>优秀决策不是猜中下一步，而是在不确定性中控制风险和赔率。</td>
+              <td>画出个人交易系统组件图，写下非建议性的学习边界。</td>
+            </tr>
+            <tr>
+              <td>Day 2</td>
+              <td>风险不是波动，而是永久损失与失控</td>
+              <td>用预设亏损、R 倍数和仓位限制定义每笔风险。</td>
+              <td>风险常在繁荣时被低估，真正危险是资本永久损失和错误定价。</td>
+              <td>写出个人风险定义，区分价格波动、系统失效和失控行为。</td>
+            </tr>
+            <tr>
+              <td>Day 3</td>
+              <td>R 倍数、期望值与交易结果</td>
+              <td>用 R 倍数衡量结果，避免只看金额或胜率。</td>
+              <td>结果可能短期随机，过程质量需要在周期中检验。</td>
+              <td>把一个虚构交易序列改写成 R 倍数表。</td>
+            </tr>
+            <tr>
+              <td>Day 4</td>
+              <td>仓位管理如何决定长期生存</td>
+              <td>仓位规模决定系统波动、回撤和破产概率。</td>
+              <td>防守能力来自承认不可知并控制损失边界。</td>
+              <td>设计低、中、高风险三档仓位管理示例。</td>
+            </tr>
+            <tr>
+              <td>Day 5</td>
+              <td>市场周期与投资者情绪</td>
+              <td>系统规则必须适应不同市场环境，而不是固定假设永远有效。</td>
+              <td>周期、情绪和信贷条件会改变资产价格与风险补偿。</td>
+              <td>绘制情绪周期图，标注容易过度交易的阶段。</td>
+            </tr>
+            <tr>
+              <td>Day 6</td>
+              <td>二阶思维与非共识判断</td>
+              <td>系统信号需要有明确假设，不能来自临场冲动。</td>
+              <td>二阶思维关注市场已经反映了什么，以及共识可能错在哪里。</td>
+              <td>建立“我看到什么、市场相信什么、我可能错什么”表格。</td>
+            </tr>
+            <tr>
+              <td>Day 7</td>
+              <td>胜率、赔率和错误认知</td>
+              <td>高胜率不等于高期望，低胜率也未必不可行。</td>
+              <td>不要把短期成功误认为能力，也不要把低价误认为便宜。</td>
+              <td>比较不同胜率与盈亏比组合的期望值。</td>
+            </tr>
+            <tr>
+              <td>Day 8</td>
+              <td>安全边际与交易系统边界</td>
+              <td>系统边界定义何时不交易，何时降低仓位，何时停止执行。</td>
+              <td>安全边际是对估值、信息不完整和人性错误的缓冲。</td>
+              <td>写出个人“不交易条件”和系统暂停条件。</td>
+            </tr>
+            <tr>
+              <td>Day 9</td>
+              <td>交易心理、纪律与自我破坏</td>
+              <td>交易者自身是系统中最不稳定的变量，需要规则和反馈约束。</td>
+              <td>群体情绪会诱发从众、贪婪和恐惧，纪律是逆周期能力的基础。</td>
+              <td>完成一张行为偏差识别清单。</td>
+            </tr>
+            <tr>
+              <td>Day 10</td>
+              <td>亏损、回撤与恢复能力</td>
+              <td>回撤不是异常，而是系统统计分布的一部分。</td>
+              <td>防守比追求最大化收益更重要，因为大亏会削弱未来选择权。</td>
+              <td>建立回撤响应表：正常、警戒、暂停、复盘。</td>
+            </tr>
+            <tr>
+              <td>Day 11</td>
+              <td>何时进攻，何时防守</td>
+              <td>仓位与交易频率应随系统优势和心理状态调整。</td>
+              <td>周期位置、价格水平和风险补偿决定进攻或防守姿态。</td>
+              <td>制作进攻、防守、中性三种市场姿态判断矩阵。</td>
+            </tr>
+            <tr>
+              <td>Day 12</td>
+              <td>系统化复盘与交易日志</td>
+              <td>没有日志就没有可验证系统，复盘必须记录入场、退出、R 和偏差。</td>
+              <td>把结果放回周期与心理背景中解释，避免简单归因。</td>
+              <td>创建交易日志字段模板。</td>
+            </tr>
+            <tr>
+              <td>Day 13</td>
+              <td>从单次交易到组合风险</td>
+              <td>多笔交易的相关性和总风险暴露比单笔设置更重要。</td>
+              <td>风险会在相关资产、同一叙事和同一流动性冲击中集中。</td>
+              <td>画出组合风险暴露表，识别隐藏集中度。</td>
+            </tr>
+            <tr>
+              <td>Day 14</td>
+              <td>建立个人交易原则</td>
+              <td>原则必须能转化为执行规则、检查清单和停止条件。</td>
+              <td>原则应承认不确定性、周期性和人性的局限。</td>
+              <td>写出 8-12 条个人交易原则草案。</td>
+            </tr>
+            <tr>
+              <td>Day 15</td>
+              <td>整合两本书，形成个人交易框架</td>
+              <td>整合信念、系统、仓位、R 倍数、期望值、纪律和复盘。</td>
+              <td>整合风险意识、周期判断、二阶思维、安全边际和防守能力。</td>
+              <td>完成个人交易框架模板、风险清单和后续学习路线图。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>学习节奏</h2>
+      <div class="flow">
+        <div class="flow-step"><strong>阅读</strong><span>提炼两本书与当天主题相关的概念。</span></div>
+        <div class="flow-step"><strong>翻译</strong><span>把概念改写成自己的交易系统语言。</span></div>
+        <div class="flow-step"><strong>图表</strong><span>用矩阵、流程图或表格呈现关系。</span></div>
+        <div class="flow-step"><strong>场景</strong><span>用虚构案例测试概念是否可操作。</span></div>
+        <div class="flow-step"><strong>复盘</strong><span>完成当天练习，沉淀原则或清单。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>核心模块</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>系统语言</h3>
+          <p><span class="tag">规则</span><span class="tag">R 倍数</span><span class="tag">期望值</span>把交易从“感觉对错”转成“过程是否可验证”。</p>
+        </div>
+        <div class="card">
+          <h3>风险语言</h3>
+          <p><span class="tag">永久损失</span><span class="tag">周期</span><span class="tag">安全边际</span>把风险从“价格上下波动”扩展到失控和错误定价。</p>
+        </div>
+        <div class="card">
+          <h3>行为语言</h3>
+          <p><span class="tag">纪律</span><span class="tag">偏差</span><span class="tag">复盘</span>把心理问题转化为可观察、可记录、可纠正的行为模式。</p>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer">生成日期：2026-05-18 · 本计划仅用于学习与复盘训练，不构成投资建议。</p>
+  </main>
+</body>
+</html>

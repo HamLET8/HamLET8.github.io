@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F2FS GC_MERGE Deadlock 技术报告</title>
+  <style>
+    :root {
+      --bg: #f6f5f2;
+      --panel: #ffffff;
+      --panel-2: #f0efeb;
+      --ink: #19191d;
+      --muted: #5d6070;
+      --subtle: #7c8091;
+      --line: #dedbd2;
+      --accent: #5e6ad2;
+      --accent-2: #16a085;
+      --danger: #c43c3c;
+      --warn: #b7791f;
+      --code: #111318;
+      --code-ink: #e7e9f5;
+      --shadow: 0 20px 60px rgba(27, 29, 36, 0.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101116;
+        --panel: #171820;
+        --panel-2: #20222c;
+        --ink: #f3f4f8;
+        --muted: #c1c5d3;
+        --subtle: #9499ad;
+        --line: #2b2e3a;
+        --accent: #8f98ff;
+        --accent-2: #46d3b5;
+        --danger: #ff7676;
+        --warn: #f3bd58;
+        --code: #08090d;
+        --code-ink: #f1f3ff;
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font-family: var(--sans); line-height: 1.72; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: .92em; padding: .1em .35em; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); }
+    .shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+    .toc { position: sticky; top: 0; height: 100vh; padding: 22px; border-right: 1px solid var(--line); background: rgba(255,255,255,.48); backdrop-filter: blur(18px); overflow: auto; }
+    @media (prefers-color-scheme: dark) { .toc { background: rgba(16,17,22,.68); } }
+    .toc h1 { margin: 0 0 8px; font-size: 18px; line-height: 1.2; }
+    .toc p { margin: 0 0 18px; color: var(--subtle); font-size: 12px; line-height: 1.5; }
+    .toc nav { display: grid; gap: 4px; }
+    .toc a { display: block; padding: 8px 10px; color: var(--muted); border-radius: 8px; font-size: 13px; line-height: 1.35; }
+    .toc a:hover { color: var(--ink); background: var(--panel-2); text-decoration: none; }
+    .content { min-width: 0; padding: 42px clamp(22px, 5vw, 74px) 88px; }
+    .hero { max-width: 1120px; margin: 0 auto 26px; padding: 34px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+    .hero h2 { margin: 0; max-width: 960px; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: -.02em; }
+    .hero .lead { max-width: 980px; margin: 20px 0 0; color: var(--muted); font-size: 18px; line-height: 1.75; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+    .meta { padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+    .meta strong { display: block; font-size: 12px; color: var(--subtle); text-transform: uppercase; }
+    .meta span { display: block; margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+    section { max-width: 1120px; margin: 18px auto; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+    section h2 { margin: 0 0 14px; font-size: 28px; line-height: 1.22; letter-spacing: -.01em; }
+    section h3 { margin: 24px 0 8px; font-size: 20px; line-height: 1.3; }
+    section h4 { margin: 18px 0 6px; font-size: 16px; }
+    p { margin: 12px 0; color: var(--muted); }
+    ul, ol { color: var(--muted); padding-left: 1.25em; }
+    li { margin: 8px 0; }
+    .callout { margin: 18px 0; padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; background: var(--panel-2); }
+    .callout strong { color: var(--ink); }
+    .danger { border-left-color: var(--danger); }
+    .warn { border-left-color: var(--warn); }
+    .ok { border-left-color: var(--accent-2); }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+    .card h3, .card h4 { margin-top: 0; }
+    .card p { font-size: 14px; }
+    .diagram { margin: 20px 0; padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+    .diagram-title { margin-bottom: 12px; color: var(--subtle); font-size: 12px; font-weight: 760; text-transform: uppercase; }
+    .flow { display: grid; gap: 10px; min-width: 760px; }
+    .flow-row { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; align-items: stretch; }
+    .flow-row.three { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+    .flow-row.four { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+    .box { min-height: 82px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+    .box b { display: block; color: var(--ink); font-size: 13px; line-height: 1.35; }
+    .box span { display: block; margin-top: 5px; color: var(--subtle); font-size: 12px; line-height: 1.45; }
+    .arrow { display: grid; place-items: center; color: var(--accent); font-weight: 800; }
+    .waitgraph { display: grid; grid-template-columns: repeat(3, minmax(210px, 1fr)); gap: 14px; min-width: 780px; }
+    .node { padding: 16px; min-height: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    .node h4 { margin: 0 0 10px; }
+    .node ul { margin: 0; padding-left: 18px; font-size: 13px; }
+    .edges { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; min-width: 780px; }
+    .edge { padding: 12px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); background: var(--panel); font-size: 13px; }
+    .table { width: 100%; border-collapse: collapse; margin: 18px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .table th, .table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    .table th { color: var(--subtle); background: var(--panel-2); font-size: 12px; text-transform: uppercase; }
+    .table td { color: var(--muted); }
+    pre { overflow: auto; padding: 16px; color: var(--code-ink); background: var(--code); border-radius: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+    .small { color: var(--subtle); font-size: 13px; }
+    .quote { padding-left: 16px; border-left: 3px solid var(--line); color: var(--muted); }
+    .checklist { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .check { padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+    .check b { color: var(--ink); }
+    .check span { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+    .source-list { display: grid; gap: 10px; }
+    .source-list a { display: block; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .toc { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .toc nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .meta-grid, .grid-2, .grid-3, .checklist { grid-template-columns: 1fr; }
+      .content { padding: 20px 14px 64px; }
+      section, .hero { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="toc">
+    <h1>F2FS GC_MERGE Deadlock</h1>
+    <p>独立技术报告 · 2026-05-21 · 不依赖外部样式，可直接用浏览器打开。</p>
+    <nav>
+      <a href="#summary">0. 结论先行</a>
+      <a href="#patch">1. Patch 事实</a>
+      <a href="#mental-model">2. 心智模型</a>
+      <a href="#f2fs-basics">3. F2FS 基础</a>
+      <a href="#writeback">4. writeback 路径</a>
+      <a href="#gc">5. GC 与 GC_MERGE</a>
+      <a href="#truncate">6. truncation 路径</a>
+      <a href="#deadlock">7. 死锁形成</a>
+      <a href="#fix">8. 修复逻辑</a>
+      <a href="#review">9. Review 检查</a>
+      <a href="#debug">10. 调试与验证</a>
+      <a href="#ufs">11. 对 UFS 的启发</a>
+      <a href="#reading">12. 阅读路线</a>
+      <a href="#sources">资料来源</a>
+    </nav>
+  </aside>
+  <main class="content">
+    <header class="hero">
+      <p class="eyebrow">Technical Deep Dive</p>
+      <h2>F2FS gc_merge 死锁：从 writeback、folio lock 到 foreground GC 的等待环</h2>
+      <p class="lead">这份报告只分析一条 patch：<code>f2fs: fix potential deadlock in gc_merge path of f2fs_balance_fs()</code>。目标不是把邮件内容换一种说法，而是把它背后的文件系统流程讲清楚：为什么一个看似只移动两行提交 bio 的改动，实际上是在修复一个跨 MM、F2FS writeback、GC 线程和 truncate 路径的等待关系错误。</p>
+      <div class="meta-grid">
+        <div class="meta"><strong>Patchwork ID</strong><span>14580420</span></div>
+        <div class="meta"><strong>提交时间</strong><span>2026-05-19 01:14 UTC</span></div>
+        <div class="meta"><strong>作者</strong><span>Chao Yu</span></div>
+        <div class="meta"><strong>影响文件</strong><span>fs/f2fs/segment.c</span></div>
+      </div>
+    </header>
+
+    <section id="summary">
+      <p class="eyebrow">0. Executive Summary</p>
+      <h2>结论先行：这不是“GC 慢”，而是“等待顺序错了”</h2>
+      <p>这条 patch 的核心是：在 <code>f2fs_balance_fs()</code> 决定触发 foreground GC 之前，先提交已经缓存起来的 DATA 写入 bio，包括 out-place update 和 in-place update 的 data bio。原先的代码只在 <code>NOGC_MERGE</code> 路径中提交这些 cached bios；如果挂载时启用了 <code>gc_merge</code>，调用方会唤醒后台 GC 线程并等待它完成，但调用方自己手里可能还有没有提交到 block layer 的写入 bio。于是，folio 已经被标记为 writeback，却没有真实 I/O 在设备队列中推进，writeback 完成回调也就不会发生。</p>
+      <p>死锁的关键不是某个锁本身，而是三个角色形成了一个闭环：writeback kworker 等待 GC 线程结束；GC 线程需要锁住同一个 data folio 才能迁移数据；truncate 路径已经锁住这个 folio，并等待它的 writeback 标志清除；writeback 标志要清除，又依赖 kworker 提交缓存中的 bio 并收到 I/O completion。任何一个点单独看都合理，组合起来就变成环。</p>
+      <div class="callout danger"><strong>最重要的不变量：</strong>如果某条路径已经把 folio 标成 writeback，那么在它进入可能等待别人完成的路径之前，必须确保能让 writeback 完成的 I/O 已经被提交。否则“等待别人”会变成“别人等待我尚未提交的 I/O”。</div>
+      <div class="diagram">
+        <div class="diagram-title">One-screen mental model</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>Kworker writeback</b><span>设置 folio writeback，构造 DATA bio，但 bio 还在 F2FS 内部缓存中。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>f2fs_balance_fs()</b><span>空间不足，触发 foreground GC；gc_merge 模式下交给 GC 线程。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>等待 GC 完成</b><span>调用方睡在 fggc_wq 上，自己的 cached bio 还没有提交。</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>Truncator</b><span>锁住同一 folio，准备截断或清理 page cache。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>folio_wait_writeback</b><span>等待 writeback 标志被 I/O completion 清除。</span></div>
+            <div class="arrow">↘</div>
+            <div class="box"><b>GC thread</b><span>move_data_page() 想锁住同一 folio，卡在 folio lock。</span></div>
+          </div>
+        </div>
+      </div>
+      <p>修复方式非常克制：把 <code>f2fs_submit_merged_write(sbi, DATA)</code> 和 <code>f2fs_submit_all_merged_ipu_writes(sbi)</code> 放到 <code>GC_MERGE</code> 判断之前，让两条路径在触发 GC 前都先提交 cached DATA bios。它不是增加新锁，不是改变 GC 策略，也不是绕过 truncate，而是恢复了一个关键顺序：先让自己已经声明为 writeback 的 I/O 可以完成，再把 CPU 控制权交给可能依赖该完成条件的 GC 路径。</p>
+    </section>
+
+    <section id="patch">
+      <p class="eyebrow">1. Patch Facts</p>
+      <h2>这条 patch 到底改了什么</h2>
+      <p>patch 标题是 <code>f2fs: fix potential deadlock in gc_merge path of f2fs_balance_fs()</code>。它由 Chao Yu 于 2026-05-19 提交到 linux-f2fs-devel，Patchwork ID 为 14580420。元数据里带有 <code>Cc: stable@kernel.org</code>，说明作者认为这个问题适合回灌稳定版本；<code>Fixes</code> 指向早期的 segment operations 引入，说明问题可能不是最近某个小改动引入的浅层回归，而是 F2FS segment/GC/writeback 组合路径中长期存在的时序缺陷。</p>
+      <p>从 diff 层面看，它只修改 <code>fs/f2fs/segment.c</code>，总计 14 行变化，7 行新增，7 行删除。新增和删除的实质不是改变函数调用，而是移动调用位置：原本这两个提交函数位于 <code>NOGC_MERGE</code> 的 else 分支内部；现在它们被移到 <code>GC_MERGE</code> 分支判断之前。也就是说，提交 cached DATA bios 从“只有同步执行 foreground GC 的路径做”变成“只要 <code>f2fs_balance_fs()</code> 已经确认空间不足、准备触发 GC，就先做”。</p>
+      <div class="grid-2">
+        <div class="card"><h3>被移动的两个动作</h3><p><code>f2fs_submit_merged_write(sbi, DATA)</code> 提交 F2FS 聚合起来的 DATA 写；<code>f2fs_submit_all_merged_ipu_writes(sbi)</code> 提交所有缓存的 IPU 写。它们解决的不是“是否写”，而是“写请求是否已经进入 block layer，是否有机会完成”。</p></div>
+        <div class="card"><h3>为什么移动位置有效</h3><p>死锁发生在 <code>GC_MERGE</code> 路径，因为调用方在等待 GC thread 前没有提交 cached bios。把提交动作提前到分支之前，可以让 <code>GC_MERGE</code> 和 <code>NOGC_MERGE</code> 对 writeback 完成条件保持一致。</p></div>
+      </div>
+      <pre>// 解释性伪代码，不是原始 patch 全量引用
+if (!has_enough_free_secs(sbi)) {
+    submit_cached_data_bios();
+
+    if (GC_MERGE && gc_thread_ready)
+        wake_gc_thread_and_wait();
+    else
+        run_foreground_gc_here();
+}</pre>
+      <p>这个伪代码体现了 patch 的意图：<code>has_enough_free_secs()</code> 之后，系统已经进入“必须通过 GC 或 checkpoint 解决空间压力”的语境。此时如果当前路径刚刚产生了 DATA writeback，就不能把 bio 留在 F2FS 自己的聚合缓存里，然后去等待 GC。提交动作的位置必须位于等待之前。</p>
+    </section>
+
+    <section id="mental-model">
+      <p class="eyebrow">2. Mental Model</p>
+      <h2>读这类 patch 要先建立三个层次的模型</h2>
+      <p>这条 patch 难读，是因为它跨了三个层次。第一层是 Linux MM 的 page cache/writeback：folio 可以被标记 dirty，也可以被标记 writeback，writeback 标志只有在 I/O 完成路径里才能被清掉。第二层是 F2FS 的写入策略：F2FS 不是每个 folio 立刻单独下发一个 bio，而是会把 data bio 合并起来，等待合适时机提交。第三层是 F2FS 的 GC 策略：空间不足时，foreground GC 可能由当前调用者自己跑，也可能在 <code>gc_merge</code> 模式下交给后台 GC 线程跑，当前调用者只等待结果。</p>
+      <p>如果只看第一层，你会觉得 truncate 等 writeback 是正常的；如果只看第二层，你会觉得缓存 bio 合并写是性能优化；如果只看第三层，你会觉得把 foreground GC 交给后台线程可以减少调用者的同步负担。但这三个机制组合后产生了一个新的约束：一条路径不能在持有“别人完成我的 I/O 才能继续”的条件时，去等待一个可能又需要同一 folio lock 的线程。</p>
+      <div class="diagram">
+        <div class="diagram-title">Three-layer model</div>
+        <div class="flow-row three">
+          <div class="box"><b>MM / Page Cache</b><span>dirty、writeback、folio lock、truncate 和 writeback 等待。</span></div>
+          <div class="box"><b>F2FS Data Path</b><span>OPU/IPU、merged bio、writeback completion、end_io。</span></div>
+          <div class="box"><b>F2FS GC</b><span>free section 压力、foreground GC、background GC、gc_merge handoff。</span></div>
+        </div>
+      </div>
+      <p>理解这类 bug 的方法是画等待关系，而不是只画调用栈。调用栈告诉你程序“走到了哪里”；等待关系告诉你“为什么所有相关线程都无法前进”。这条 patch 的提交说明已经给出了三个角色：Kworker、GC thread、Truncator。真正的分析工作，是把每个角色等待的条件写出来，然后看这些条件是否构成闭环。</p>
+    </section>
+
+    <section id="f2fs-basics">
+      <p class="eyebrow">3. F2FS Basics</p>
+      <h2>前置知识：F2FS 为什么需要 GC</h2>
+      <p>F2FS 是面向闪存设备设计的 log-structured 文件系统。它的核心思路不是在原地反复覆盖旧块，而是尽量把新数据写到新的位置。这样做适合 NAND flash 的擦写特性，也能让顺序写更容易形成。但代价是：旧位置里的块会逐渐失效，文件系统需要周期性清理包含大量无效块的 segment，把仍然有效的数据搬到新位置，然后回收整个 segment。这个清理过程就是 garbage collection。</p>
+      <p>F2FS 的主区域由 segment 和 section 组成。segment 是基本管理单位，section 可以由多个 segment 组成。F2FS 还维护几类关键元数据：SIT 记录 segment 中哪些块有效，NAT 把 node id 映射到物理块地址，SSA 保存 segment summary，checkpoint 记录一致性边界。GC 不是简单扫描数据块，它要根据 SIT/SSA/NAT 找出 victim segment 中仍有效的数据，再确认这些数据当前属于哪个 inode、哪个逻辑偏移，然后把它迁移出去。</p>
+      <div class="diagram">
+        <div class="diagram-title">Simplified F2FS layout</div>
+        <div class="flow-row four">
+          <div class="box"><b>Checkpoint Area</b><span>记录一致性边界；挂载时选择有效 checkpoint。</span></div>
+          <div class="box"><b>SIT</b><span>Segment Information Table，记录块有效性和 segment 状态。</span></div>
+          <div class="box"><b>NAT / SSA</b><span>Node 地址转换与 segment summary，用于反查数据归属。</span></div>
+          <div class="box"><b>Main Area</b><span>真实 node/data block 所在区域，也是 GC 回收对象。</span></div>
+        </div>
+      </div>
+      <p>F2FS 写数据时经常采用 out-place update。假设文件某个逻辑块原来位于物理块 A，新的写入可能落在物理块 B，然后元数据更新为“这个逻辑块现在指向 B”。旧的 A 不会立即被擦掉，而是变成 invalid block。随着系统运行，某些 segment 中 invalid block 越来越多，GC 就会挑这些 segment 当 victim，把仍有效的少量块迁走，然后释放整个 segment。</p>
+      <p>这也是为什么 F2FS 的性能问题经常不像设备问题那么直接。设备层看到的可能只是一些普通 write、flush、discard 或长时间没有新请求；但文件系统内部可能在等待 checkpoint、等待 GC、等待 writeback、等待 folio lock。对上层用户来说，这些都会表现为卡顿、fsync 变慢、后台线程占用 CPU、甚至 D state。对 UFS 这类移动存储链路来说，文件系统层的等待可以放大为端到端延迟。</p>
+      <h3>GC 的基本目标</h3>
+      <p>GC 的目标不是“让磁盘更整洁”这么抽象，而是确保未来写入有足够的 free section 可以使用。F2FS 的写入分配需要可用 segment；如果 free section 不足，普通写路径就不能一直向前推进。此时 <code>f2fs_balance_fs()</code> 会成为关键入口：它既负责平衡 dirty node/dentry，也会在空间不足时触发 GC。这个函数位于 segment 管理代码里，是写路径、空间管理和 GC 的交叉点。</p>
+      <h3>foreground GC 与 background GC</h3>
+      <p>background GC 是后台线程在系统相对空闲时主动清理空间；foreground GC 是当前写入路径已经发现空间不足，不得不立即做 GC。foreground GC 对调用者更痛，因为它直接增加当前操作的延迟。<code>gc_merge</code> 这个挂载选项的设计动机，就是让后台 GC 线程处理 foreground GC 请求，减少资源受限调用者在自己上下文中执行 GC 的开销。</p>
+      <p>但 <code>gc_merge</code> 不是免费的抽象。它把“当前线程自己跑 GC”变成“当前线程唤醒 GC 线程并等待”。一旦变成线程间协作，就必须重新审查等待条件。当前线程等待 GC 线程时，当前线程手上的状态不能是 GC 线程前进所必需的资源。这个原则正是本 patch 的中心。</p>
+    </section>
+
+    <section id="writeback">
+      <p class="eyebrow">4. Writeback Path</p>
+      <h2>前置知识：F2FS data writeback 如何走到 f2fs_balance_fs()</h2>
+      <p>Linux 文件写入通常先进入 page cache，把 folio 标为 dirty。后台 writeback 或 fsync/data-integrity writeback 再把 dirty folio 写回设备。F2FS 的 data writeback 路径会遍历 dirty folios，对每个 folio 调用 F2FS 自己的 data write 函数。简化路径是：<code>f2fs_write_cache_pages()</code> 遍历 dirty folio，调用 <code>f2fs_write_single_data_page()</code>；后者会设置 writeback 状态，并进入 <code>f2fs_do_write_data_page()</code>；再根据策略选择 out-place 或 in-place 写，构造或合并 bio。</p>
+      <p>这里有两个点容易被忽略。第一，folio 的 writeback 标志是一个承诺：系统认为这个 folio 的内容正在写回，其他路径可以等待这个标志清除来确认写回完成。第二，F2FS 为了合并 I/O，不一定马上提交 bio。它可能把若干写入聚合到内部 bio cache 中，之后通过 submit 函数一次性下发。这对吞吐有利，但也意味着“folio 已经 writeback”和“设备队列里已经有对应请求”之间存在时间差。</p>
+      <div class="diagram">
+        <div class="diagram-title">F2FS data writeback path</div>
+        <div class="flow-row">
+          <div class="box"><b>dirty folio</b><span>page cache 中有待写回数据。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>write_cache_pages</b><span>遍历 dirty folio，准备写回。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>write_single_data_page</b><span>设置 writeback，进入 F2FS data write。</span></div>
+        </div>
+        <div class="flow-row">
+          <div class="box"><b>do_write_data_page</b><span>决定 OPU/IPU，映射新位置或原地更新。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>merged bio cache</b><span>bio 暂存在 F2FS 内部，等待合并提交。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>submit to block layer</b><span>只有提交后，设备完成才可能清 writeback。</span></div>
+        </div>
+      </div>
+      <p>patch 提到的 “cached folio in internal bio cache” 可以理解为：F2FS 已经把这个 folio 对应的数据写入准备好了，并且 folio 已经进入 writeback 状态，但对应 bio 还没有被提交到块层。换句话说，从 MM 的角度看，folio 正在 writeback；从设备队列的角度看，请求可能还不存在。这个差异平时不会出事，因为函数退出或某些边界点会提交这些 cached bios；但如果在提交之前进入等待 GC 的路径，差异就变成死锁条件。</p>
+      <p>为什么 F2FS 要缓存 bio？因为单个 folio 直接下发会导致请求碎片化，降低顺序性和吞吐。F2FS 作为 log-structured filesystem，本来就希望把写入组织成较连续的模式。OPU 和 IPU 也都可能合并：OPU 是 out-place update，把数据写到新位置；IPU 是 in-place update，在策略允许时覆盖原位置。两类写都可能暂存在合并结构里，等待统一提交。</p>
+      <h3>writeback 标志的语义</h3>
+      <p>writeback 标志不是锁，但它和锁一样会参与等待关系。truncate、fsync、invalidate 等路径会等待 folio writeback 结束，以避免在数据还没落盘或状态未稳定时移除 page cache 或改变文件映射。这个等待本身合理；问题在于，等待 writeback 的路径往往已经拿到了 folio lock，而 GC 迁移数据时也需要锁同一个 folio。</p>
+      <p>因此，要判断 writeback 相关死锁，必须同时看两个维度：folio lock 的所有权，以及 writeback 标志的完成条件。只看锁，你会看到 Truncator 持有 folio lock、GC 等 folio lock；只看 writeback，你会看到 Truncator 等 writeback、Kworker 尚未提交 bio。把两个维度合起来，才会看到闭环。</p>
+    </section>
+
+    <section id="gc">
+      <p class="eyebrow">5. GC and GC_MERGE</p>
+      <h2>前置知识：f2fs_balance_fs() 与 gc_merge 的交接方式</h2>
+      <p><code>f2fs_balance_fs()</code> 的注释说得很直接：它既平衡 dirty node/dentry pages，也控制 garbage collection。它先检查 checkpoint 错误、fault injection、cached NAT、checkpoint disabled 等状态，然后看 free section 是否足够。如果 free section 足够，函数直接返回；如果不够，它必须触发 GC 或走向 checkpoint 相关处理。</p>
+      <p>在没有 <code>gc_merge</code> 的路径中，当前线程会构造 <code>f2fs_gc_control</code>，拿 <code>gc_lock</code>，统计 foreground GC，然后直接调用 <code>f2fs_gc()</code>。这条路径中，旧代码已经在调用 foreground GC 前提交 cached DATA bios。也就是说，当前线程自己要跑 GC 之前，会先把自己积累的写请求推到 block layer。</p>
+      <p>在 <code>gc_merge</code> 的路径中，当前线程不直接跑 GC。它准备一个 wait entry，挂到 <code>fggc_wq</code>，唤醒 GC 线程的 wait queue，然后调用 <code>io_schedule()</code> 睡眠，最后由 GC 线程完成 foreground GC 后唤醒它。这个模式本身可以减少当前调用者执行 GC 的负担，但也把调用者变成了一个等待者。</p>
+      <div class="diagram">
+        <div class="diagram-title">GC_MERGE handoff</div>
+        <div class="flow-row">
+          <div class="box"><b>balance_fs</b><span>free sections 不足，需要 foreground GC。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>prepare_to_wait</b><span>当前线程进入 fggc_wq 等待集合。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>wake_up GC thread</b><span>后台 GC 线程看到 foreground 请求。</span></div>
+        </div>
+        <div class="flow-row">
+          <div class="box"><b>io_schedule</b><span>当前线程睡眠，不再推进自己的 cached bio 提交。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>gc_thread_func</b><span>以 foreground 模式执行 f2fs_gc。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>wake_up_all fggc_wq</b><span>GC 完成后唤醒等待者。</span></div>
+        </div>
+      </div>
+      <p>GC 线程内部会检查 <code>waitqueue_active(fggc_wq)</code>。如果有 foreground GC 等待者，并且挂载选项启用了 <code>GC_MERGE</code>，它会把本轮 GC 标成 foreground 语义，拿 <code>gc_lock</code>，调用 <code>f2fs_gc()</code>。对于非 zoned 情况，foreground 标志还会影响 sync mode 和 no_bg_gc 等控制项。简化理解：当前线程发出请求并等待，GC 线程代它执行 GC。</p>
+      <p>这套机制的脆弱点在于，当前线程等待 GC 完成时，如果它已经让某个 folio 进入 writeback，却还没有提交对应 bio，那么它实际上保留了 GC 或 truncate 可能需要的完成条件。等待者不是纯粹的等待者，它还“欠”系统一个提交动作。patch 正是要在等待前偿还这个动作。</p>
+      <h3>GC 数据迁移为什么需要 folio lock</h3>
+      <p>GC 迁移 data block 时，不能只移动物理块。它必须确认 victim segment 中的块仍然有效，找到它对应的 inode 和文件偏移，然后锁住对应 data folio，确保迁移期间不会和普通写入、truncate、invalidate 等路径发生并发破坏。F2FS 的 <code>move_data_page()</code> 会通过类似 <code>f2fs_get_lock_data_folio()</code> 的路径获取并锁住 data folio。这个锁是保护数据一致性的必要条件。</p>
+      <p>因此，在死锁场景里，GC thread 不是无缘无故卡住。它正在执行正确的保护动作：锁住需要迁移的数据 folio。真正的问题是，另一路 truncate 已经锁住了同一个 folio，并在等待 writeback 完成；而 writeback 完成又依赖 kworker 提交 cached bio。GC thread 看起来像受害者，实际是等待环中的一环。</p>
+    </section>
+
+    <section id="truncate">
+      <p class="eyebrow">6. Truncate Path</p>
+      <h2>前置知识：truncate 为什么会锁 folio 又等 writeback</h2>
+      <p>truncate、hole punch、文件缩短、inode eviction 等路径都可能需要从 page cache 中移除某个范围的 folio。Linux 的 <code>truncate_inode_pages_range()</code> 会分阶段处理：先尽量非阻塞地移除容易移除的页面，再进入可能等待的阶段。对于部分 folio 或还在 writeback 的 folio，它会锁住 folio，然后等待 writeback 完成，之后再安全地从 page cache 中移除或截断。</p>
+      <p>这个顺序在单线程视角下没有问题。要截断一个 folio，必须先阻止别人修改它；如果它正在写回，就等待写回结束，避免把仍在 I/O 的缓存页直接移除。问题只在并发组合中出现：当 truncate 持有 folio lock 并等待 writeback 时，任何也需要这个 folio lock 的路径都会被挡住，包括 GC 的 data migration。</p>
+      <div class="diagram">
+        <div class="diagram-title">Truncate simplified path</div>
+        <div class="flow-row">
+          <div class="box"><b>truncate range</b><span>文件缩短、hole punch 或 inode 清理。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>get folio with FGP_LOCK</b><span>锁住目标 folio，准备修改 page cache 状态。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>wait writeback</b><span>如果 folio 正在 writeback，等待 I/O completion 清除标志。</span></div>
+        </div>
+      </div>
+      <p>这解释了为什么 patch 的死锁图里 Truncator 同时出现两个状态：它先通过 <code>__filemap_get_folio(..., FGP_LOCK)</code> 锁住 folio，然后进入 <code>folio_wait_writeback</code>。此时它不会释放 folio lock 去等 writeback，因为 truncate 要保护 page cache 状态。于是 GC thread 再来锁这个 folio 就只能等待。</p>
+      <p>如果 writeback bio 已经提交到 block layer，那么等待通常会随 I/O completion 结束。设备完成请求后，F2FS end_io 路径清除 writeback，Truncator 继续，释放 folio lock，GC thread 也能继续。死锁场景的特殊之处是：writeback 已经被标记，但对应 bio 尚未提交；负责提交它的 kworker 又睡在 GC waitqueue 上。这就是为什么“提交 cached bio”是修复点。</p>
+    </section>
+
+    <section id="deadlock">
+      <p class="eyebrow">7. Deadlock Reconstruction</p>
+      <h2>完整重建：三个线程如何形成等待环</h2>
+      <p>下面用报告目标场景重建一次。第一步，kworker 正在执行 F2FS data writeback。它遍历 dirty folio，进入 <code>f2fs_write_single_data_page()</code> 和 <code>f2fs_do_write_data_page()</code>。在这个过程中，目标 folio 被设置为 writeback，F2FS 为这个 folio 准备了 DATA write bio，但这个 bio 被放在内部 merge cache 中，还没有提交。</p>
+      <p>第二步，writeback 路径调用 <code>f2fs_balance_fs()</code>。由于 free section 不够，它需要触发 GC。挂载时启用了 <code>gc_merge</code>，所以当前 kworker 不直接调用 <code>f2fs_gc()</code>，而是唤醒后台 GC thread，然后睡在 foreground GC waitqueue 上等待结果。注意，此时它还没有提交 cached DATA bios。</p>
+      <p>第三步，Truncator 进入 <code>truncate_inode_pages_range()</code>，拿到同一个 folio 的 lock。它发现 folio 正在 writeback，于是调用 <code>folio_wait_writeback</code> 等待 writeback 标志清除。因为对应 bio 没有提交，所以不会有 completion 来清除这个标志。Truncator 于是持有 folio lock 睡眠。</p>
+      <p>第四步，GC thread 被唤醒，开始执行 foreground GC。它选择 victim segment，扫描 summary，找到有效 data block，进入 <code>move_data_page()</code>，试图通过 F2FS 的 data folio 获取函数锁住对应 folio。这个 folio 已经被 Truncator 锁住，因此 GC thread 阻塞在 folio lock 上。</p>
+      <p>最终等待关系变成：kworker 等 GC thread；GC thread 等 Truncator 释放 folio lock；Truncator 等 writeback 清除；writeback 清除等 kworker 提交 cached bio 并收到 I/O completion。闭环成立，系统无法靠调度自然恢复。</p>
+      <div class="diagram">
+        <div class="diagram-title">Wait-for graph</div>
+        <div class="waitgraph">
+          <div class="node"><h4>Kworker</h4><ul><li>执行 F2FS writeback</li><li>已经设置 folio writeback</li><li>DATA bio 仍在内部 cache</li><li>睡在 fggc_wq，等待 GC 完成</li></ul></div>
+          <div class="node"><h4>GC thread</h4><ul><li>被 gc_merge 唤醒</li><li>执行 foreground GC</li><li>move_data_page 需要锁 data folio</li><li>被 Truncator 持有的 folio lock 阻塞</li></ul></div>
+          <div class="node"><h4>Truncator</h4><ul><li>进入 truncate_inode_pages_range</li><li>锁住同一 data folio</li><li>等待 folio writeback 清除</li><li>writeback completion 尚无机会发生</li></ul></div>
+        </div>
+        <div class="edges">
+          <div class="edge">Kworker → 等 GC thread 完成 foreground GC</div>
+          <div class="edge">GC thread → 等 Truncator 释放 folio lock</div>
+          <div class="edge">Truncator → 等 writeback 标志清除</div>
+          <div class="edge">writeback 清除 → 等 Kworker 提交 cached bio</div>
+        </div>
+      </div>
+      <h3>为什么这是死锁，而不只是慢</h3>
+      <p>慢路径的特征是系统仍然有某个外部事件会发生，例如设备 I/O 会完成、后台线程会运行、锁持有者会释放。死锁的特征是每个等待条件都依赖环里的另一个等待者先前进。本例中，如果 bio 已经提交，设备 completion 是外部事件，Truncator 可以醒来；但 bio 没提交，completion 不会发生。提交 bio 的线程又在等 GC，GC 又在等 Truncator，所以没有外部事件能打破环。</p>
+      <p>这也是为什么这类 bug 不容易通过常规性能日志发现。你可能看到某个线程在 <code>io_schedule()</code>，另一个线程在 folio lock，第三个线程在 wait writeback。每个堆栈单独看都像正常等待。只有把“谁等谁”画成图，才会发现它们构成循环。</p>
+      <h3>为什么 gc_merge 是触发条件</h3>
+      <p><code>gc_merge</code> 改变了 foreground GC 的执行位置。没有 <code>gc_merge</code> 时，当前线程在同一个调用链里直接执行 GC。旧代码在这个 else 分支内部已经提交 cached bios，所以当前线程进入 GC 前不会保留未提交的 writeback bio。启用 <code>gc_merge</code> 后，当前线程改为等待 GC thread，而旧代码没有在这个等待前提交 cached bios，于是暴露了等待顺序缺陷。</p>
+      <p>换句话说，<code>gc_merge</code> 不是错误的根因，它只是把原先同步执行的逻辑拆成两个线程，让原本隐含的顺序要求变成显式要求。patch 的作用就是把这个顺序要求固定下来：无论 GC 是自己跑还是交给 GC thread，先提交会影响 writeback 完成的 DATA bios。</p>
+    </section>
+
+    <section id="fix">
+      <p class="eyebrow">8. Fix Logic</p>
+      <h2>修复为什么是“提前提交 bio”，而不是“加锁”</h2>
+      <p>看到死锁，第一反应常常是加锁、换锁顺序或 trylock。但本例中，加锁不是最好的修复。GC 需要 folio lock 是合理的；truncate 持有 folio lock 等 writeback 也是合理的；writeback 标志需要 I/O completion 清除也合理。真正不合理的是：writeback 路径在让 folio 进入 writeback 后，没有在进入跨线程等待之前提交对应 I/O。</p>
+      <p>所以修复点应当放在完成条件上，而不是锁上。只要在进入 <code>GC_MERGE</code> 等待之前提交 cached OPU/IPU DATA bios，writeback completion 就重新有机会发生。Truncator 等到 completion 后释放 folio lock，GC thread 继续迁移数据，kworker 最终被唤醒。等待关系不再是闭环，而是一条可以被 I/O completion 推动的链。</p>
+      <div class="diagram">
+        <div class="diagram-title">Before vs after</div>
+        <div class="flow-row four">
+          <div class="box"><b>Before / GC_MERGE</b><span>set writeback → cache bio → wait GC → no submit → completion never starts</span></div>
+          <div class="box"><b>Before / NOGC</b><span>set writeback → cache bio → submit bio → run GC locally</span></div>
+          <div class="box"><b>After / GC_MERGE</b><span>set writeback → cache bio → submit bio → wait GC</span></div>
+          <div class="box"><b>After / NOGC</b><span>行为保持一致，只是提交位置上移。</span></div>
+        </div>
+      </div>
+      <p>这条 patch 还有一个隐含优点：它让两个分支的语义收敛。以前读 <code>f2fs_balance_fs()</code> 时，cached DATA bios 的提交动作藏在 <code>NOGC_MERGE</code> 分支里，读者容易误以为只有本地执行 foreground GC 才需要提交；现在提交动作位于分支之前，表达出更准确的语义：只要即将触发 foreground GC，且当前路径可能已经产生 cached DATA bios，就应该先提交。</p>
+      <h3>OPU/IPU 为什么都要提交</h3>
+      <p>OPU 和 IPU 是 F2FS data write 的两类策略。OPU 更符合 log-structured 的方式，把更新写到新位置；IPU 在某些条件下原地更新，减少迁移或碎片。死锁不关心数据最终写到新位置还是旧位置；它关心的是 folio writeback 是否有对应 bio 已经提交。因此 patch 同时提交 merged DATA write 和 all merged IPU writes，避免只覆盖一种写入类型而留下另一种等待条件。</p>
+      <h3>为什么位置在 has_enough_free_secs() 之后</h3>
+      <p>patch 不是在 <code>f2fs_balance_fs()</code> 开头无条件提交所有 data bios，而是在确认 free section 不足、即将触发 GC 后提交。这样可以控制性能影响：只有当系统确实需要进入 GC/空间回收路径时，才提前打断 bio 合并。正常情况下如果空间足够，函数直接返回，不会额外提交，从而保留 F2FS 合并写的收益。</p>
+      <h3>为什么不是让 Truncator 不持锁等待</h3>
+      <p>让 truncate 不持 folio lock 等 writeback 听起来也能打破环，但这会改变 MM/page cache 的一致性假设。truncate 操作需要稳定地处理目标 folio，不能轻易释放锁再重新获取，否则会引入新的并发窗口。相比之下，提交 cached bio 是局部且语义清晰的修复：它不改变 truncate 规则，也不改变 GC 锁 folio 的规则，只保证 writeback 等待条件可达。</p>
+    </section>
+
+    <section id="review">
+      <p class="eyebrow">9. Review Checklist</p>
+      <h2>如果你是 reviewer，应该重点看什么</h2>
+      <p>这类修复看起来小，但 review 不能只看 diff 行数。需要确认它没有破坏 F2FS 的 I/O ordering、没有过度影响性能、没有在某些特殊 mount option 或 error path 下触发新的问题。下面是我建议的 review checklist。</p>
+      <div class="checklist">
+        <div class="check"><b>1. 等待环是否真实闭合</b><span>patch 描述中的三个线程是否都能从当前代码路径到达；是否存在其他路径会在等待前提交 bio，从而让死锁不成立。</span></div>
+        <div class="check"><b>2. 提交位置是否足够早</b><span>提交必须发生在 <code>prepare_to_wait</code> 和 <code>wake_up(gc_thread)</code> 之前，而不是在等待之后或 GC thread 侧。</span></div>
+        <div class="check"><b>3. 是否覆盖 OPU 和 IPU</b><span>只提交 OPU DATA bio 不够；IPU writes 同样可能对应 folio writeback，需要一起处理。</span></div>
+        <div class="check"><b>4. 是否保留正常合并收益</b><span>提交动作位于空间不足路径中，避免每次 balance_fs 都打散 bio 合并。</span></div>
+        <div class="check"><b>5. 是否改变 write ordering</b><span>提前提交 DATA bio 是否与 checkpoint、fsync、atomic write、压缩文件写入等顺序要求冲突。</span></div>
+        <div class="check"><b>6. stable backport 是否可行</b><span>不同稳定分支中函数名、folio/page 转换、IPU 提交函数可能不同，需要确认等价位置。</span></div>
+        <div class="check"><b>7. gc_merge 不可用时行为是否不变</b><span>没有 GC thread 或未启用 gc_merge 时，路径仍应进入本地 foreground GC，提交动作只从分支内部上移。</span></div>
+        <div class="check"><b>8. 错误状态是否安全</b><span>checkpoint error、CP disabled、只读、fault injection 等早退路径不应因为提交位置改变而产生意外 I/O。</span></div>
+      </div>
+      <p>我会特别关注第 5 点。文件系统里提前提交 I/O 往往牵涉 ordering。这里 patch 提交的是 DATA bios，且位置在确认空间压力后、触发 GC 前。它的目标是让已经进入 writeback 的数据有机会完成，而不是强制 checkpoint 或改变元数据提交边界。通常这是合理的，但 reviewer 仍需要结合 F2FS 的 fsync、checkpoint、atomic write、compression、zoned mode 等路径确认没有新语义问题。</p>
+      <h3>关于 Fixes tag 的理解</h3>
+      <p><code>Fixes: 351df4b20115 ("f2fs: add segment operations")</code> 指向很早的 segment operations 引入。这个 Fixes tag 的含义可能不是“这个具体死锁从那一天必现”，而是“相关逻辑基础自那时起存在”。stable backport 看到这种古老 Fixes 时，通常要格外小心：一方面说明问题影响面可能很广，另一方面也说明不同版本代码形态可能差异很大，不能机械套用 patch。</p>
+      <h3>为什么 Cc stable 合理</h3>
+      <p>这不是单纯性能优化，而是潜在死锁。只要能够在稳定分支中复现，或者代码结构与当前分支等价，回灌就有价值。F2FS 常用于 Android/移动设备，后台 writeback、空间压力、truncate 或应用删除文件并发出现并不稀奇。死锁一旦触发，用户感知可能是文件操作卡死、系统 hang、无法卸载分区、甚至触发 watchdog。因此它符合稳定性修复的性质。</p>
+    </section>
+
+    <section id="debug">
+      <p class="eyebrow">10. Debug and Validation</p>
+      <h2>如何验证或复现思路：重点不是 benchmark，而是制造等待环</h2>
+      <p>这类问题不适合只用吞吐 benchmark 验证。fio 顺序写、随机写、fsync 压测可以增加压力，但不一定稳定制造 Truncator、writeback kworker、GC thread 三者交错的时序。更好的方法是围绕等待环设计验证：让 F2FS 空间接近不足，启用 <code>gc_merge</code>，触发大量 dirty data writeback，同时并发 truncate/hole punch/delete，并用 tracing 观察是否出现“writeback 标志已置位但 DATA bio 未提交”的窗口。</p>
+      <p>可以从三个观测面入手。第一，看线程状态：是否有 kworker 睡在 foreground GC waitqueue，GC thread 卡在获取 data folio lock，truncate 线程卡在 folio writeback。第二，看 F2FS tracepoint：foreground GC 是否被触发，DATA bio submit 是否发生在等待之前。第三，看 block layer：对应 DATA write 是否已经进入 request queue。如果 folio writeback 已经设置而 block layer 没有请求，就要追 F2FS merged bio 的提交时机。</p>
+      <div class="grid-3">
+        <div class="card"><h3>线程栈</h3><p>通过 SysRq-w、hung task、或者 crash dump 看 kworker、f2fs_gc、truncate 线程的栈。目标是确认等待关系，而不是只确认有线程睡眠。</p></div>
+        <div class="card"><h3>F2FS trace</h3><p>关注 <code>f2fs_balance_fs</code>、foreground GC、submit merged write、writeback completion。若 tracepoint 不足，可临时加 trace_printk 或动态探针。</p></div>
+        <div class="card"><h3>Block trace</h3><p>用 blktrace/ftrace/bpf 观察 DATA write 是否已经下发。如果未下发，writeback wait 就没有外部 completion 可以唤醒。</p></div>
+      </div>
+      <h3>一个概念性复现框架</h3>
+      <p>复现不建议从复杂应用开始，而是构造四个条件：启用 <code>gc_merge</code>；让文件系统 free section 降到需要 foreground GC 的程度；制造大量 dirty data，让 writeback kworker 执行 F2FS data write；同时对相关文件范围做 truncate/hole punch。为了放大窗口，可以用 fault injection、延迟注入、低速块设备模拟或 cgroup I/O 限速，让 cached bio 和 GC 等待的交错更容易出现。</p>
+      <pre>// 概念性步骤，不是可直接运行的完整脚本
+mount -t f2fs -o background_gc=on,gc_merge /dev/xxx /mnt/f2fs
+fill filesystem until free sections are low
+start buffered writers to create dirty folios
+trigger background writeback
+concurrently truncate or punch holes in the same files
+trace f2fs_balance_fs, data bio submit, f2fs_gc and folio waitback</pre>
+      <p>验证修复时，不应该只看“系统不再卡死”。更好的验证是确认时序改变：在 <code>GC_MERGE</code> 路径进入等待之前，F2FS 已经调用 DATA merged bio submit；随后如果 Truncator 等待 writeback，block layer 中应该能看到对应 write 请求，completion 之后 writeback 清除，Truncator 释放 folio lock，GC thread 继续。</p>
+      <h3>为什么 lockdep 不一定直接报</h3>
+      <p>这个等待环不完全是传统锁依赖环。它混合了 folio lock、writeback 标志、waitqueue、I/O completion 和内部 bio cache。lockdep 擅长发现锁 A 等锁 B、锁 B 等锁 A 的顺序问题，但不一定能理解“writeback completion 依赖未提交 bio，而提交 bio 的线程睡在 waitqueue 上”这种跨子系统条件。因此，死锁分析不能完全依赖 lockdep，要把等待条件手工画出来。</p>
+    </section>
+
+    <section id="ufs">
+      <p class="eyebrow">11. Why It Matters to UFS Work</p>
+      <h2>对 UFS 固件/性能调优的启发</h2>
+      <p>这条 F2FS patch 虽然不在 UFS driver 目录，但对 UFS 性能分析很重要。实际用户看到“存储卡顿”时，很少能直接区分是设备固件、UFS host、SCSI mid-layer、block layer、文件系统 GC 还是 MM writeback 的问题。F2FS 的 GC/writeback 等待可以让上层系统长时间没有有效前进，而设备层可能只是看到请求间歇、队列深度变化、flush/discard 分布异常，甚至什么都没有。</p>
+      <p>对 UFS 固件开发者来说，最重要的经验是：不要把 host 侧长延迟自动归因于设备。一个 folio writeback 未完成，不一定意味着设备 I/O 慢；也可能是 I/O 根本没提交。一个线程在 <code>io_schedule()</code>，不一定意味着 block layer 正在等待设备；也可能是文件系统在等 GC thread。一个 GC thread 卡住，不一定意味着 GC 算法慢；也可能是它在等 truncate 持有的 folio lock。</p>
+      <div class="diagram">
+        <div class="diagram-title">From user-visible stall to storage stack diagnosis</div>
+        <div class="flow-row">
+          <div class="box"><b>User stall</b><span>应用删除、写入或 fsync 卡住。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>VFS/MM</b><span>truncate、writeback、folio 状态。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>F2FS</b><span>GC、checkpoint、merged bio、segment pressure。</span></div>
+        </div>
+        <div class="flow-row">
+          <div class="box"><b>Block/SCSI</b><span>request 是否提交、queue depth、completion latency。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>UFS host</b><span>MCQ、doorbell、timeout、error recovery。</span></div>
+          <div class="arrow">→</div>
+          <div class="box"><b>UFS device</b><span>真实介质延迟、flush、thermal、firmware GC。</span></div>
+        </div>
+      </div>
+      <p>这也影响性能实验设计。做 UFS tail latency 调优时，应同时记录文件系统事件和设备事件。只看 UFS command latency，会漏掉“bio 未提交”的时间；只看应用延迟，会把所有层混在一起。更合理的分层指标包括：dirty folio 到 writeback start 的时间、writeback start 到 bio submit 的时间、bio submit 到 block complete 的时间、block complete 到 folio writeback cleared 的时间、以及 GC/truncate 等待时间。</p>
+      <p>如果你在固件侧看到某些 workload 下延迟异常，建议问几个问题：当时 block queue 里是否真的有请求？请求类型是普通 write、flush、discard 还是 zone/trim 相关？F2FS 是否处于 foreground GC？是否启用了 <code>gc_merge</code>、<code>atgc</code>、compression 或 checkpoint merge？有没有大量 truncate/hole punch/delete 与 writeback 并发？这些问题能把“设备慢”拆成可验证的假设。</p>
+      <h3>从这条 patch 学到的通用工程原则</h3>
+      <ul>
+        <li><strong>状态标志必须对应可推进的完成路径。</strong>设置 writeback 后，如果 I/O 没提交，就不能进入依赖 completion 的等待链。</li>
+        <li><strong>异步合并优化会引入新的时序约束。</strong>bio merge 提升吞吐，但缓存越久，越要明确在哪些边界必须 flush。</li>
+        <li><strong>线程拆分改变等待关系。</strong><code>gc_merge</code> 把本地 foreground GC 变成跨线程请求，原来隐含的执行顺序必须重新声明。</li>
+        <li><strong>分析卡顿要先画等待图。</strong>调用栈是必要证据，但不是最终解释；等待条件图才是判断死锁的核心。</li>
+      </ul>
+    </section>
+
+    <section id="reading">
+      <p class="eyebrow">12. Reading Plan</p>
+      <h2>建议你按这个顺序读源码</h2>
+      <p>如果你想把这条 patch 真正吃透，不建议直接跳到 diff。diff 太小，会让人误以为问题也很小。建议按下面顺序读，每一步都带一个问题。</p>
+      <table class="table">
+        <thead><tr><th>顺序</th><th>文件/函数</th><th>阅读问题</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>Documentation/filesystems/f2fs</code></td><td>F2FS 为什么是 log-structured？GC、segment、checkpoint 的基本角色是什么？</td></tr>
+          <tr><td>2</td><td><code>fs/f2fs/segment.c:f2fs_balance_fs()</code></td><td>什么条件下它会触发 GC？<code>GC_MERGE</code> 和非 <code>GC_MERGE</code> 分支有什么差异？</td></tr>
+          <tr><td>3</td><td><code>fs/f2fs/data.c:f2fs_write_cache_pages()</code></td><td>dirty folio 如何进入 F2FS writeback？何时设置 writeback？何时提交 merged bio？</td></tr>
+          <tr><td>4</td><td><code>fs/f2fs/gc.c:gc_thread_func()</code></td><td>GC thread 如何识别 foreground GC 请求？完成后如何唤醒等待者？</td></tr>
+          <tr><td>5</td><td><code>fs/f2fs/gc.c:gc_data_segment()/move_data_page()</code></td><td>GC 迁移 data block 为什么需要锁 data folio？它依赖哪些元数据确认 block 有效？</td></tr>
+          <tr><td>6</td><td><code>mm/truncate.c:truncate_inode_pages_range()</code></td><td>truncate 为什么要锁 folio 并等待 writeback？这和 GC 的 folio lock 如何冲突？</td></tr>
+          <tr><td>7</td><td>本 patch</td><td>提前提交 cached OPU/IPU DATA bios 如何打破等待环？有没有更小或更安全的修复点？</td></tr>
+        </tbody>
+      </table>
+      <h3>读源码时要记录的变量</h3>
+      <p>建议你在纸上或笔记里列这几个状态：<code>folio lock owner</code>、<code>folio writeback flag</code>、<code>DATA bio submitted?</code>、<code>current thread waiting on?</code>、<code>GC thread state</code>、<code>free sections enough?</code>。每读一个函数，就更新这张状态表。这样比只抄调用栈更有效。</p>
+      <p>特别注意 <code>submit</code> 这个词。文件系统里“构造 bio”“缓存 bio”“提交 bio”“完成 bio”是不同阶段。很多性能或死锁问题都发生在这些阶段之间，而不是发生在你以为的“写入”这个抽象动作上。本 patch 正是因为 writeback 标志和 bio submit 之间存在窗口，才会出现等待环。</p>
+      <h3>常见误解</h3>
+      <div class="grid-2">
+        <div class="card"><h3>误解一：GC thread 卡住，所以 GC 算法有 bug</h3><p>不一定。GC 卡在 folio lock 上可能是正常保护行为。真正的 bug 是另一路持锁者等待的 writeback completion 不可达。</p></div>
+        <div class="card"><h3>误解二：writeback 慢，所以设备慢</h3><p>不一定。writeback 标志已设置，但 bio 未提交时，设备没有机会慢；请求可能根本没到 block layer。</p></div>
+        <div class="card"><h3>误解三：把等待改成 trylock 就好</h3><p>trylock 可能绕开症状，但不一定修复 writeback completion 不可达的根因，还可能让 GC 回收不足。</p></div>
+        <div class="card"><h3>误解四：小 diff 风险小</h3><p>文件系统小 diff 经常改的是顺序不变量。移动两行可能比新增几十行更关键。</p></div>
+      </div>
+    </section>
+
+    <section id="appendix">
+      <p class="eyebrow">Appendix</p>
+      <h2>更深入的机制说明</h2>
+      <h3>A. 为什么文件系统需要“边界提交”</h3>
+      <p>现代文件系统为了性能会推迟提交。它们不会每处理一个 folio 就立刻下发一个独立 I/O，而是尽量聚合相邻块、相同温度、相同类型或同一上下文的写入。这种做法改善吞吐和设备写放大，但也要求在某些边界强制提交。典型边界包括 fsync、checkpoint、错误处理、写回结束、以及本 patch 这种“即将进入可能依赖 writeback 完成的等待路径”的位置。</p>
+      <p>边界提交的难点是太早会损失性能，太晚会破坏进展性。F2FS 的提交点如果放在每个 folio 后面，会牺牲合并；如果放在函数最终退出后面，在 <code>gc_merge</code> 等待路径中就太晚。本 patch 选择的点比较精确：只有空间不足且即将触发 GC 时才提交，这说明作者修的是进展性边界，而不是全局改变合并策略。</p>
+      <h3>B. 为什么 foreground GC 容易和 writeback 纠缠</h3>
+      <p>foreground GC 往往由写路径触发，因为写路径最先感知 free section 不足。此时系统通常已经存在 dirty data、正在 writeback 的 folio、需要分配新块的写入、以及可能并发的文件删除或截断。GC 本身又会读元数据、锁 inode/folio、迁移 data block、提交新的 GC write。它天然和 writeback 共享大量对象。只要其中一个路径进入等待，必须确认等待条件不会依赖另一个正在等待的路径。</p>
+      <h3>C. 为什么 truncate 是高风险并发路径</h3>
+      <p>truncate 改变文件大小或移除范围，会触碰 page cache、mapping、folio dirty/writeback 状态和文件系统块映射。它经常与 writeback 并发：用户删除文件、应用覆盖文件、后台回收 inode、数据库清理旧日志，都可能在 writeback 尚未完成时发生 truncate。truncate 需要强一致性，所以它的锁和等待通常比较保守。这种保守性和 GC 的迁移需求叠加后，就容易形成复杂等待关系。</p>
+      <h3>D. 为什么这类问题对 Android/移动场景敏感</h3>
+      <p>F2FS 在 Android 场景中很常见。移动设备上有后台应用更新、日志写入、数据库 fsync、媒体文件删除、低电量或热限制导致的 I/O 变慢、以及 UFS 设备内部 GC。文件系统空间接近满、后台 writeback 与文件删除并发，并不是罕见场景。<code>gc_merge</code> 设计上就是为了让受限进程不要自己承担 foreground GC，但这也让跨线程等待成为常态。因此这类 patch 对移动端稳定性有现实意义。</p>
+      <h3>E. 怎样把这条 patch 转化为自己的能力</h3>
+      <p>读完这条 patch，真正应该掌握的不是 F2FS 某个函数名，而是一套分析方法：先找状态标志，再找完成路径，再找等待点，最后画等待图。对任何 storage bug 都可以套用。UFS timeout、SCSI EH、block queue freeze、filesystem checkpoint、writeback congestion 都有类似结构。很多 bug 的根因不是“某个函数慢”，而是“某个状态已经对外发布，但推进这个状态的动作被推迟到了等待之后”。</p>
+      <p>如果你之后阅读 UFS 或 block patch，可以刻意问：这个 patch 是否移动了一个 submit、complete、wake_up、clear flag、unlock、put reference 的位置？如果是，它很可能在修复顺序不变量，而不是简单 cleanup。顺序不变量往往是内核 review 的核心，也是固件与内核交界处最容易出问题的地方。</p>
+    </section>
+
+
+    <section id="deep-dive">
+      <p class="eyebrow">Deep Dive</p>
+      <h2>逐函数导读：把 patch 放回完整执行路径里</h2>
+      <p>这一节按照“从写入到 GC 再到 truncate”的方向，把相关函数重新串起来。目的不是替代你读源码，而是让你读源码时知道每个函数在整个等待环里承担什么角色。内核代码里很多函数名都很直观，但直观不代表容易理解。比如 <code>f2fs_balance_fs()</code> 听起来像后台整理，实际上它可能出现在写回的关键路径；<code>f2fs_write_cache_pages()</code> 听起来只是遍历缓存页，实际上它会让 folio 进入 writeback 状态并把 bio 留在 F2FS 内部；<code>truncate_inode_pages_range()</code> 听起来只是清 page cache，实际上它会拿 folio lock 并等待 writeback。把这些函数放回同一条时间线后，patch 的必要性就清楚了。</p>
+      <h3>1. f2fs_write_cache_pages()：从 dirty folio 到 writeback 工作单元</h3>
+      <p><code>f2fs_write_cache_pages()</code> 的任务是扫描 address_space 中标记为 dirty 的 folio，并按 writeback_control 的要求把它们写出去。writeback_control 决定本轮写回是后台写回还是同步写回、是否 range cyclic、写到哪个范围、最多写多少页。对文件系统来说，这个函数是把“缓存里的脏数据”转换成“文件系统写请求”的入口。</p>
+      <p>在这个函数中，F2FS 会收集一批 folio，然后逐个调用 <code>f2fs_write_single_data_page()</code>。它不会简单地一页一页同步写完再返回，因为那样性能很差。它更像一个组织者：挑出本轮应该写的 folio，把它们交给 F2FS data write 逻辑，统计写了多少，再在合适位置提交已合并的 bio。这里的合适位置很关键，因为本 patch 的 bug 就来自一个位置遗漏。</p>
+      <p>从等待关系角度看，<code>f2fs_write_cache_pages()</code> 是 Kworker 的起点。Kworker 在这里处理某个 dirty folio，后续这个 folio 被设置为 writeback。当 folio 进入 writeback，系统其他路径就会把它视为正在写回的数据页。如果这时 truncate 想移除它，就会等待 writeback；如果 GC 想迁移它，就会尝试锁住它。也就是说，writeback 路径一旦开始，就不再是孤立行为，它已经向 MM 和文件系统的其他路径发布了状态。</p>
+      <h3>2. f2fs_write_single_data_page()：设置状态并进入数据写策略</h3>
+      <p><code>f2fs_write_single_data_page()</code> 是单个 data folio 的写回入口。它要处理脏页、压缩文件、inline data、block mapping、错误返回、是否允许 balance 等条件。对这条 patch 来说，最重要的是它会让 folio 进入 writeback 生命周期，并且允许后续调用 <code>f2fs_balance_fs()</code>。函数名里的 single 容易误导读者，以为它做完单页写就结束；实际上它可能只是把单页写入纳入更大的合并 I/O 流程。</p>
+      <p>这个函数往往会把真正写入交给 <code>f2fs_do_write_data_page()</code>。如果空间、映射或状态要求触发 balance，它可能继续进入 <code>f2fs_balance_fs()</code>。这里的风险是顺序：如果 data bio 还没有提交，但函数继续走向 balance/GC，就必须确保 balance/GC 之前有一个提交边界。否则 single page 的 writeback 状态已经对外可见，而完成它的 I/O 还没有对 block layer 可见。</p>
+      <p>你可以把它想成一个状态转换：dirty folio 进入 writeback folio；writeback folio 对应一个 pending data bio；pending data bio 可能在 F2FS 内部 merge cache；merge cache 需要显式 submit 才能进入 block layer。每一步都不是同一件事。读内核时，如果把这几步都叫“写出去了”，就会看不懂这条 patch。</p>
+      <h3>3. f2fs_do_write_data_page()：OPU/IPU 与 merged bio 的来源</h3>
+      <p><code>f2fs_do_write_data_page()</code> 负责把一个 data folio 转换成具体的写入。它要判断旧块地址、新块地址、是否需要 out-place update、是否允许 in-place update、是否涉及加密或压缩、是否需要更新 inode 状态。对于 log-structured 文件系统来说，out-place update 是常见路径：新数据写到新 block，元数据再指向新位置。对于某些条件，F2FS 也可能选择 IPU，即原地更新。</p>
+      <p>无论 OPU 还是 IPU，最后都需要形成 bio。F2FS 为了减少请求碎片，会将 DATA bio 合并起来。这里的“合并”不是逻辑上的抽象，而是具体的内部缓存：bio 可以先保存在 F2FS 的结构里，等待之后统一提交。合并是性能优化，但也引入了一个重要责任：当上层状态已经要求 I/O 必须能完成时，不能无限期保留在 cache 里。</p>
+      <p>本 patch 同时提交 <code>f2fs_submit_merged_write(sbi, DATA)</code> 和 <code>f2fs_submit_all_merged_ipu_writes(sbi)</code>，说明作者意识到 OPU 和 IPU 都可能成为 writeback completion 的前置条件。如果只提交普通 merged DATA write，而 IPU write 仍被缓存，某些场景仍可能留下等待窗口。这个细节是 review 时必须确认的点。</p>
+      <h3>4. f2fs_balance_fs()：小函数名后面的关键边界</h3>
+      <p><code>f2fs_balance_fs()</code> 很容易被低估。它的名字像是后台维护函数，但它可能从写路径进入，并且在空间不足时触发 foreground GC。它先判断 checkpoint error，处理 fault injection，必要时做 background balance，然后检查 checkpoint disabled。最关键的一步是 <code>has_enough_free_secs()</code>。如果 free section 足够，函数不需要触发 GC；如果不够，就进入空间回收语境。</p>
+      <p>空间不足时，函数有两种走法。启用 <code>GC_MERGE</code> 且 GC thread 存在时，它把当前请求交给 GC thread；否则当前线程自己拿 <code>gc_lock</code> 并调用 <code>f2fs_gc()</code>。旧代码的问题在于，提交 cached DATA bios 的动作只放在后一种路径里。换句话说，同样是进入 foreground GC，是否提交 writeback bio 取决于 GC 是谁来跑。这种差异就是 bug 的根。</p>
+      <p>patch 把提交动作移到分支之前，使 <code>f2fs_balance_fs()</code> 的语义变得更正确：当空间不足并准备触发 GC 时，先提交当前路径留下的 cached DATA bios，再选择由谁执行 GC。这是一种非常典型的内核修复方式：不增加复杂机制，只把一个必须满足的不变量移动到所有分支共同经过的位置。</p>
+      <h3>5. gc_thread_func()：后台线程如何变成 foreground GC 执行者</h3>
+      <p>GC thread 平时负责 background GC。启用 <code>gc_merge</code> 后，它还会处理 foreground GC 请求。线程等待自己的 waitqueue；当 <code>fggc_wq</code> 上有 foreground GC 等待者时，它把本轮 GC 视为 foreground 相关工作，拿锁并执行 <code>f2fs_gc()</code>。完成后，它唤醒等待在 <code>fggc_wq</code> 上的调用者。</p>
+      <p>这个线程模型有一个隐含前提：等待者把请求交给 GC thread 时，等待者自身不能保留 GC thread 完成工作所必须的资源或完成条件。如果等待者还持有关键锁，或者还没有提交会解除 writeback 等待的 bio，那么 GC thread 就可能被等待者间接阻塞。本 patch 不是在修 GC thread，而是在修等待者进入等待前的准备动作。</p>
+      <h3>6. gc_data_segment() / move_data_page()：GC 为什么会碰到同一个 folio</h3>
+      <p>GC 选择 victim segment 后，要处理其中每个仍有效的数据块。它通过 summary 信息找到 block 的归属，再通过 NAT/node 相关信息确认 inode 和逻辑偏移。对于 data block，最终需要把有效数据迁移到新位置，并更新元数据。迁移过程中不能让普通写入、truncate 或 page cache 状态变化破坏一致性，所以 GC 需要锁住对应 data folio。</p>
+      <p>这就是 GC thread 卡在 folio lock 的原因。它不是错误地抢锁，也不是无意义等待，而是在执行数据迁移必须的保护动作。问题是 truncate 已经锁住该 folio，且等待 writeback。GC 无法继续；truncate 无法继续；Kworker 无法继续。这个结构说明修复不应该是“让 GC 不锁 folio”，因为那会破坏数据一致性。正确修复是让 truncate 等待的 writeback 能完成。</p>
+      <h3>7. truncate_inode_pages_range()：为什么它是闭环的第三个点</h3>
+      <p><code>truncate_inode_pages_range()</code> 不是 F2FS 私有函数，而是 MM 层通用逻辑。它处理 page cache 中某个范围的 folio，删除、截断或清理它们。对于正在 writeback 的 folio，它必须等待 writeback 完成。对部分 folio，它还要持有 folio lock，以保证截断过程中的状态稳定。这个设计对多数场景是正确的。</p>
+      <p>死锁发生时，truncate 的正确行为刚好与 GC 的正确行为冲突：truncate 持有 folio lock 等 writeback；GC 要 folio lock 才能完成 foreground GC；writeback 完成需要 Kworker 提交 bio；Kworker 又等 foreground GC。每个模块局部正确，全局组合错误。这类 bug 是内核并发问题中最值得训练的类型，因为它要求你超越单个函数的局部正确性。</p>
+    </section>
+
+    <section id="state-machine">
+      <p class="eyebrow">State Machine</p>
+      <h2>把问题抽象成状态机：哪些状态不应该同时出现</h2>
+      <p>为了避免只记住这条 patch，可以把问题抽象为状态机。一个 data folio 在这里至少有四个相关状态：dirty、writeback、locked、bio_submitted。dirty 表示内容需要写回；writeback 表示写回已经开始或被声明开始；locked 表示某条路径正在独占修改 folio 状态；bio_submitted 表示对应 I/O 已经进入 block layer。死锁场景中危险的组合是：writeback=true，bio_submitted=false，同时另一个线程 locked=true 并等待 writeback。</p>
+      <p>这个组合为什么危险？因为等待 writeback 的线程认为系统最终会通过 I/O completion 清掉 writeback；但 bio_submitted=false 表示 completion 的外部事件还不存在。如果负责 submit 的线程仍在运行，系统可以恢复；如果负责 submit 的线程睡在另一个等待条件上，就可能死锁。本 patch 的本质就是禁止 Kworker 在 bio_submitted=false 时进入等待 GC 的状态。</p>
+      <table class="table">
+        <thead><tr><th>状态</th><th>正常含义</th><th>危险条件</th><th>本 patch 的处理</th></tr></thead>
+        <tbody>
+          <tr><td>dirty</td><td>folio 内容不同于后端存储，需要写回。</td><td>dirty 本身不危险，但大量 dirty 会触发 writeback 和空间压力。</td><td>不直接处理 dirty，而是处理 writeback 后的提交边界。</td></tr>
+          <tr><td>writeback</td><td>folio 正在写回，其他路径可以等待完成。</td><td>writeback 已设置但 bio 还在内部 cache，完成事件不可达。</td><td>进入 GC 等待前提交 DATA bios。</td></tr>
+          <tr><td>locked</td><td>truncate 或 GC 独占处理 folio 状态。</td><td>锁持有者等待 writeback，而 GC 又等待该锁。</td><td>不改变锁规则，恢复 writeback 完成路径。</td></tr>
+          <tr><td>bio_submitted</td><td>I/O 已进入 block layer，设备 completion 可推进状态。</td><td>false 时，等待 writeback 可能没有外部唤醒源。</td><td>通过 submit merged write 置为可推进状态。</td></tr>
+        </tbody>
+      </table>
+      <p>这个状态机视角对你读其他存储 patch 也有帮助。很多 patch 不是改变业务逻辑，而是改变状态转换顺序。例如先 clear flag 再 wakeup，还是先 wakeup 再 clear flag；先 submit bio 再 wait，还是先 wait 再 submit；先 drop lock 再 call into lower layer，还是带锁调用。只要某个状态会被其他线程观察并等待，就必须保证它的完成路径在等待之前已经可达。</p>
+      <h3>不可同时满足的条件</h3>
+      <p>如果把这条 bug 写成断言，可以表达为：在 <code>f2fs_balance_fs()</code> 准备通过 <code>gc_merge</code> 等待 foreground GC 之前，不应存在“当前线程已经制造了需要 completion 清除的 DATA writeback，但这些 DATA bio 仍未提交”的状态。旧代码没有这个断言；patch 通过无条件提交 cached DATA bios 来使这个断言成立。</p>
+      <p>这也解释了为什么这条 patch 看起来“提交得有点早”，但实际上它是在状态机边界提交。它不是为了让设备更早写数据，也不是为了提高吞吐，而是为了让 writeback 状态的完成路径不依赖一个已经睡眠的线程。这个区别很重要：性能优化的 submit 策略可以讨论合并收益；进展性修复的 submit 边界必须优先保证系统不会形成不可恢复等待。</p>
+    </section>
+
+    <section id="scenario-walkthrough">
+      <p class="eyebrow">Scenario Walkthrough</p>
+      <h2>用一个具体 workload 想象这个问题如何发生</h2>
+      <p>假设一台 Android 设备使用 F2FS，数据分区空间接近紧张。后台有应用持续写日志或数据库，产生大量 dirty folio；系统 writeback kworker 开始把这些 dirty folio 写回。与此同时，另一个应用删除缓存文件或缩短临时文件，触发 truncate。由于空间紧张，F2FS 写回路径在写某个 folio 后调用 <code>f2fs_balance_fs()</code>，发现 free section 不够，需要 foreground GC。</p>
+      <p>如果挂载启用了 <code>gc_merge</code>，Kworker 会把 foreground GC 请求交给 GC thread。这个设计原本是为了避免当前写入进程自己做繁重 GC，改善资源受限场景。但在这个具体时刻，Kworker 刚刚把某个 folio 标为 writeback，并把对应 DATA bio 放入 F2FS merge cache。它还没把 bio 提交给 block layer，就睡下等 GC thread。</p>
+      <p>此时删除缓存文件的线程进入 truncate，正好碰到同一个 folio。它锁住 folio，发现 folio writeback 还没完成，于是等待。等待 writeback 是合理的，因为 truncate 不应该在数据写回状态未稳定时随意移除 folio。可是因为 bio 没有提交，设备层不会有 completion。truncate 就这样持有 folio lock 进入等待。</p>
+      <p>GC thread 被唤醒后，为了释放空间，选择一个 victim segment。这个 victim segment 中有一个有效 data block 对应刚才那个 folio。GC 需要迁移它，于是尝试锁住 data folio。锁已经被 truncate 持有，GC thread 卡住。Kworker 等 GC thread 完成；GC thread 等 truncate 释放 folio lock；truncate 等 writeback completion；completion 等 Kworker 提交 bio。这个 workload 不需要非常离奇，只需要空间压力、writeback、truncate 和 gc_merge 同时出现。</p>
+      <p>修复后，同样场景下，Kworker 在睡到 GC waitqueue 之前会先提交 cached DATA bios。这样 block layer 能看到请求，UFS 或其他块设备最终完成 I/O，F2FS end_io 清除 folio writeback。truncate 等到 writeback 清除后继续执行并释放 folio lock；GC thread 拿到 folio lock 继续迁移；Kworker 被唤醒。系统仍可能慢，因为 GC 和 I/O 都要做，但它不再是不可推进的死锁。</p>
+    </section>
+
+    <section id="concept-glossary">
+      <p class="eyebrow">Glossary</p>
+      <h2>关键术语的工程含义</h2>
+      <div class="grid-2">
+        <div class="card"><h3>folio</h3><p>可以把 folio 理解为 page cache 管理单位。它可能包含一个或多个 page。这里讨论的 lock、dirty、writeback 都发生在 folio 这个对象上。相比旧的 page 术语，folio 更明确地表达“这是缓存页集合的内核对象”。</p></div>
+        <div class="card"><h3>writeback</h3><p>writeback 是把 page cache 中的脏数据写回存储的过程。folio 进入 writeback 后，其他路径可以等待它完成。完成通常依赖 bio submit 之后的 I/O completion。</p></div>
+        <div class="card"><h3>merged bio</h3><p>merged bio 是文件系统或块层为了减少 I/O 碎片而合并的请求。它可能已经构造好，但还没提交。构造和提交是两个阶段，不能混为一谈。</p></div>
+        <div class="card"><h3>OPU / IPU</h3><p>OPU 是 out-place update，把新数据写到新位置；IPU 是 in-place update，在允许时原地更新。两者都可能影响 DATA writeback，都需要在等待前提交对应 bio。</p></div>
+        <div class="card"><h3>foreground GC</h3><p>foreground GC 是当前操作已经需要空间，必须立即触发的 GC。它直接影响当前操作延迟，常出现在空间压力下。</p></div>
+        <div class="card"><h3>gc_merge</h3><p>gc_merge 让后台 GC thread 处理 foreground GC 请求，减少当前上下文直接跑 GC 的成本。但它引入跨线程等待，因此必须保证等待者不保留完成条件。</p></div>
+        <div class="card"><h3>truncate</h3><p>truncate 会缩短文件或移除范围，需要处理 page cache 中相关 folio。它可能锁住 folio 并等待 writeback，这在并发场景中是重要等待点。</p></div>
+        <div class="card"><h3>progress guarantee</h3><p>进展性保证是指系统即使慢，也存在某个事件可以让它继续前进。本 patch 保证 writeback completion 有机会发生，从而恢复进展性。</p></div>
+      </div>
+    </section>
+
+
+    <section id="extended-tutorial">
+      <p class="eyebrow">Extended Tutorial</p>
+      <h2>扩展教程：从文件系统空间压力到设备侧观测</h2>
+      <h3>一、为什么 free section 不足会把普通写入推向 GC</h3>
+      <p>F2FS 的写入方式决定了它必须持续维护可用的空闲 segment 或 section。普通块文件系统在覆盖写时，可以在很多情况下复用原有位置；F2FS 更偏向把新数据写到新的物理位置，然后通过元数据更新完成逻辑覆盖。这个策略对闪存友好，因为它减少随机覆盖，也更容易形成顺序写。但是当主区域里可用 section 逐渐减少时，写路径就会遇到硬约束：没有足够空闲空间，就不能继续维持 out-place 写入模型。</p>
+      <p>所以 <code>has_enough_free_secs()</code> 不是一个普通优化判断，它是写路径能否继续前进的空间门槛。它返回“空间够”时，<code>f2fs_balance_fs()</code> 可以快速退出；它返回“空间不够”时，文件系统必须通过 GC 或 checkpoint 相关机制制造新的空闲 section。此时当前线程已经不只是写一个 folio，而是被卷入全局空间管理。这个转折点正是 patch 选择提交 cached DATA bios 的位置。</p>
+      <p>如果把空间压力想象成交通系统，dirty folio 是正在等待出城的车辆，merged bio 是临时编组的车队，block layer 是出城高速入口，GC 是清理废弃道路释放新道路的工程队。当城市道路足够时，车队可以继续等一等，攒够车再出发；当道路不够并且工程队马上要介入时，已经占着关键路口的车队就不能继续停在内部停车场，因为工程队可能需要这些路口恢复畅通后才能施工。</p>
+      <p>这也是为什么“提交 bio”在这里不是单纯性能行为，而是空间回收前的进展性行为。F2FS 平时可以为了合并而推迟 submit；但进入 foreground GC 前，如果这些 cached bios 对 writeback 完成有影响，就必须让它们进入下层队列。否则文件系统在逻辑上已经宣布“我在写回”，但物理上还没有让设备开始写，这种不一致会被 truncate 和 GC 的并发路径放大。</p>
+      <h3>二、为什么 F2FS 的 GC 不是简单搬数据</h3>
+      <p>GC 看起来像“把有效块搬走，然后释放 segment”，但源码里远比这复杂。首先，GC 要选择 victim。不同策略可能看有效块比例、冷热程度、age threshold、urgent mode、zoned 设备限制等。其次，GC 要读取 segment summary，知道 segment 中每个 block 对应哪个 node id 和 offset。然后它还要确认这个 block 仍然有效，因为在 GC 扫描期间，普通写入可能已经让旧块失效。最后它才能迁移数据或节点，并更新相应元数据。</p>
+      <p>这个过程中，GC 必须和普通写入、truncate、checkpoint、node 管理保持一致。它不能在用户正在改同一个 folio 时偷偷迁移，也不能根据过期的 summary 更新元数据。因此它需要一系列锁和有效性检查。<code>move_data_page()</code> 需要锁 data folio，不是为了制造阻塞，而是为了防止迁移过程中数据被并发修改或 page cache 状态被破坏。理解这一点后，就不会把 GC thread 等 folio lock 看作异常；异常在于这个锁的持有者正在等待一个不可达的 writeback completion。</p>
+      <p>F2FS 的 GC 还要考虑 node block 和 data block 的差异。node block 保存文件索引结构，data block 保存实际文件数据。GC 迁移 node 和 data 的路径不同，但都要维护“逻辑地址指向新的物理位置”这个事实。对 data block 而言，GC 需要找到所属 inode 和文件偏移，这就把 GC 和 page cache 连接起来。正因为 data GC 会回到 inode/page cache 语境，它才可能与 truncate 争用同一个 folio lock。</p>
+      <p>在这条 patch 中，真正触发等待环的是 data block 迁移，不是 node GC 或元数据扫描本身。GC thread 卡在 <code>f2fs_get_lock_data_folio</code> 这一类路径上，说明它正在尝试获取用户数据页的稳定视图。这个点对 UFS 分析也重要：设备侧看到的写请求少，不代表系统空闲；可能是上层文件系统 GC 正卡在 page cache 锁上，根本还没形成更多设备请求。</p>
+      <h3>三、bio submit 边界如何影响 writeback completion</h3>
+      <p>在内核 I/O 栈里，bio 是块 I/O 的基本描述对象之一。文件系统构造 bio 后，还要把它提交给 block layer。提交之后，block layer 才会进行队列调度、合并、派发给驱动，最终由设备完成请求并触发 completion。writeback 标志的清除通常发生在完成路径中。如果 bio 只是构造好了但没有提交，完成路径不会凭空发生。</p>
+      <p>这条 patch 正是围绕这个边界。旧代码中，<code>GC_MERGE</code> 路径进入等待前没有跨过 submit 边界。Kworker 已经把 folio 标为 writeback，但相关 bio 还停留在 F2FS 内部。此时 truncate 等 writeback，就相当于等一个尚未启动的 I/O。正常情况下，等待一个尚未启动的 I/O 不一定死锁，因为启动者可能稍后继续运行；但本例中启动者已经睡下等待 GC，因此“稍后继续运行”的机会消失了。</p>
+      <p>很多存储性能问题都可以用这个边界分析。用户态看到的写延迟可以拆成：数据进入 page cache 的时间、dirty 等待 writeback 的时间、writeback 开始到 bio submit 的时间、bio submit 到设备 completion 的时间、completion 到上层状态清理的时间。如果只测设备 completion latency，你只覆盖其中一段。F2FS 这类问题恰好发生在 writeback start 到 bio submit 之间，所以设备侧指标可能无法解释全部延迟。</p>
+      <p>对固件工程师来说，这个拆分非常关键。如果你看到 host 侧说某个写入卡住，但 UFS trace 中没有对应命令，第一反应不应该是怀疑 trace 漏了，而应该问：请求是否还停在文件系统 merged bio 阶段？是否被 plug、merge、writeback throttling、GC 或 checkpoint 边界阻塞？只有确认 bio submit 之后，设备侧延迟分析才有完整对象。</p>
+      <h3>四、为什么“局部正确”会组合成“全局错误”</h3>
+      <p>这条 patch 是一个非常好的局部正确性反例。Kworker 设置 writeback 是正确的，因为它准备写脏数据。F2FS 缓存 bio 是正确的，因为合并可以提高 I/O 效率。<code>gc_merge</code> 让后台线程处理 foreground GC 是正确的，因为它减少当前线程承担的 GC 成本。Truncator 锁 folio 并等待 writeback 是正确的，因为它要安全修改 page cache。GC 锁 data folio 也是正确的，因为它要安全迁移有效数据。每一步都能在自己的模块里解释通。</p>
+      <p>但系统不是由单步正确性保证的，而是由状态转换和等待关系保证的。当这些正确动作按特定顺序交错时，就出现了全局错误。这个经验很重要：review 内核 patch 时，如果一个改动涉及等待、唤醒、submit、completion、锁、状态位，就必须从全局等待图看，而不能只问单个函数是否合理。死锁往往不是某个函数明显写错，而是几个函数都没有声明自己依赖的外部进展条件。</p>
+      <p>本 patch 把一个隐含依赖显式化：进入 foreground GC 等待前，writeback 相关 DATA bio 必须已经提交。它没有否定任何原有设计，只是在跨模块边界上补上顺序约束。你以后读类似 patch，可以留意“移动调用位置”的改动。新增代码少不代表价值低；移动一个 submit 或 wakeup 往往是在修复系统级顺序。</p>
+      <h3>五、如何把等待图用于实际故障分析</h3>
+      <p>实际故障现场通常没有 patch 说明这么清楚。你可能只有几段 hung task 栈、少量 ftrace、一些 block 层统计和用户的卡顿描述。此时可以按四步做。第一，列出所有睡眠线程：它们分别睡在哪个 waitqueue、哪个 lock、哪个 writeback wait 或哪个 I/O wait。第二，给每个睡眠线程写出它等待的条件。第三，寻找这些条件由谁满足。第四，看满足条件的线程是否也在等待另一个条件。</p>
+      <p>以本问题为例，Kworker 的等待条件是“GC thread 完成 foreground GC”；GC thread 的等待条件是“data folio lock 可用”；Truncator 的等待条件是“folio writeback 清除”；writeback 清除的条件是“cached DATA bio 提交并完成”。然后你问：谁提交 cached DATA bio？答案是 Kworker 所在路径。Kworker 此时睡了，所以环闭合。这种写法比单纯记录堆栈更容易说服 reviewer，也更容易定位修复点。</p>
+      <p>如果你想把这个方法迁移到 UFS timeout，可以类似处理。一个线程等待 SCSI EH；SCSI EH 等 command completion 或 device reset；device reset 等 runtime PM resume；runtime PM resume 等某个 workqueue；workqueue 又被前一个路径 flush。只要形成闭环，设备不一定是根因。等待图能帮助你把“现象发生在 UFS”与“根因属于哪个层”区分开。</p>
+      <h3>六、这条 patch 的风险边界</h3>
+      <p>任何提前提交 I/O 的 patch 都有风险边界。它可能降低某些场景下的 bio 合并程度，可能改变 I/O 到达 block layer 的时间，也可能暴露原本被合并掩盖的 ordering 假设。因此 review 时要确认提交动作只发生在必要路径。本 patch 位于 free section 不足之后，说明它不是在每次 balance 时提交，而是在进入 GC 压力路径时提交。这个边界相对合理。</p>
+      <p>还要确认它不会越过错误状态。函数前面已经检查 checkpoint error、checkpoint disabled 等情况；如果这些早退发生，提交动作不会执行。也就是说，patch 没有在文件系统已经处于不可继续写入的状态下强行提交新的 DATA bio。对于稳定分支，这些早退条件的相对位置必须重新检查，因为不同版本可能有不同代码结构。</p>
+      <p>另一个风险是 zoned device 或特殊模式。F2FS 在 zoned 设备上有额外约束，GC 类型、一次性 GC、free block 限制等可能不同。虽然本 patch 的核心是 DATA bio submit 边界，但 backport 或 review 仍要确认 zoned 分支不会因为提前提交而破坏顺序。对 Android 设备来说，还要考虑 inline encryption、compression、atomic write、fsync mode 等配置组合。小 patch 不等于不需要矩阵思维。</p>
+      <h3>七、把报告转化为你自己的检查模板</h3>
+      <p>以后看到类似补丁，可以用一个固定模板检查。第一问：这个 patch 移动的是哪类动作？submit、wake、unlock、clear flag、put reference、还是 error return？第二问：移动前后，哪些线程能观察到状态变化？第三问：是否有路径会在动作发生前进入睡眠？第四问：睡眠条件是否依赖这个动作完成？第五问：这个动作提前后是否影响 ordering 或性能边界？</p>
+      <p>套到本 patch：移动的是 submit；观察者是 truncate 和 writeback completion 等待者；旧路径在 submit 前进入 GC waitqueue；睡眠条件间接依赖 submit 后的 completion；提前 submit 的性能影响被限制在空间不足触发 GC 的路径。这五个问题回答完，patch 的合理性基本就能站住。</p>
+      <p>这个模板对固件同样适用。比如固件状态机里，host 设置某个 doorbell 或 power state 后，是否已经确保设备端可以产生 completion？如果 host 在 completion 产生条件尚未建立时进入等待，设备端又等待 host 发起另一个动作，问题结构就和这里很像。不同层的名词不同，但进展性问题的形状相同。</p>
+    </section>
+
+
+    <section id="patch-reading-notes">
+      <p class="eyebrow">Patch Reading Notes</p>
+      <h2>逐段解读 patch：为什么移动位置比新增逻辑更重要</h2>
+      <h3>第一段：问题描述本身就是等待图</h3>
+      <p>这条 patch 的提交说明没有先谈性能，也没有先谈代码风格，而是直接列出三个角色的执行轨迹：Kworker、GC thread、Truncator。这种写法本身值得学习。好的并发 bug 描述不应该只是“可能死锁”，而应该说明每个参与者在哪里等待、它等待的资源由谁释放、释放者又为什么不能继续。本 patch 的说明清楚列出了 Kworker 在 writeback 中设置 writeback 标志并缓存 bio，然后进入 <code>f2fs_balance_fs()</code> 等 foreground GC；Truncator 锁 folio 并等待 writeback；GC thread 在数据迁移中等待同一 folio lock。</p>
+      <p>读这种说明时，建议不要急着看 diff，而是先把每一行调用栈翻译成“等待条件”。例如 <code>folio_start_writeback</code> 不是普通函数名，它意味着系统发布了一个状态：这个 folio 正在写回。<code>finish_wait(fggc_wq)</code> 不是简单睡眠，它意味着当前线程的继续执行依赖 GC thread 完成。<code>folio_wait_writeback</code> 表示 truncate 的继续执行依赖 writeback completion。<code>lock on folio</code> 表示 GC 的继续执行依赖 Truncator 释放 folio lock。把这些条件翻译出来，patch 的主线就已经出现了。</p>
+      <h3>第二段：cached bio 是最容易漏掉的隐藏状态</h3>
+      <p>提交说明中特别写到 data folio 被 cached in internal bio cache。这个短语是理解整条 patch 的钥匙。如果没有这个短语，你可能会以为 writeback 已经在设备侧进行，只是设备慢或 completion 慢。但 internal bio cache 表明 I/O 还可能停在文件系统内部。writeback 标志已经置位，bio 却未必提交，这种状态差就是死锁窗口。</p>
+      <p>很多内核路径都有类似隐藏状态。比如 request 已经分配但还没 queued，command 已经构造但 doorbell 没写，work 已经初始化但没 queue，timer 已经设置但 callback 条件不满足。并发 bug 常常不是对象不存在，而是对象处在“半发布”状态：上层已经能观察到某个状态，下层还没有获得推进它的事件。本 patch 中，writeback 状态已经被 MM/truncate 观察到，但 block layer 还没有获得推进 writeback completion 的 bio。</p>
+      <h3>第三段：为什么 fix 只移动两行却能修复三线程问题</h3>
+      <p>diff 的表面动作是把两个 submit 函数从 else 分支中移到 if 分支之前。这个动作看起来很小，但它改变了所有路径共享的顺序。在旧代码中，只有不走 <code>GC_MERGE</code> 的路径会先提交 cached DATA bios，然后本地执行 foreground GC。走 <code>GC_MERGE</code> 的路径直接 prepare wait、wake GC thread、io_schedule。也就是说，同一个函数里两个分支对 writeback completion 的准备条件不同。</p>
+      <p>移动之后，代码表达的含义变成：只要已经确认需要 GC，就先提交 cached DATA bios，再决定 GC 是交给后台线程还是自己执行。这个位置同时支配两个分支，所以它能修复由分支差异导致的问题。很多内核修复都是这种模式：不是添加新的特殊处理，而是把已有处理提升到所有相关路径共同经过的位置。这样的修复通常更容易 review，因为它减少差异，而不是增加例外。</p>
+      <h3>第四段：为什么 patch 没有选择在 GC thread 中提交</h3>
+      <p>一个可能的替代方案是在 GC thread 开始 foreground GC 前提交 DATA bios。但这并不理想。首先，cached DATA bios 属于触发 writeback 的上下文，GC thread 未必自然拥有或知道所有需要提交的上下文边界。其次，即使 GC thread 能调用全局提交函数，也会让责任变模糊：到底是等待者进入等待前要保证自己的 writeback 可完成，还是执行者开始执行前要清理别人的 pending I/O？从并发设计看，等待者在睡眠前释放或提交自己掌握的进展条件，更清晰也更局部。</p>
+      <p>此外，GC thread 中提交可能已经太晚。GC thread 被唤醒后会走自己的 GC 逻辑，可能很快进入锁 folio 的路径。如果提交动作与 GC 锁 folio 的顺序不够明确，仍然可能留下复杂窗口。把提交放在 <code>f2fs_balance_fs()</code> 的等待之前，顺序最直接：先提交，再等待。这是最容易证明正确的时序。</p>
+      <h3>第五段：为什么 patch 没有改变 waitqueue 逻辑</h3>
+      <p>另一个替代方案是改变 waitqueue，比如让 Kworker 不进入不可中断等待，或者等待超时后重试提交 bio。这也不如当前修复好。waitqueue 只是症状出现的位置，不是完成条件缺失的位置。给等待加超时可能缓解 hang，但会把问题变成随机延迟和复杂重试；改变等待状态可能影响 freezer、writeback 语义和 GC 协作。相比之下，提交 cached bio 是直接恢复完成条件。</p>
+      <p>内核修复中，一个重要原则是尽量修复最小的错误不变量，而不是在现象点加补丁。这里的错误不变量是：进入 foreground GC 等待前，当前路径还保留了未提交的 writeback I/O。waitqueue 没有错，GC thread 没有错，truncate 等 writeback 也没有错。错误只在 submit 边界缺失。patch 精准地修这个边界，所以改动小但解释力强。</p>
+    </section>
+
+    <section id="diagnostic-workbook">
+      <p class="eyebrow">Diagnostic Workbook</p>
+      <h2>实战诊断笔记：如果线上遇到类似卡死，应该怎么查</h2>
+      <h3>第一步：区分“设备 I/O 慢”和“bio 未提交”</h3>
+      <p>当系统出现存储卡顿时，最容易犯的错误是直接看设备延迟。如果 block trace 中有大量请求长时间未完成，那当然要继续查设备、host、SCSI EH、timeout、power management。但如果用户态卡住、writeback 卡住，而 block trace 中没有对应请求，就要警惕 bio 还没提交。F2FS merged bio、blk plug、writeback throttling、文件系统锁等待都可能让请求停在设备层之前。</p>
+      <p>针对本 patch，关键指标是：某个 folio 已经 writeback，但 DATA bio 是否已经 submit。如果没有 submit，那么 UFS 设备不可能完成这个 writeback，因为它根本没有收到对应请求。此时继续调 UFS firmware 或分析 command latency 是偏离主线的。正确做法是往上查 F2FS writeback 和 GC 等待关系。</p>
+      <h3>第二步：收集三个线程的栈</h3>
+      <p>如果怀疑类似死锁，要尽量同时抓 Kworker、f2fs_gc 线程和触发 truncate 的线程栈。Kworker 栈应能看到 F2FS writeback 和 <code>f2fs_balance_fs()</code>；GC thread 栈应能看到 GC 数据迁移和获取 data folio lock；truncate 栈应能看到 page cache truncate 和 writeback wait。只有三个栈同时存在，等待环证据才完整。如果只看到其中一个，很容易误判。</p>
+      <p>抓栈时不要只保存最后几行。需要保留足够调用链，确认路径是 F2FS data writeback 而不是 node writeback，确认 GC 是 foreground 语义而不是普通 background GC，确认 truncate 等的是同一个 address_space 范围。实际系统中函数名可能因为版本不同仍使用 page 而不是 folio，或者因为内联导致栈略有变化，所以要看语义，不要机械匹配字符串。</p>
+      <h3>第三步：用事件时间线确认先后顺序</h3>
+      <p>等待环不仅需要知道谁在等谁，还需要知道事件顺序。理想时间线是：writeback 设置 folio writeback；F2FS 构造或缓存 DATA bio；<code>f2fs_balance_fs()</code> 判断空间不足；进入 <code>GC_MERGE</code> 等待；truncate 锁同一 folio 并等待 writeback；GC thread 尝试锁同一 folio。如果顺序不同，问题可能不是这条 patch 讨论的死锁。</p>
+      <p>可以用 ftrace、tracepoints、kprobe 或 BPF 记录关键事件。事件不需要非常多，关键是覆盖状态转换：writeback start、DATA bio submit、foreground GC request、GC begin、folio lock wait、writeback wait、I/O completion。记录事件时要带 inode、folio index、pid、线程名和时间戳。没有对象标识，时间线容易变成无法关联的日志。</p>
+      <h3>第四步：确认修复是否真的改变了时间线</h3>
+      <p>打上 patch 后，不要只看“没有复现”。要确认时间线变了：在 <code>GC_MERGE</code> 等待之前，DATA merged bio submit 已经发生；如果 truncate 随后等待 writeback，block layer 中存在对应 I/O；I/O completion 后 writeback 被清除；truncate 释放 folio lock；GC thread 继续。这种验证能证明 patch 修的是根因，而不是偶然改变了时序。</p>
+      <p>如果你只能做黑盒测试，也要尽量设计能观察进展性的指标。例如统计 foreground GC wait 的最长时间、writeback folio 的最长驻留时间、bio submit 到 completion 的分布、truncate 操作的尾延迟。修复后，即使平均吞吐变化不大，长尾卡死应消失，等待时间应有上界或至少能被 I/O completion 推进。</p>
+      <h3>第五步：把结论写成可 review 的形式</h3>
+      <p>最后，把诊断结论写成等待图，而不是写成“可能是 F2FS 卡住”。一个高质量结论应包含四句话：哪个线程持有什么状态；它等待什么；满足这个等待的动作由谁执行；这个执行者为什么不能运行。对于本问题，可以写成：Kworker 设置 folio writeback 后缓存 DATA bio，并在 <code>gc_merge</code> 路径等待 GC thread；Truncator 持有该 folio lock 并等待 writeback；GC thread 等待该 folio lock；writeback completion 依赖 Kworker 提交 cached bio，因此形成循环。</p>
+      <p>这种表达能直接导出修复方案：让 Kworker 在等待 GC thread 前提交 cached DATA bios。它也能解释为什么不需要改 Truncator、不需要改 GC lock、不需要改 UFS。好的 root cause 描述应该能自然推出 patch，而不是只描述现象。</p>
+    </section>
+
+    <section id="comparison-patterns">
+      <p class="eyebrow">Pattern Library</p>
+      <h2>同类问题模式：这条 patch 可以迁移到哪些场景</h2>
+      <p>本 patch 属于“发布状态早于推进事件”的问题。folio writeback 状态已经发布，等待者已经相信 completion 会发生，但推进 completion 的 bio submit 还没有发生。类似模式在内核和固件里很多。比如 host 设置 command outstanding 位，但 doorbell 没有真正写到设备；驱动把 request 放入 internal list，但没有 kick queue；电源管理设置设备正在 resume，但实际 resume work 被另一个等待 flush 阻塞；错误处理线程等待 quiesce，而 quiesce 依赖仍未下发的 abort。</p>
+      <p>这些问题的共同解法不是固定的，但分析方式固定：找出被发布的状态，找出谁会等待它，找出它的完成事件，确认完成事件是否已经可达。如果完成事件不可达，就要把 kick、submit、wake 或 clear 动作移动到等待之前。这个动作往往很小，但必须放在所有相关分支共同经过的位置，否则只修了一部分路径。</p>
+      <p>在 UFS 中，你可以把 <code>bio_submitted</code> 类比为 command doorbell 已写，把 writeback completion 类比为 request completion，把 GC thread 类比为 error handler 或 power management worker，把 Truncator 类比为等待资源状态稳定的上层线程。虽然对象不同，但等待环的形状类似：A 等 B，B 等 C，C 等 A 发布但未推进的事件。用这种模式库看 patch，会比记函数名更有迁移价值。</p>
+    </section>
+
+
+    <section id="hands-on-checklist">
+      <p class="eyebrow">Hands-on Checklist</p>
+      <h2>源码阅读实操清单：按这个表逐项确认</h2>
+      <h3>一、先确认调用链，不要先评价 patch</h3>
+      <p>阅读这条 patch 时，第一件事不是判断作者写得好不好，而是确认调用链是否真实存在。你需要从 writeback 入口确认 <code>f2fs_write_cache_pages()</code> 可以走到 <code>f2fs_write_single_data_page()</code>，再确认单页写回可以进入 <code>f2fs_do_write_data_page()</code> 并产生 cached DATA bio，然后确认写路径在允许 balance 的情况下可以调用 <code>f2fs_balance_fs()</code>。如果这条链不成立，死锁图就只是理论；如果成立，下一步才是看等待点。</p>
+      <p>第二件事是确认 <code>f2fs_balance_fs()</code> 的分支。它必须在 free section 不足时进入 GC 语境；启用 <code>GC_MERGE</code> 且 GC thread 存在时，必须走 waitqueue handoff；未启用时，必须走本地 foreground GC。你要特别比较旧代码中两个分支的差异：一个分支提交 cached bios，另一个分支没有提交。这个差异就是 patch 的靶心。</p>
+      <h3>二、再确认对象身份，避免把不同 folio 混为一谈</h3>
+      <p>等待环要求 Truncator 和 GC thread 争用的是同一个 data folio，而这个 folio 的 writeback 又由 Kworker 负责推进。实际调试时，如果只看到三个线程分别卡住，但对象不是同一个，就不能证明这条死锁。需要通过 inode number、mapping、folio index、block address 或 trace 中的 file offset 把对象串起来。没有对象身份，等待图只是形状相似，不是证据。</p>
+      <p>在 F2FS 中，对象身份有时需要跨层转换：GC 从 victim segment 和 summary 出发，得到 nid、ofs_in_node、inode、logical block；writeback 从 address_space 和 folio index 出发；truncate 从文件范围出发。三者的坐标系不同。优秀的分析要能把这些坐标系对齐。对齐之后，你才能说 GC 要锁的 folio 正是 truncate 持有并等待 writeback 的 folio。</p>
+      <h3>三、最后确认完成路径是否可达</h3>
+      <p>死锁成立的最后一环是 writeback completion 不可达。这里不可达不是说设备永远不会完成，而是说对应 bio 尚未提交，所以设备没有完成对象。你要确认 Kworker 在进入 <code>GC_MERGE</code> 等待前，旧代码确实没有调用提交函数；也要确认函数退出或后续提交点因为 Kworker 睡眠而无法到达。这个确认完成后，修复方向就很自然：把提交动作移动到等待之前。</p>
+      <p>如果你在其他问题里套用这套方法，记住三问：状态是否已经发布？完成事件是否已经启动？发布状态的线程是否在启动完成事件前睡眠？只要答案是“已发布、未启动、已睡眠”，就要高度怀疑进展性 bug。本 patch 只是这个模式在 F2FS GC_MERGE 中的一个具体实例。</p>
+      <h3>四、常见判断错误</h3>
+      <p>第一个错误是把 <code>io_schedule()</code> 当作设备 I/O 等待。这里 Kworker 调用 <code>io_schedule()</code> 是因为它在等 foreground GC，而不是因为它已经把当前 folio 的 DATA bio 下发给设备。函数名包含 io 不代表等待对象一定是设备请求。</p>
+      <p>第二个错误是看到 Truncator 等 writeback，就认为 writeback 本身慢。writeback 等待只能说明 folio 的 writeback 标志尚未清除，不能说明设备已经在写。要判断设备慢，必须看到对应 bio 或 request 已经提交。</p>
+      <p>第三个错误是看到 GC thread 等 folio lock，就认为 GC 不该锁页。GC 迁移有效 data block 时锁 data folio 是保护一致性的必要动作。移除这个锁可能让死锁消失，但会引入数据一致性风险。正确修复不是削弱保护，而是让持锁等待者等待的条件能够完成。</p>
+      <p>第四个错误是把 <code>gc_merge</code> 看成根因。<code>gc_merge</code> 只是改变执行上下文，把当前线程自己跑 GC 变成唤醒 GC thread 并等待。根因是进入这个等待前没有提交 cached DATA bios。没有 <code>gc_merge</code> 时，旧代码恰好在本地 GC 分支提交了 bios，所以问题不容易出现。</p>
+      <p>第五个错误是只看 diff 规模。文件系统并发修复经常只有几行，因为关键不是增加功能，而是把已有动作放到正确边界。判断这类 patch 的价值，要看它是否恢复了状态机进展性，而不是看新增代码数量。</p>
+    </section>
+
+    <section id="study-questions">
+      <p class="eyebrow">Study Questions</p>
+      <h2>自查问题：确认你真的理解了这条 patch</h2>
+      <ol>
+        <li>为什么 patch 不需要修改 <code>gc_thread_func()</code>？如果 GC thread 卡住，为什么修复点反而在 <code>f2fs_balance_fs()</code>？</li>
+        <li>为什么 <code>f2fs_submit_merged_write(sbi, DATA)</code> 只提交普通 DATA bio 还不够，还需要 <code>f2fs_submit_all_merged_ipu_writes(sbi)</code>？</li>
+        <li>为什么 <code>GC_MERGE</code> 路径比 <code>NOGC_MERGE</code> 路径更容易触发这个死锁？两条路径在旧代码中的关键差异是什么？</li>
+        <li>如果设备层没有任何 outstanding request，但应用线程卡在 writeback，你会如何判断是设备慢还是文件系统没有提交 bio？</li>
+        <li>如果你要写一个复现程序，你会选择哪些并发动作？你会如何制造空间压力？你会如何放大 cached bio 未提交窗口？</li>
+        <li>这个 patch 提前提交 bio，会不会影响写合并性能？为什么作者仍然选择在这个位置提交？</li>
+        <li>如果某个稳定分支还使用 page 而不是 folio 命名，backport 时你会如何确认等价路径？</li>
+        <li>如果 lockdep 没有报告问题，是否说明这个死锁不存在？为什么？</li>
+      </ol>
+      <p>你可以把这些问题当作读后检查。能回答前四个，说明你理解了死锁本身；能回答第五和第六个，说明你理解了验证和性能权衡；能回答第七和第八个，说明你开始具备把 patch 回灌和调试现实问题联系起来的能力。</p>
+    </section>
+
+
+    <section id="final-review">
+      <p class="eyebrow">Final Review</p>
+      <h2>最终复盘：这条 patch 最值得记住的不是函数名，而是顺序</h2>
+      <p>如果只用一句话复盘，这条 patch 修的是“进入等待前必须先让自己发布出去的 writeback 状态有完成路径”。Kworker 把 folio 标为 writeback，就是向系统发布了一个承诺：这个 folio 的写回正在进行，并且最终会完成。Truncator 相信这个承诺，所以它锁住 folio 后等待 writeback 清除。GC thread 也相信 page cache 锁规则，所以它等待 folio lock。问题在于，Kworker 在提交对应 DATA bio 之前进入了 GC waitqueue，导致这个承诺没有真正的完成事件支撑。</p>
+      <p>从工程角度看，这种问题比普通空指针或越界更值得学习。空指针通常能通过局部代码检查发现；等待顺序错误必须跨函数、跨线程、跨子系统理解。你需要知道 F2FS 为什么缓存 bio，需要知道 writeback 标志如何被等待，需要知道 truncate 为什么持锁等待，需要知道 GC 为什么要锁 data folio，还需要知道 <code>gc_merge</code> 如何把本地 GC 变成跨线程协作。任何一个背景缺失，都会让 patch 看起来像“移动两行代码的小修小补”。</p>
+      <p>这也是这份报告反复强调等待图的原因。调用栈只能告诉你线程停在哪里，等待图才能告诉你系统为什么无法前进。Kworker 停在 foreground GC waitqueue，GC thread 停在 folio lock，Truncator 停在 writeback wait；只有把三者连接起来，再补上“writeback completion 依赖 Kworker 尚未提交的 cached bio”，死锁才完整。这个分析方法可以迁移到 UFS timeout、SCSI EH、block queue freeze、runtime PM、flush/discard 等很多问题。</p>
+      <p>如果你以后自己写或 review 类似修复，可以优先寻找四类边界。第一类是状态发布边界，例如 set writeback、set busy、mark pending。第二类是推进边界，例如 submit bio、ring doorbell、queue work、wake thread。第三类是等待边界，例如 waitqueue、completion、folio lock、mutex、rwsem。第四类是清理边界，例如 clear flag、end writeback、complete request、unlock。并发问题常常发生在这些边界顺序不匹配的时候。</p>
+      <p>本 patch 的边界顺序应该是：写回路径设置 writeback，构造或缓存 DATA bio；进入空间不足路径；提交 cached OPU/IPU DATA bios；然后才进入 <code>GC_MERGE</code> 的 waitqueue 或本地 foreground GC。旧代码把第三步漏在了 <code>GC_MERGE</code> 路径之外。修复后，两个 GC 分支共享同一个提交边界，系统进展性恢复。</p>
+      <p>对你的 UFS 工作来说，这条 patch 的最大启发是：端到端存储延迟不等于设备延迟。很多时候，设备没有收到请求，上层却已经在等待“写完成”。分析这类问题时，必须把时间拆成多个阶段：dirty 到 writeback、writeback 到 bio submit、bio submit 到 request dispatch、dispatch 到 device completion、completion 到上层状态清理。只有这样，你才能判断问题是在文件系统、block、SCSI、UFS host 还是设备固件。</p>
+      <p>读完后应该形成三个习惯。第一，不要先问“哪个函数慢”，而要先问“哪个状态已经发布，哪个事件负责推进它，哪个线程正在等待它”。第二，区分“构造请求”和“提交请求”：bio 可以已构造未提交，request 可以已分配未派发，command 可以已填写未敲 doorbell。第三，尊重局部正确性，但不要被局部正确性困住；truncate 持锁等待 writeback、GC 锁 data folio、F2FS 合并 bio、gc_merge 合并 foreground GC 请求都可以局部正确，但组合顺序仍可能错误。</p>
+      <p>如果你重新打开原始 patch，只需要带着一个问题读：为什么这两个提交函数必须出现在 <code>GC_MERGE</code> 判断之前？答案应该非常明确：因为判断之后当前线程可能进入等待，而等待之前必须先提交会清除 writeback 的 DATA bio。只要这个答案能自然说出来，这条 patch 的机制就真正理解了。</p>
+      <p>后续如果你想继续深入，建议不要只读这一条 patch，而是沿着三条线继续追。第一条线是 F2FS 的空间回收线：继续看 victim selection、SIT/NAT/SSA 如何参与 GC、foreground GC 和 background GC 如何切换、zoned 设备下的限制如何改变 GC 行为。第二条线是 writeback 线：继续看 dirty throttling、writeback_control、folio writeback 标志、end_io 回调、merged bio 提交边界，以及 fsync/checkpoint 如何要求数据和元数据达到一致状态。第三条线是并发等待线：继续看 truncate、invalidate、page cache lock、gc_lock、i_gc_rwsem、cp_rwsem 等锁和等待点如何组合。三条线合在一起，才是移动设备上“文件系统看起来卡住”的完整解释框架。</p>
+      <p>这条 patch 对你的训练价值还在于，它能帮助你建立跨层排查顺序。面对存储卡顿时，不要从最底层设备开始单点怀疑，而要先确认请求是否真正到达了设备。如果没有到达，继续往上找 bio submit 边界；如果已经到达，再看 block/SCSI/UFS 的派发和完成；如果设备完成了但上层仍然卡住，再看 completion 到 writeback 清理之间的状态。这样分层后，你不会把文件系统等待误判成 UFS 固件慢，也不会把设备真实慢误判成上层调度问题。这个分层思维比单独掌握某个函数更重要。</p>
+      <p>以后看类似 patch，可以固定问八个问题：这个改动移动了哪个动作；这个动作原来在哪个分支；哪些路径原来绕过了它；它负责启动哪个完成事件；哪些线程会等待这个完成事件；等待前是否还持有锁、状态位或未提交请求；提前执行它是否破坏顺序或性能边界；如果要回灌稳定分支，旧版本中等价的状态和等待点在哪里。用这八个问题读这条 F2FS patch，答案分别是：移动 submit 动作；原来在非 GC_MERGE 分支；GC_MERGE 绕过了它；它启动 DATA writeback 的完成路径；truncate 和间接的 GC 等待它；Kworker 在等待前保留了 cached bio；提前执行只发生在空间不足路径；backport 时要找等价的 page/folio writeback 与 submit merged write 位置。</p>
+      <p>还有一个实际工作中的判断：如果一个修复把动作从某个分支内部提升到分支之前，通常说明作者发现这个动作不是该分支的私有逻辑，而是所有后续分支共同依赖的前置条件。本 patch 正是如此。提交 cached DATA bios 不属于“本地执行 foreground GC”这个分支，而属于“即将触发 foreground GC，且当前路径可能已经制造 writeback”等待关系”这个更高层语义。</p>
+      <p>因此，这条 patch 的阅读重点不是背诵 F2FS 的所有内部结构，而是学会识别“前置条件放错层级”的问题。当前置条件只放在某个分支里，而另一个分支也会进入同样的等待语境时，系统就可能在少数并发时序下失去进展性。把前置条件提升到共同路径，是一种常见且优雅的修复方式。</p>
+      <p>这个判断方式也能帮助你过滤噪音：如果某个解释不能说明为什么移动提交位置能打破等待环，它就不是根因解释，只是现象描述。</p>
+      <p>所以最终落点很简单：不要把等待当作函数调用的副产品，而要把等待当作系统设计的一部分来审查。谁发布状态，谁启动完成事件，谁负责唤醒等待者，这三件事必须在所有分支中保持一致。</p>
+      <p>这就是这条补丁真正值得反复阅读的原因：它把一个隐藏在多线程交错里的顺序要求，用最小改动固定到了正确的公共路径上。</p>
+      <p>这也是从阅读补丁走向理解系统的关键一步：最终目标不是记住这一处代码，而是形成可迁移的并发分析能力。只要你能在新的存储问题里主动拆出状态发布、完成事件、等待者和唤醒者，就能把复杂现象压缩成可以验证的工程判断。</p>
+      <p>最终结论是：这条 F2FS 修复不是普通清理，而是在文件系统空间压力、写回状态发布、内部 bio 合并、后台 GC 合并和 truncate 等待之间，补上一个必须存在的进展性边界。换句话说，先提交，再等待；先保证完成路径存在，再把执行权交给其他线程。这就是这条修复最核心的工程判断。</p>
+    </section>
+
+    <section id="sources">
+      <p class="eyebrow">Sources</p>
+      <h2>资料来源与引用边界</h2>
+      <p>报告正文主要是基于 patch 原文、Linux F2FS 文档和当前主线源码的解释性分析。代码片段使用解释性伪代码，没有长篇复制原始源码。</p>
+      <div class="source-list">
+        <a href="https://patchwork.kernel.org/project/f2fs/patch/20260519011438.1168155-1-chao@kernel.org/" target="_blank" rel="noreferrer">Patchwork: f2fs: fix potential deadlock in gc_merge path of f2fs_balance_fs()</a>
+        <a href="https://docs.kernel.org/filesystems/f2fs.html" target="_blank" rel="noreferrer">Linux Kernel Documentation: Flash-Friendly File System (F2FS)</a>
+        <a href="https://codebrowser.dev/linux/linux/fs/f2fs/segment.c.html" target="_blank" rel="noreferrer">Codebrowser: fs/f2fs/segment.c</a>
+        <a href="https://codebrowser.dev/linux/linux/fs/f2fs/gc.c.html" target="_blank" rel="noreferrer">Codebrowser: fs/f2fs/gc.c</a>
+        <a href="https://codebrowser.dev/linux/linux/fs/f2fs/data.c.html" target="_blank" rel="noreferrer">Codebrowser: fs/f2fs/data.c</a>
+        <a href="https://codebrowser.dev/linux/linux/mm/truncate.c.html" target="_blank" rel="noreferrer">Codebrowser: mm/truncate.c</a>
+        <a href="https://codebrowser.dev/linux/linux/mm/page-writeback.c.html" target="_blank" rel="noreferrer">Codebrowser: mm/page-writeback.c</a>
+        <a href="https://lkml.iu.edu/hypermail/linux/kernel/2103.3/04566.html" target="_blank" rel="noreferrer">LKML archive: f2fs: introduce gc_merge mount option</a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 4：Host Write 曳光弹</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 900px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 860px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 780px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 4 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a class="active" href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">状态与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 4 · SSD / FTL 代码设计判断</p>
+				<h1>Host Write 曳光弹：用一条真实主路径逼设计落地</h1>
+				<p class="lead">
+					今天的核心判断是：Host Write 的第一版不应该是 demo，也不应该是万能大函数。
+					它应该是一条窄但真实的主路径，穿过请求校验、Mapping lookup、Block allocation、NAND program、
+					Metadata Journal、Mapping commit、旧页失效和错误补偿。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">曳光弹必须穿过真实架构层次</span>
+					<span class="badge">涉及：FTL Core / Mapping / Block Manager / NAND / Journal</span>
+					<span class="badge">关键词：Tracer Bullet · 深模块 · 可恢复提交 · 主路径骨架</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							Host Write 主路径只编排领域动作，不直接操作 block table、L2P 数组、NAND 寄存器或 journal buffer。
+							第一条真实路径要为 GC、Recovery、Bad Block、WriteBooster 留出接入点。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							FTL Core、Mapping Table、Metadata Journal、Block Manager、NAND Program Flow、
+							Bad Block Management、Power Loss Recovery、Free Block Pool。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：曳光弹不是降低设计要求</h2>
+				<p>
+					Host Write 是最适合作为 FTL 曳光弹的路径，因为它天然穿过多个关键上下文。
+					这条路径越早真实，设计越早暴露约束；但它也越容易腐化成“先跑通再说”的上帝函数。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>真实主路径仍然要通过深模块协作，不能把所有细节塞进一个函数。</td>
+								<td>FTL Core 编排流程，Block Manager、Mapping、NAND、Journal 各自隐藏复杂度。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>Tracer Bullet 要穿过真实系统，而不是 mock。它可以窄，但不能假。</td>
+								<td>第一条 Host Write 要真实执行 program、journal 和 mapping commit，而不是只更新内存数组。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计是在真实约束中探索。主路径会暴露提交顺序、掉电窗口和补偿动作。</td>
+								<td>journal 应在 mapping commit 前，program 成功但 journal 失败时必须处理 orphan page。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>主路径必须使用领域语言表达：host write、mapping delta、program commit、old page invalidation。</td>
+								<td>接口名称和结构体要描述领域动作，而不是抽象成 <span class="inline-code">step1()</span> 或 flags。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：真实路径承载未来复杂度</h2>
+				<p>
+					一条合格的 Host Write 曳光弹，不是“少做功能”，而是用最小范围承载真实架构。
+					它应该明确每个阶段的所有者和失败后果。主路径越清晰，后续 GC、Recovery、Bad Block 和 WriteBooster 越容易接入。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Host Write 的价值不只是写入成功，而是把 FTL 的核心事务边界固定下来：
+					NAND program 只是介质动作，journal 才提供可恢复承诺，mapping commit 才改变逻辑可见状态。
+				</div>
+				<div class="diagram" aria-label="Host Write 主路径">
+					<svg viewBox="0 0 1080 360" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="26" y="68" width="120" height="66" rx="12"></rect>
+						<text class="t" x="86" y="94" text-anchor="middle">Validate</text>
+						<text class="s" x="86" y="114" text-anchor="middle">请求合法性</text>
+						<path class="line" d="M146 101 L180 101"></path>
+						<rect class="box" x="180" y="68" width="130" height="66" rx="12"></rect>
+						<text class="t" x="245" y="94" text-anchor="middle">Lookup</text>
+						<text class="s" x="245" y="114" text-anchor="middle">old mapping</text>
+						<path class="line" d="M310 101 L344 101"></path>
+						<rect class="box" x="344" y="68" width="130" height="66" rx="12"></rect>
+						<text class="t" x="409" y="94" text-anchor="middle">Allocate</text>
+						<text class="s" x="409" y="114" text-anchor="middle">new PPA</text>
+						<path class="line" d="M474 101 L508 101"></path>
+						<rect class="box" x="508" y="68" width="130" height="66" rx="12"></rect>
+						<text class="t" x="573" y="94" text-anchor="middle">Program</text>
+						<text class="s" x="573" y="114" text-anchor="middle">NAND page</text>
+						<path class="line" d="M638 101 L672 101"></path>
+						<rect class="key" x="672" y="68" width="130" height="66" rx="12"></rect>
+						<text class="t" x="737" y="94" text-anchor="middle">Journal</text>
+						<text class="s" x="737" y="114" text-anchor="middle">mapping delta</text>
+						<path class="line" d="M802 101 L836 101"></path>
+						<rect class="key" x="836" y="68" width="130" height="66" rx="12"></rect>
+						<text class="t" x="901" y="94" text-anchor="middle">Commit</text>
+						<text class="s" x="901" y="114" text-anchor="middle">L2P update</text>
+
+						<path class="line" d="M573 134 C573 182, 468 190, 430 214"></path>
+						<rect class="err" x="344" y="226" width="170" height="62" rx="12"></rect>
+						<text class="t" x="429" y="250" text-anchor="middle">program fail</text>
+						<text class="s" x="429" y="270" text-anchor="middle">Block / BadBlock 处理</text>
+						<path class="line" d="M737 134 C737 182, 642 190, 604 214"></path>
+						<rect class="err" x="530" y="226" width="170" height="62" rx="12"></rect>
+						<text class="t" x="615" y="250" text-anchor="middle">journal fail</text>
+						<text class="s" x="615" y="270" text-anchor="middle">discard uncommitted page</text>
+						<path class="line" d="M901 134 C901 182, 818 190, 780 214"></path>
+						<rect class="err" x="724" y="226" width="170" height="62" rx="12"></rect>
+						<text class="t" x="809" y="250" text-anchor="middle">mapping fail</text>
+						<text class="s" x="809" y="270" text-anchor="middle">recovery required</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>SLC Cache / WriteBooster</h3>
+						<p>Host Write 可能先落入 SLC，但主路径仍应提交 mapping delta；后续 flush 是另一个领域动作，不应改写 host write 语义。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Free Block Pool 低水位</h3>
+						<p>分配失败时 Host Write 不直接扫描 block table，而是接受 Block Manager 的 <span class="inline-code">-ENOSPC</span> 和 GC 建议。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>NAND Program Failure</h3>
+						<p>Program fail 发生在 mapping commit 前，新 PPA 不可见；错误补偿应报告 Block Manager，而不是直接改 L2P。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Metadata Journal Failure</h3>
+						<p>Program 成功但 journal 失败时，新页已写但未提交，必须被标为 uncommitted/orphan，等待 GC 回收。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>掉电后只重放已写入 journal 的 mapping delta；没有 journal 的 programmed page 不应成为当前映射。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC 协作</h3>
+						<p>Host Write 产生旧页失效，Block Manager 更新 valid/invalid 计数，为后续 victim selection 提供真实统计。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：跑通了，但事务边界消失了</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这个写路径直接操作 mapping、block table 和 NAND，提交顺序错误，错误路径没有可恢复语义。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：浅模块式 Host Write</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_write(struct ftl_dev *ftl, u64 lba, const void *buf, u32 len)
+{
+	int blk = ftl-&gt;open_blk;
+	int page = ftl-&gt;blk_tbl[blk].write_ptr++;
+	int new_ppn = blk * ftl-&gt;pages_per_blk + page;
+	int old_ppn;
+	int ret;
+
+	if (!buf || len != FTL_PAGE_SIZE)
+		return -EINVAL;
+
+	if (ftl-&gt;blk_tbl[blk].is_bad)
+		return -EIO;
+
+	old_ppn = ftl-&gt;l2p[lba];
+	ftl-&gt;l2p[lba] = new_ppn;
+
+	ret = nand_program(ftl-&gt;nand, blk, page, buf, len);
+	if (ret) {
+		ftl-&gt;l2p[lba] = old_ppn;
+		ftl-&gt;blk_tbl[blk].is_bad = 1;
+		return ret;
+	}
+
+	if (old_ppn &gt;= 0) {
+		ftl-&gt;blk_tbl[old_ppn / ftl-&gt;pages_per_blk].valid_cnt--;
+		ftl-&gt;blk_tbl[old_ppn / ftl-&gt;pages_per_blk].invalid_cnt++;
+	}
+
+	journal_write(ftl-&gt;journal, lba, old_ppn, new_ppn);
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>提交顺序错误</td>
+								<td>先改 L2P，再 program，再写 journal。</td>
+								<td>掉电后内存状态和 journal 状态无法对应。</td>
+							</tr>
+							<tr>
+								<td>模块边界混乱</td>
+								<td>写路径直接操作 open block、write pointer、valid count。</td>
+								<td>Block Manager 不再拥有 block 生命周期不变量。</td>
+							</tr>
+							<tr>
+								<td>错误路径粗糙</td>
+								<td>program fail 直接标坏块。</td>
+								<td>没有区分可重试、需要 retire、需要 read reclaim 的介质结果。</td>
+							</tr>
+							<tr>
+								<td>Journal 语义太晚</td>
+								<td>journal 在 mapping 可见后写入。</td>
+								<td>Power Loss Recovery 不能以 journal 作为权威提交记录。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：主路径只编排事务阶段</h2>
+				<p>
+					改进版的重点不是代码更多，而是每个阶段都有清晰所有者。FTL Core 编排顺序；
+					Mapping、Block Manager、NAND 和 Journal 分别承担自己的契约。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_write.h：Host Write 请求与提交结构</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_WRITE_H
+#define FTL_WRITE_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+struct ftl_write_req {
+	u64 lba;
+	const void *buf;
+	u32 len;
+};
+
+struct ftl_mapping_delta {
+	u64 lba;
+	struct ftl_ppa old_ppa;
+	struct ftl_ppa new_ppa;
+	enum ftl_commit_reason reason;
+};
+
+int ftl_submit_host_write(struct ftl_dev *ftl,
+			  const struct ftl_write_req *req);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_write.c：真实但窄的 Host Write 曳光弹</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_submit_host_write(struct ftl_dev *ftl,
+			  const struct ftl_write_req *req)
+{
+	struct block_alloc_req alloc_req;
+	struct block_alloc_result alloc;
+	struct ftl_mapping_delta delta;
+	struct nand_program_result prog;
+	int ret;
+
+	ret = ftl_validate_write_req(req);
+	if (ret)
+		return ret;
+
+	ret = map_lookup_l2p(ftl-&gt;map, req-&gt;lba, &amp;delta.old_ppa);
+	if (ret &amp;&amp; ret != -ENOENT)
+		return ret;
+
+	alloc_req.lba = req-&gt;lba;
+	alloc_req.origin = FTL_WRITE_HOST;
+	alloc_req.page_role = FTL_PAGE_USER_DATA;
+	alloc_req.preferred_media = FTL_MEDIA_ANY;
+	alloc_req.policy = BLOCK_ALLOC_NORMAL;
+
+	ret = block_alloc_page_for_write(ftl-&gt;bm, &amp;alloc_req, &amp;alloc);
+	if (ret)
+		return ret;
+
+	ret = nand_program_page(ftl-&gt;nand, &amp;alloc.ppa, req-&gt;buf,
+				req-&gt;len, &amp;prog);
+	if (ret)
+		goto err_program;
+
+	delta.lba = req-&gt;lba;
+	delta.new_ppa = alloc.ppa;
+	delta.reason = FTL_COMMIT_HOST_WRITE;
+
+	ret = journal_append_mapping_delta(ftl-&gt;journal, &amp;delta);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_delta(ftl-&gt;map, &amp;delta);
+	if (ret)
+		goto err_mapping;
+
+	block_commit_programmed_page(ftl-&gt;bm, &amp;alloc.ppa);
+	if (ftl_ppa_valid(&amp;delta.old_ppa))
+		block_invalidate_page(ftl-&gt;bm, &amp;delta.old_ppa);
+
+	return 0;
+
+err_mapping:
+	ftl_mark_recovery_required(ftl, FTL_RECOVERY_JOURNAL_REPLAY);
+	return ret;
+
+err_journal:
+	block_discard_uncommitted_page(ftl-&gt;bm, &amp;alloc.ppa);
+	return ret;
+
+err_program:
+	block_handle_program_result(ftl-&gt;bm, &amp;alloc.ppa, &amp;prog);
+	return ret;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>状态与责任表</h2>
+				<h3>Host Write 事务阶段表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>阶段</th>
+								<th>拥有模块</th>
+								<th>成功后状态</th>
+								<th>失败补偿</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Lookup old mapping</td>
+								<td>Mapping Table</td>
+								<td>获得 old PPA 或无旧映射</td>
+								<td>非 <span class="inline-code">-ENOENT</span> 直接返回</td>
+							</tr>
+							<tr>
+								<td>Allocate new page</td>
+								<td>Block Manager</td>
+								<td>new PPA reserved for write</td>
+								<td><span class="inline-code">-ENOSPC</span> 交给 GC 策略</td>
+							</tr>
+							<tr>
+								<td>NAND program</td>
+								<td>NAND Layer</td>
+								<td>介质页已写但未逻辑可见</td>
+								<td>Block Manager 处理 program result</td>
+							</tr>
+							<tr>
+								<td>Journal append</td>
+								<td>Metadata Journal</td>
+								<td>mapping delta 可重放</td>
+								<td>丢弃 uncommitted page</td>
+							</tr>
+							<tr>
+								<td>Mapping commit</td>
+								<td>Mapping Table</td>
+								<td>LBA 指向 new PPA</td>
+								<td>标记 recovery required</td>
+							</tr>
+							<tr>
+								<td>Invalidate old page</td>
+								<td>Block Manager</td>
+								<td>GC 统计更新</td>
+								<td>失败进入 scrub/reconcile 路径</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>约束了什么</th>
+								<th>帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块协作，主路径不吸收内部细节。</td>
+								<td>FTL Core 到 Mapping/Block/NAND/Journal 的接口。</td>
+								<td>Host Write 不直接修改内部表。</td>
+								<td>避免主路径变成复杂度聚集点。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>Tracer Bullet 穿过真实架构层。</td>
+								<td>Host Write 第一条真实路径。</td>
+								<td>不能只 mock mapping 或跳过 journal。</td>
+								<td>避免后期才发现恢复和错误路径不可接入。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>用真实约束探索设计取舍。</td>
+								<td>program、journal、mapping commit 的顺序。</td>
+								<td>逻辑可见性必须晚于可恢复记录。</td>
+								<td>避免掉电窗口无法解释。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>主路径以领域语言表达。</td>
+								<td>mapping delta、program result、uncommitted page。</td>
+								<td>接口名必须表达领域动作。</td>
+								<td>避免 step/flag 代码不可审查。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">状态与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

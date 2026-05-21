@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 04/15｜仓位管理如何决定长期生存</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}.topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}.title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}.title .sub{color:var(--muted);font-size:13px}.badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}.badge{padding:8px 10px;font-size:12px}.pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}.dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}.kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}@media(max-width:920px){.grid{grid-template-columns:1fr}}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}.card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}.card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}.card .hd .hint{color:var(--muted);font-size:12px}.card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}.small{font-size:12px;color:var(--muted)}.tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}.divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}@media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}table{border-collapse:collapse;min-width:760px;width:100%}th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}td{font-size:13px}.mono{font-family:var(--mono);font-size:12px}.codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}@media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}@media(max-width:520px){.kv{grid-template-columns:1fr}}.kv .k{color:var(--muted);font-size:12px}.kv .v{font-size:13px}.warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}.footer{margin-top:16px;color:var(--faint);font-size:12px;text-align:center}
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 04 / 15｜仓位管理如何决定长期生存</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws">
+          <span class="pill"><span class="dot"></span>仓位规模</span>
+          <span class="pill"><span class="dot good"></span>长期生存</span>
+          <span class="pill"><span class="dot warn"></span>破产风险</span>
+          <span class="pill"><span class="dot"></span>风险预算</span>
+          <span class="pill"><span class="dot bad"></span>过度暴露</span>
+          <span class="pill"><span class="dot"></span>防守模式</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>核心判断</b>：系统能不能活下来，通常不是由入场点决定，而是由仓位大小决定。</div>
+        <div class="badge"><span class="dot warn"></span><b>风险提醒</b>：正期望也可能被过大仓位摧毁；活得够久，优势才有机会显现。</div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">从“看对”转向“活下来”</div></div>
+        <div class="bd">
+          <ul>
+            <li>理解仓位管理不是辅助细节，而是交易系统的核心组件。</li>
+            <li>能用 <b>账户风险比例、1R、止损距离或最大定义亏损</b> 推导允许的仓位规模。</li>
+            <li>识别“同一套判断，因为仓位不同，结果完全不同”的风险。</li>
+            <li>理解为什么过大仓位会放大回撤、情绪失控和被迫退出的概率。</li>
+            <li>建立一个学习版仓位规则：先定风险预算，再反推数量，而不是先想买多少。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="warnline">
+            <span class="dot warn" style="margin-top:4px"></span>
+            <div><b>学习边界</b>：本文只讨论仓位管理框架和虚构数字，不构成任何投资建议、买卖指令、杠杆建议或品种推荐。尤其不鼓励高杠杆、重仓或冲动短线。</div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>顶部摘要卡</h2><div class="hint">快速复习</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">今日主题</div><div class="v">仓位管理如何决定长期生存</div>
+            <div class="k">一句话核心判断</div><div class="v">先决定最多能亏多少，再决定可以承担多大仓位。</div>
+            <div class="k">今日关键词</div><div class="v">仓位规模｜风险预算｜破产风险｜回撤控制｜R｜防守模式</div>
+            <div class="k">今日风险提醒</div><div class="v">一次过大仓位会把“普通错误”变成“系统事故”。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <span class="tag">今日公式</span>
+            <div class="codebox" style="margin-top:10px">股票/ETF 学习示例：
+允许亏损金额 = 账户权益 × 单笔风险比例
+仓位数量 = 允许亏损金额 / 每股计划风险
+
+期权学习示例：
+允许合约数量 = 允许亏损金额 / 单张结构最大定义亏损
+
+共同原则：
+先定风险，再反推仓位。</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>两本书的核心思想</h2><div class="hint">Tharp × Marks</div></div>
+        <div class="bd">
+          <div class="two-col">
+            <div class="callout">
+              <span class="tag">Van K. Tharp｜仓位规模决定系统命运</span>
+              <ul style="margin-top:10px">
+                <li><b>Position sizing 是核心</b>：它决定你在每次机会中承担多少风险，也决定系统能否穿越亏损序列。</li>
+                <li><b>目标不同，仓位不同</b>：同一套入场规则，如果目标是稳健学习、长期生存或快速增长，仓位规则会完全不同。</li>
+                <li><b>风险单位先于数量</b>：先定义 1R，再根据风险预算反推仓位，而不是先买入再寻找理由。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <span class="tag">Howard Marks｜风险暴露与防守</span>
+              <ul style="margin-top:10px">
+                <li><b>风险来自暴露</b>：市场越乐观、价格越贵、共识越强，过度暴露越危险。</li>
+                <li><b>进攻和防守要随周期改变</b>：环境脆弱时，降低风险本身就是主动选择，而不是胆小。</li>
+                <li><b>避免永久损失</b>：仓位过大会让临时波动变成被迫卖出、爆仓或心理失控。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>融合解释</h2><div class="hint">仓位是系统与风险意识的连接器</div></div>
+        <div class="bd">
+          <ul>
+            <li><b>Tharp 给出计算方法</b>：把账户风险预算拆成每笔 1R，用止损距离或最大定义亏损反推出仓位。</li>
+            <li><b>Marks 给出环境判断</b>：当周期位置更危险、市场情绪更拥挤、安全边际更薄时，同样的系统也应该降低暴露。</li>
+            <li><b>两者合起来</b>：仓位不是固定数字，而是“系统规则 × 市场环境 × 心理承受力”的结果。</li>
+            <li><b>真正的纪律</b>：不是永远满仓执行信号，而是在机会看起来诱人时仍然遵守风险上限。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="codebox">仓位管理闭环（学习用）
+1. 账户权益：________
+2. 单笔风险上限：____% 或 ____R
+3. 结构最大亏损/每单位计划风险：________
+4. 允许仓位 = 允许亏损金额 / 单位风险
+5. 周期/情绪风险上升时：仓位折扣 = 50% 或暂停
+6. 若算不清最大亏损：不进入系统</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>图表化理解（1/3）｜同一判断，不同仓位</h2><div class="hint">仓位改变生存概率</div></div>
+        <div class="bd">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>账户规模（虚构）</th><th>单笔风险比例</th><th>1R 金额</th><th>连续 5 次 -1R</th><th>学习含义</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="mono">100,000</td><td class="mono">0.5%</td><td class="mono">500</td><td class="mono">-2,500（-2.5%）</td><td>回撤可控，仍能冷静复盘。</td></tr>
+                <tr><td class="mono">100,000</td><td class="mono">1.0%</td><td class="mono">1,000</td><td class="mono">-5,000（-5.0%）</td><td>压力上升，需要更稳定执行。</td></tr>
+                <tr><td class="mono">100,000</td><td class="mono">3.0%</td><td class="mono">3,000</td><td class="mono">-15,000（-15.0%）</td><td>容易触发情绪化决策，恢复成本显著增加。</td></tr>
+                <tr><td class="mono">100,000</td><td class="mono">5.0%</td><td class="mono">5,000</td><td class="mono">-25,000（-25.0%）</td><td>普通亏损序列可能变成系统危机。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small" style="margin:10px 0 0">这张表的重点不是推荐某个比例，而是显示：仓位越大，普通统计波动越容易变成生存问题。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>图表化理解（2/3）｜从风险预算反推仓位</h2><div class="hint">先风险，后数量</div></div>
+        <div class="bd">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>工具类型</th><th>允许亏损金额</th><th>单位风险定义</th><th>仓位计算</th><th>注意事项</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>股票/ETF</b></td><td class="mono">500</td><td>每股计划风险 5 元</td><td class="mono">500 / 5 = 100 股</td><td>若跳空或流动性差，实际亏损可能超过计划风险。</td></tr>
+                <tr><td><b>买入期权</b></td><td class="mono">500</td><td>单张权利金最大损失 250 元</td><td class="mono">500 / 250 = 2 张</td><td>保守估计为权利金可能归零；不把计划止损当成最坏风险。</td></tr>
+                <tr><td><b>借记价差</b></td><td class="mono">500</td><td>单张净借记最大损失 160 元</td><td class="mono">500 / 160 = 3 张以内</td><td>用最大定义亏损计算，不用目标盈利倒推仓位。</td></tr>
+                <tr><td><b>未定义风险结构</b></td><td class="mono">500</td><td>最坏亏损无法清楚写出</td><td class="mono">不纳入学习系统</td><td>无法计算 R 的结构，不适合风险预算训练。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>图表化理解（3/3）｜仓位决策流程</h2><div class="hint">把冲动变成流程</div></div>
+        <div class="bd">
+          <div class="svg-wrap">
+            <svg viewBox="0 0 980 330" width="980" height="330" style="max-width:100%;height:auto;display:block">
+              <defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgba(110,231,255,.95)"/><stop offset="1" stop-color="rgba(167,243,208,.95)"/></linearGradient></defs>
+              <rect x="18" y="18" width="944" height="294" rx="18" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.14)"/>
+              <g font-family="ui-sans-serif,system-ui" fill="rgba(255,255,255,.92)">
+                <rect x="50" y="68" width="170" height="72" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="70" y="98" font-size="14">账户风险预算</text><text x="70" y="121" font-size="12" fill="rgba(255,255,255,.72)">单笔最多亏多少</text>
+                <rect x="270" y="68" width="170" height="72" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="290" y="98" font-size="14">单位风险</text><text x="290" y="121" font-size="12" fill="rgba(255,255,255,.72)">止损距离/最大亏损</text>
+                <rect x="490" y="68" width="170" height="72" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="510" y="98" font-size="14">反推数量</text><text x="510" y="121" font-size="12" fill="rgba(255,255,255,.72)">允许亏损 ÷ 单位风险</text>
+                <rect x="710" y="68" width="220" height="72" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="730" y="98" font-size="14">周期/情绪折扣</text><text x="730" y="121" font-size="12" fill="rgba(255,255,255,.72)">风险高时减半或暂停</text>
+                <rect x="265" y="210" width="450" height="68" rx="16" fill="url(#g4)" opacity=".20" stroke="rgba(255,255,255,.18)"/><text x="290" y="241" font-size="14">最终仓位：必须同时通过系统规则和风险环境检查</text><text x="290" y="264" font-size="12" fill="rgba(255,255,255,.80)">如果最大亏损算不清，答案不是“少做一点”，而是“不纳入系统”。</text>
+              </g>
+              <g stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none"><path d="M220 104 L270 104"/><path d="M440 104 L490 104"/><path d="M660 104 L710 104"/><path d="M820 140 C820 195 710 190 710 232"/><path d="M490 210 C430 180 360 172 355 140"/></g>
+              <g fill="rgba(255,255,255,.60)"><polygon points="263,104 271,99 271,109"/><polygon points="483,104 491,99 491,109"/><polygon points="703,104 711,99 711,109"/><polygon points="710,232 705,224 715,224"/><polygon points="355,140 347,145 347,135"/></g>
+            </svg>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>交易场景案例</h2><div class="hint">虚构学习案例</div></div>
+        <div class="bd">
+          <div class="callout">
+            <span class="tag">背景</span>
+            <p style="margin:10px 0 0">某学习者有一个历史统计略为正期望的模拟系统：平均每笔约 +0.2R。但他连续几次盈利后，把单笔风险从 1R 提高到 4R，希望“加快成长”。随后出现连续 4 次标准亏损，本来只是 -4R 的正常波动，被放大成 -16R 的心理冲击。</p>
+          </div>
+          <div class="two-col">
+            <div class="callout">
+              <span class="tag">Tharp 会怎么看</span>
+              <ul style="margin-top:10px">
+                <li>系统期望值不等于可以任意放大仓位。</li>
+                <li>仓位规则被改变后，已经不是原来的系统统计。</li>
+                <li>最大问题不是连续亏损，而是每次亏损单位被人为放大。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <span class="tag">Marks 会怎么看</span>
+              <ul style="margin-top:10px">
+                <li>连续盈利后的自信往往让人低估风险。</li>
+                <li>环境越顺，越容易把普通运气误读为能力。</li>
+                <li>防守不是预测下跌，而是承认自己可能错。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <span class="tag">整合后的更稳健判断</span>
+            <p style="margin:10px 0 0">仓位放大必须有独立规则，而不能来自情绪兴奋。任何系统在进入更大仓位前，都应先证明：亏损序列、最大回撤、执行纪律和市场环境都仍在可承受范围内。否则所谓“进攻”只是把系统交给运气。</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日反思练习</h2><div class="hint">建立你的仓位计算表</div></div>
+        <div class="bd">
+          <p style="margin:0 0 10px"><b>练习：用固定风险预算，分别计算股票和期权结构的允许仓位。</b></p>
+          <ol>
+            <li>设定一个学习用账户规模和单笔风险比例。</li>
+            <li>计算 1R 金额。</li>
+            <li>分别填入股票的每股计划风险、期权结构的最大定义亏损。</li>
+            <li>反推允许仓位，并写下什么情况下减半或暂停。</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="codebox"># Day 04 仓位管理作业模板（学习用）
+账户权益：____________
+单笔风险比例：________%
+1R 金额：____________
+
+股票/ETF 示例：
+- 每股计划风险：________
+- 允许股数 = 1R / 每股计划风险 = ________
+
+期权结构示例：
+- 单张最大定义亏损：________
+- 允许张数 = 1R / 单张最大定义亏损 = ________
+
+周期/情绪折扣：
+- 高风险环境：仓位调整为 ________%
+- 情绪不稳定/连续亏损：暂停条件为 __________________</div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>今日检查清单</h2><div class="hint">最多5项</div></div>
+        <div class="bd">
+          <ul>
+            <li>我是否先定义允许亏损金额，再反推仓位？</li>
+            <li>这笔交易的最大亏损是否能清楚写成 R？</li>
+            <li>如果连续亏损 5 次，我是否仍能执行系统并冷静复盘？</li>
+            <li>我是否因为近期盈利而临时放大了风险单位？</li>
+            <li>当前市场情绪或个人情绪是否要求我降低仓位或暂停？</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <div class="hd"><h2>明日预告｜Day 05：市场周期与投资者情绪</h2><div class="hint">从内部仓位走向外部环境</div></div>
+      <div class="bd">
+        <p style="margin:0">今天你学会了用仓位管理保护系统生存。明天会进入 Howard Marks 的核心领域：市场周期与投资者情绪。我们会讨论为什么同样的交易系统，在不同周期位置应当有不同的风险暴露，以及如何识别“乐观、贪婪、恐慌、冷漠”等情绪阶段对决策的影响。</p>
+      </div>
+    </section>
+
+    <div class="footer">本页面为教育用途的交易学习简报：不含实时行情、不含品种推荐、不提供买卖指令或收益承诺。</div>
+  </div>
+</body>
+</html>

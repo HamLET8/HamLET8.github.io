@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 03/15｜R 倍数、期望值与交易结果</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 600px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 700px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 40% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}.topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}.title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}.title .sub{color:var(--muted);font-size:13px}.badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}.badge{padding:8px 10px;font-size:12px}.pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}.dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}.kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}@media(max-width:920px){.grid{grid-template-columns:1fr}}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}.card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}.card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}.card .hd .hint{color:var(--muted);font-size:12px}.card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}.muted{color:var(--muted)}.small{font-size:12px;color:var(--muted)}.tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}.divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}@media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}table{border-collapse:collapse;min-width:740px;width:100%}th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}td{font-size:13px}.mono{font-family:var(--mono);font-size:12px}.codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}@media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}@media(max-width:520px){.kv{grid-template-columns:1fr}}.kv .k{color:var(--muted);font-size:12px}.kv .v{font-size:13px}.warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}.footer{margin-top:16px;color:var(--faint);font-size:12px;text-align:center}
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 03 / 15｜R 倍数、期望值与交易结果</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws">
+          <span class="pill"><span class="dot"></span>R 倍数</span>
+          <span class="pill"><span class="dot good"></span>期望值</span>
+          <span class="pill"><span class="dot warn"></span>样本数量</span>
+          <span class="pill"><span class="dot"></span>胜率与赔率</span>
+          <span class="pill"><span class="dot bad"></span>结果幻觉</span>
+          <span class="pill"><span class="dot"></span>分布思维</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>核心判断</b>：单笔盈亏没有意义；用 R 统一度量，才能看见系统的长期质量。</div>
+        <div class="badge"><span class="dot warn"></span><b>风险提醒</b>：高胜率不等于低风险；一次大亏可能抹掉许多小赢。</div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">把交易结果翻译成系统语言</div></div>
+        <div class="bd">
+          <ul>
+            <li>理解 <b>R 倍数</b>：每笔交易的结果都用“赚/亏了几个初始风险单位”来表达。</li>
+            <li>能把金额结果转换为 <b>+R / -R</b>，从而比较不同规模、不同市场、不同结构的交易。</li>
+            <li>理解 <b>期望值</b>：系统平均每承担 1R 风险，长期可能得到多少 R 的结果。</li>
+            <li>识别“高胜率但负期望”和“低胜率但正期望”的差异。</li>
+            <li>建立一个不被单次结果误导的复盘习惯：评价过程、分布和风险控制，而不是只评价输赢。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="warnline">
+            <span class="dot warn" style="margin-top:4px"></span>
+            <div><b>学习边界</b>：所有数字均为虚构示例，用于学习如何记录和评估交易系统。不提供任何买卖建议、实时信号、品种推荐或收益承诺。</div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>顶部摘要卡</h2><div class="hint">5分钟复习版</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">今日主题</div><div class="v">R 倍数、期望值与交易结果</div>
+            <div class="k">一句话核心判断</div><div class="v">交易系统不是看“这次赚没赚”，而是看长期每冒 1R 风险是否有正期望。</div>
+            <div class="k">今日关键词</div><div class="v">R 倍数｜期望值｜胜率｜赔率｜样本分布｜结果偏误</div>
+            <div class="k">今日风险提醒</div><div class="v">不要因为连续小赚就放大仓位；也不要因为几次亏损就否定一个仍在风险边界内的系统。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <span class="tag">今日公式</span>
+            <div class="codebox" style="margin-top:10px">单笔结果R = 实际盈亏金额 / 初始风险金额
+
+系统期望值E = 胜率 × 平均盈利R - 亏损率 × 平均亏损R
+
+例：胜率40%，平均盈利2.5R，平均亏损1R
+E = 0.40 × 2.5 - 0.60 × 1 = +0.40R</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>两本书的核心思想</h2><div class="hint">Tharp × Marks</div></div>
+        <div class="bd">
+          <div class="two-col">
+            <div class="callout">
+              <span class="tag">Van K. Tharp｜R 倍数与期望值</span>
+              <ul style="margin-top:10px">
+                <li><b>R 让结果可比较</b>：不同账户大小、不同交易结构，都可以统一为“赚/亏几个 R”。</li>
+                <li><b>期望值比单次输赢重要</b>：一个系统可以经常亏小钱，但只要盈利时足够大，仍可能有正期望。</li>
+                <li><b>复盘要看分布</b>：最重要的不是某一笔，而是一组交易中的平均亏损、平均盈利、极端结果和执行一致性。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <span class="tag">Howard Marks｜不确定性与结果偏误</span>
+              <ul style="margin-top:10px">
+                <li><b>好结果不等于好决策</b>：运气、周期和市场情绪可能让错误决策暂时得到好结果。</li>
+                <li><b>风险在分布尾部</b>：真正伤害系统的往往不是普通亏损，而是被忽略的小概率大损失。</li>
+                <li><b>要用二阶思维看统计</b>：问“这个期望值来自能力、环境还是运气？如果市场阶段改变，它还成立吗？”</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>融合解释</h2><div class="hint">数字化系统，现实化风险</div></div>
+        <div class="bd">
+          <ul>
+            <li><b>Tharp 给你量尺</b>：R 倍数和期望值把交易从“我感觉这笔不错”变成“这组样本平均每承担 1R 风险得到什么结果”。</li>
+            <li><b>Marks 给你怀疑精神</b>：即使统计暂时好看，也要问样本是否足够、是否处在顺风周期、是否隐藏尾部风险。</li>
+            <li><b>系统不是胜率游戏</b>：高胜率如果平均亏损远大于平均盈利，长期可能危险；低胜率如果严格亏小赚大，也可能更稳健。</li>
+            <li><b>风险预算约束期望值</b>：任何正期望假设都必须先通过 Day 02 的风险预算，否则一次失控就会让统计优势失效。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="codebox">复盘顺序（学习用）
+1. 先写清楚每笔初始风险：1R = ?
+2. 再把每笔结果改写为 R 倍数：-1R / +0.8R / +2.3R
+3. 统计一组交易：胜率、平均盈利R、平均亏损R、最大单笔亏损R
+4. 用 Marks 的问题检查：这个分布是否依赖某个特殊市场阶段？是否有隐藏的尾部风险？</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>图表化理解（1/3）｜把金额结果转换成 R</h2><div class="hint">先统一语言，再评价系统</div></div>
+        <div class="bd">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>交易编号</th><th>初始风险金额</th><th>实际结果</th><th>R 倍数</th><th>复盘含义</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>A</b></td><td class="mono">500</td><td class="mono">-500</td><td class="mono">-1.0R</td><td>标准亏损，若符合规则，不等于失败。</td></tr>
+                <tr><td><b>B</b></td><td class="mono">500</td><td class="mono">+1,000</td><td class="mono">+2.0R</td><td>盈利达到亏损单位的 2 倍，改善赔率。</td></tr>
+                <tr><td><b>C</b></td><td class="mono">300</td><td class="mono">+450</td><td class="mono">+1.5R</td><td>金额较小，但按风险单位看并不差。</td></tr>
+                <tr><td><b>D</b></td><td class="mono">800</td><td class="mono">-1,600</td><td class="mono">-2.0R</td><td>超过计划亏损，优先复盘执行和仓位控制。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small" style="margin:10px 0 0">关键：金额大小容易误导；R 倍数能看出“相对于承担风险”的真实结果。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>图表化理解（2/3）｜胜率与赔率共同决定期望值</h2><div class="hint">不要迷信高胜率</div></div>
+        <div class="bd">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>系统类型（虚构）</th><th>胜率</th><th>平均盈利</th><th>平均亏损</th><th>期望值</th><th>学习结论</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>高胜率小赢大亏</b></td><td class="mono">70%</td><td class="mono">+0.5R</td><td class="mono">-2.0R</td><td class="mono">0.70×0.5 - 0.30×2 = -0.25R</td><td>看起来常赢，但长期可能负期望。</td></tr>
+                <tr><td><b>低胜率亏小赚大</b></td><td class="mono">40%</td><td class="mono">+2.5R</td><td class="mono">-1.0R</td><td class="mono">0.40×2.5 - 0.60×1 = +0.40R</td><td>常常小亏，但如果执行稳定，可能有正期望。</td></tr>
+                <tr><td><b>平均型系统</b></td><td class="mono">50%</td><td class="mono">+1.2R</td><td class="mono">-1.0R</td><td class="mono">0.50×1.2 - 0.50×1 = +0.10R</td><td>优势较薄，更依赖纪律、成本控制和样本量。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>图表化理解（3/3）｜期望值思维流程</h2><div class="hint">从单笔结果到系统判断</div></div>
+        <div class="bd">
+          <div class="svg-wrap">
+            <svg viewBox="0 0 980 320" width="980" height="320" style="max-width:100%;height:auto;display:block">
+              <defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgba(110,231,255,.95)"/><stop offset="1" stop-color="rgba(167,243,208,.95)"/></linearGradient></defs>
+              <rect x="18" y="18" width="944" height="284" rx="18" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.14)"/>
+              <g font-family="ui-sans-serif,system-ui" fill="rgba(255,255,255,.92)">
+                <rect x="55" y="70" width="190" height="74" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="75" y="101" font-size="14">定义 1R</text><text x="75" y="124" font-size="12" fill="rgba(255,255,255,.72)">每笔最大计划风险</text>
+                <rect x="295" y="70" width="190" height="74" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="315" y="101" font-size="14">记录结果R</text><text x="315" y="124" font-size="12" fill="rgba(255,255,255,.72)">金额转换为倍数</text>
+                <rect x="535" y="70" width="190" height="74" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="555" y="101" font-size="14">统计一组样本</text><text x="555" y="124" font-size="12" fill="rgba(255,255,255,.72)">胜率、均盈、均亏</text>
+                <rect x="775" y="70" width="150" height="74" rx="15" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.16)"/><text x="795" y="101" font-size="14">计算 E</text><text x="795" y="124" font-size="12" fill="rgba(255,255,255,.72)">每笔平均R</text>
+                <rect x="250" y="205" width="480" height="66" rx="16" fill="url(#g3)" opacity=".20" stroke="rgba(255,255,255,.18)"/><text x="275" y="235" font-size="14">Marks 检查：样本是否足够？环境是否特殊？尾部风险是否被低估？</text><text x="275" y="258" font-size="12" fill="rgba(255,255,255,.80)">通过检查后，才把统计结果当作系统假设，而不是确定真理。</text>
+              </g>
+              <g stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none"><path d="M245 107 L295 107"/><path d="M485 107 L535 107"/><path d="M725 107 L775 107"/><path d="M850 144 C850 195 730 190 730 224"/><path d="M250 224 C160 220 150 165 150 144"/></g>
+              <g fill="rgba(255,255,255,.60)"><polygon points="288,107 296,102 296,112"/><polygon points="528,107 536,102 536,112"/><polygon points="768,107 776,102 776,112"/><polygon points="730,224 725,216 735,216"/><polygon points="150,144 142,149 142,139"/></g>
+            </svg>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="hd"><h2>交易场景案例</h2><div class="hint">虚构学习案例</div></div>
+        <div class="bd">
+          <div class="callout">
+            <span class="tag">背景</span>
+            <p style="margin:10px 0 0">某学习者连续 8 次小盈利，每次大约 +0.3R，于是认为自己的系统“很稳”。第 9 次他放宽退出规则，亏损扩大到 -4R。虽然 9 笔里赢了 8 笔，合计结果却接近亏损。</p>
+          </div>
+          <div class="two-col">
+            <div class="callout">
+              <span class="tag">Tharp 视角</span>
+              <ul style="margin-top:10px">
+                <li>胜率高不代表系统好，要看平均盈利、平均亏损和最大亏损。</li>
+                <li>第 9 笔的 -4R 说明风险控制失效，已经不是同一个系统。</li>
+                <li>复盘应把“遵守规则的交易”和“破坏规则的交易”分开统计。</li>
+              </ul>
+            </div>
+            <div class="callout">
+              <span class="tag">Marks 视角</span>
+              <ul style="margin-top:10px">
+                <li>连续好结果可能来自顺风环境，不一定来自真实能力。</li>
+                <li>当人开始相信“我不会错”时，风险往往正在累积。</li>
+                <li>真正危险的是尾部亏损：它发生频率低，但破坏力大。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <span class="tag">整合判断</span>
+            <p style="margin:10px 0 0">更稳健的复盘不是说“我 9 笔赢了 8 笔”，而是写成：前 8 笔合计 +2.4R，第 9 笔 -4R，整体 -1.6R。问题不在胜率，而在亏损尾部失控。系统要先修复“最大亏损是否被锁在 1R 附近”，再讨论期望值。</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日反思练习</h2><div class="hint">把最近一组交易改写成 R</div></div>
+        <div class="bd">
+          <p style="margin:0 0 10px"><b>练习：选择 5-10 笔历史交易或模拟交易，把金额结果全部改写为 R 倍数。</b></p>
+          <ol>
+            <li>写下每笔交易在进入时定义的初始风险金额。</li>
+            <li>用公式 <span class="mono">实际盈亏 / 初始风险 = R 倍数</span> 改写结果。</li>
+            <li>统计胜率、平均盈利 R、平均亏损 R、最大亏损 R。</li>
+            <li>回答：最大亏损是否超过 -1R？如果超过，是市场原因、规则原因，还是情绪原因？</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="codebox"># Day 03 作业模板
+样本数量：____ 笔
+1R 的定义：____________________
+
+交易结果（R）：____, ____, ____, ____, ____
+胜率：____%
+平均盈利R：____
+平均亏损R：____
+最大亏损R：____
+期望值E：____R
+
+我的结论：
+- 这个样本是否足够？________________
+- 是否存在超过计划的亏损？____________
+- 如果有，系统需要修复什么？__________</div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>今日检查清单</h2><div class="hint">最多5项</div></div>
+        <div class="bd">
+          <ul>
+            <li>我是否在进场前定义了 1R，而不是事后才解释风险？</li>
+            <li>每笔结果是否都能写成明确的 R 倍数？</li>
+            <li>我是否把胜率当成系统质量的唯一指标？</li>
+            <li>是否存在超过 -1R 的亏损？如果有，我是否单独复盘原因？</li>
+            <li>我的期望值判断是否考虑了样本量、交易成本和市场阶段？</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <div class="hd"><h2>明日预告｜Day 04：仓位管理如何决定长期生存</h2><div class="hint">从结果统计走向生存能力</div></div>
+      <div class="bd">
+        <p style="margin:0">今天你学会了用 R 和期望值评价系统，但期望值再漂亮，也必须通过仓位管理才能活下来。明天会进入 Tharp 最强调的领域：仓位大小如何决定回撤、破产概率和长期执行能力；同时结合 Marks 的风险意识，讨论为什么在不确定性上升时，降低风险暴露本身就是一种主动决策。</p>
+      </div>
+    </section>
+
+    <div class="footer">本页面为教育用途的交易学习简报：不含实时行情、不含品种推荐、不提供买卖指令或收益承诺。</div>
+  </div>
+</body>
+</html>

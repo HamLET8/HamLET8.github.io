@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Linux Storage Technical Reading · 2026-05-21 · GPT</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css">
+    <style>
+      .technical-report .report-hero h1 { max-width: 1040px; }
+      .technical-report .lead { max-width: 980px; font-size: 16px; line-height: 1.78; color: var(--muted); }
+      .report-note { padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); color: var(--muted); font-size: 13px; line-height: 1.7; }
+      .topic-stack { display: grid; gap: 18px; margin-top: 18px; }
+      .topic { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+      .topic > header { padding: 18px; border-bottom: 1px solid var(--line); }
+      .topic > header h2 { margin: 7px 0 0; max-width: 980px; font-size: 24px; line-height: 1.25; letter-spacing: 0; }
+      .topic-body { display: grid; gap: 16px; padding: 18px; }
+      .topic-body h3 { margin: 0 0 8px; color: var(--ink); font-size: 16px; line-height: 1.35; letter-spacing: 0; }
+      .topic-body p, .topic-body li { color: var(--muted); font-size: 14px; line-height: 1.74; }
+      .topic-body p { margin: 0; }
+      .topic-body ul { margin: 0; padding-left: 20px; }
+      .topic-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, .68fr); gap: 14px; }
+      .fact-box, .inference-box, .review-box { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); }
+      .fact-box strong, .inference-box strong, .review-box strong { color: var(--ink); }
+      .source-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--subtle); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+      .source-tag.fact { color: var(--accent-hover); background: var(--accent-soft); border-color: rgba(94,106,210,.28); }
+      .source-tag.gpt { color: var(--ink); background: var(--panel); }
+      .split-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .logic-diagram { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); overflow-x: auto; }
+      .logic-diagram .diagram-title { margin-bottom: 10px; color: var(--subtle); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      .flow { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 8px; align-items: stretch; min-width: 720px; }
+      .flow.three { grid-template-columns: repeat(3, minmax(180px, 1fr)); min-width: 580px; }
+      .flow.four { grid-template-columns: repeat(4, minmax(160px, 1fr)); min-width: 690px; }
+      .node { display: grid; align-content: center; min-height: 84px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+      .node b { color: var(--ink); font-size: 12px; line-height: 1.35; }
+      .node span { margin-top: 5px; color: var(--subtle); font-size: 11px; line-height: 1.45; }
+      .edge { display: grid; place-items: center; color: var(--accent-hover); font-family: var(--font-mono); font-size: 18px; font-weight: 700; }
+      .state-machine { width: 100%; min-width: 740px; height: auto; }
+      .state-machine text { fill: var(--muted); font-family: var(--font-sans); font-size: 12px; }
+      .state-machine .title { fill: var(--ink); font-weight: 700; }
+      .state-machine .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.3; rx: 8; }
+      .state-machine .warn { fill: var(--accent-soft); stroke: rgba(94,106,210,.5); }
+      .state-machine .arrow { stroke: var(--accent-hover); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .compare-table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+      .compare-table th, .compare-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; line-height: 1.58; }
+      .compare-table th { color: var(--subtle); background: var(--panel-strong); font-weight: 700; }
+      .compare-table td { color: var(--muted); }
+      .reading-map { display: grid; gap: 1px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--line); }
+      .reading-map a { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 12px; padding: 13px 14px; background: var(--panel); color: inherit; text-decoration: none; }
+      .reading-map a:hover { background: var(--panel-strong); }
+      .reading-map span { color: var(--subtle); font-size: 12px; font-family: var(--font-mono); }
+      .reading-map strong { color: var(--ink); font-size: 14px; }
+      .reading-map p { margin: 5px 0 0; color: var(--subtle); font-size: 12px; line-height: 1.55; }
+      .brief-list { display: grid; gap: 10px; }
+      .brief-item { padding: 13px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+      .brief-item h3 { margin: 0 0 6px; color: var(--ink); font-size: 14px; }
+      .brief-item p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+      .source-links { display: flex; flex-wrap: wrap; gap: 8px; }
+      .source-links a { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--panel-strong); font-size: 12px; text-decoration: none; }
+      .source-links a:hover { border-color: rgba(94,106,210,.45); color: var(--accent-hover); }
+      @media (max-width: 900px) {
+        .topic-grid, .split-notes { grid-template-columns: 1fr; }
+        .reading-map a { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="report-page-shell technical-report">
+      <main class="report-page">
+        <nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav>
+        <header class="report-hero">
+          <p class="eyebrow">GPT-side technical reading</p>
+          <h1>Linux Storage Technical Reading · 2026-05-21</h1>
+          <p class="lead">本期只选 5 个主题。读法不是把 patch 标题翻译一遍，而是把它们当作 Linux storage 系统知识入口：UFS 电源状态机、DWC 平台化、block 请求生命周期、SCSI 管理命令缓冲区，以及嵌入式设备把存储分区暴露为 NVMEM 的 lifetime 语义。</p>
+          <div class="report-stats"><span>Generated 2026-05-21T05:23:00+08:00</span><span>Snapshot 2026-05-11T12:39:46Z</span><span>Insights file missing</span><span>5 deep topics</span></div>
+        </header>
+
+        <section class="report-section">
+          <div class="report-section-head"><p class="eyebrow">Source caveat</p><h2>本期数据边界</h2></div>
+          <div class="topic-body">
+            <p class="report-note"><span class="source-tag fact">snapshot fact</span> 本报告读取了本地 <code>data/snapshot.json</code>、<code>reports/index.json</code> 和现有报告页面结构。项目中没有 <code>data/insights.json</code> 独立文件，只有 <code>snapshot.json</code> 内嵌的 rule-based insights。当前环境无法解析 <code>patchwork.kernel.org</code>，所以 patch 事实只来自本地 snapshot 中保存的标题、状态、文件、风险标签、signals、context excerpt 和 URL。本报告中标记为 <span class="source-tag gpt">GPT interpretation</span> 的内容是基于 Linux storage 代码路径的解释和 review 框架，不当作 patch 作者原文。</p>
+            <div class="reading-map">
+              <a href="#ufs-hibern8"><span>Topic 01</span><div><strong>UFS hibern8 notify failure path</strong><p>失败路径也要通知平台和固件状态机。</p></div></a>
+              <a href="#ufs-dwc"><span>Topic 02</span><div><strong>StarFive JHB100 and common DWC UFS hooks</strong><p>平台 bring-up 如何把 PHY/UniPro 假设纳入 common code。</p></div></a>
+              <a href="#loop-race"><span>Topic 03</span><div><strong>loop_queue_rq to workqueue race</strong><p>block freeze 覆盖不到 driver 私有异步窗口时会怎样。</p></div></a>
+              <a href="#mpi3mr-sgl"><span>Topic 04</span><div><strong>mpi3mr BSG SGL buffer length mismatch</strong><p>用户态管理命令和固件 DMA 描述符边界。</p></div></a>
+              <a href="#block-nvmem"><span>Topic 05</span><div><strong>block device as NVMEM provider</strong><p>嵌入式持久配置数据的引用和 lifetime 设计。</p></div></a>
+            </div>
+          </div>
+        </section>
+
+        <section class="topic-stack">
+          <article class="topic" id="ufs-hibern8">
+            <header>
+              <div class="report-meta"><span>UFS core</span><span>power-management</span><span>needs review</span><span>v5</span></div>
+              <h2>1. UFS hibern8 notify：失败路径也必须进入状态机</h2>
+            </header>
+            <div class="topic-body">
+              <div class="topic-grid">
+                <div class="fact-box">
+                  <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                  <ul>
+                    <li>条目：<code>[v5] scsi: ufs: core: call hibern8 notify when hibern8 cmd failed</code>。</li>
+                    <li>模块：UFS，状态：new，信号：needs review，风险标签：power-management。</li>
+                    <li>来源：Patchwork linux-scsi，提交者 Fang Hongjie，时间 2026-05-02。</li>
+                  </ul>
+                </div>
+                <div class="inference-box">
+                  <h3><span class="source-tag gpt">GPT interpretation</span> 为什么值得读</h3>
+                  <p>标题说明修复点在 hibern8 命令失败后的 notify 行为。UFS core 的 hibern8 不是单纯发一条 UIC command，它牵涉 runtime PM、link state、host controller vendor hooks 和可能的 PHY/firmware side effect。成功路径通知平台很自然，失败路径更容易被遗漏，但失败路径恰恰决定 recovery 能否把 host、device、PHY 和固件状态重新对齐。</p>
+                </div>
+              </div>
+
+              <div class="logic-diagram">
+                <div class="diagram-title">UFS hibern8 state machine, expected notify symmetry</div>
+                <svg class="state-machine" viewBox="0 0 900 310" role="img" aria-label="UFS hibern8 notify state machine">
+                  <defs>
+                    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                      <path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path>
+                    </marker>
+                  </defs>
+                  <rect class="box" x="25" y="40" width="150" height="72"></rect>
+                  <text class="title" x="48" y="72">Active link</text>
+                  <text x="48" y="94">I/O path valid</text>
+                  <rect class="box" x="255" y="40" width="170" height="72"></rect>
+                  <text class="title" x="282" y="72">Enter hibern8 cmd</text>
+                  <text x="282" y="94">UIC command issued</text>
+                  <rect class="box warn" x="505" y="25" width="180" height="88"></rect>
+                  <text class="title" x="532" y="58">Failure branch</text>
+                  <text x="532" y="80">timeout, reject, link error</text>
+                  <text x="532" y="100">notify must still run</text>
+                  <rect class="box" x="725" y="40" width="150" height="72"></rect>
+                  <text class="title" x="753" y="72">Recovery</text>
+                  <text x="753" y="94">state re-aligned</text>
+                  <rect class="box" x="255" y="190" width="170" height="72"></rect>
+                  <text class="title" x="282" y="222">Success branch</text>
+                  <text x="282" y="244">normal notify path</text>
+                  <rect class="box" x="505" y="190" width="180" height="72"></rect>
+                  <text class="title" x="534" y="222">Platform vops</text>
+                  <text x="534" y="244">PHY, clock, firmware side effects</text>
+                  <path class="arrow" d="M175 76 H255"></path>
+                  <path class="arrow" d="M425 76 H505"></path>
+                  <path class="arrow" d="M685 76 H725"></path>
+                  <path class="arrow" d="M340 112 V190"></path>
+                  <path class="arrow" d="M425 226 H505"></path>
+                  <path class="arrow" d="M595 190 V113"></path>
+                </svg>
+              </div>
+
+              <div class="split-notes">
+                <div class="review-box">
+                  <h3>Review 时应该看什么</h3>
+                  <ul>
+                    <li>notify 回调是否在 success 和 failure 两条路径上保持语义对称。</li>
+                    <li>failure notify 是“命令失败后的清理”还是“状态改变通知”，两者不能混用。</li>
+                    <li>是否会改变 runtime PM、clock gating、hibern8 enter/exit retry 的已有顺序。</li>
+                    <li>v5 说明该 patch 已多轮迭代，优先看每版变化和 reviewer 关心的边界。</li>
+                  </ul>
+                </div>
+                <div class="review-box">
+                  <h3>对 UFS 固件开发的启发</h3>
+                  <p>固件接口也要把失败状态当作一等状态。只在成功路径更新影子状态，容易造成 host 以为 link/PHY 仍处于旧状态，而固件已经进入 abort/recovery 分支。调试 hibern8 问题时，日志要能区分 command issue、device response、host recovery 和平台 notify 四个阶段。</p>
+                </div>
+              </div>
+              <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260502143012.2859480-1-hongjiefang@asrmicro.com/" target="_blank" rel="noreferrer">Patchwork</a><a href="https://lore.kernel.org/r/20260502143012.2859480-1-hongjiefang@asrmicro.com" target="_blank" rel="noreferrer">Lore</a></div>
+            </div>
+          </article>
+
+          <article class="topic" id="ufs-dwc">
+            <header>
+              <div class="report-meta"><span>UFS host</span><span>DesignWare</span><span>platform</span><span>v2 series</span></div>
+              <h2>2. StarFive JHB100：平台支持 patch 的核心是“哪些硬件假设可以共用”</h2>
+            </header>
+            <div class="topic-body">
+              <div class="topic-grid">
+                <div class="fact-box">
+                  <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                  <ul>
+                    <li>系列：<code>Add StarFive JHB100 soc UFS platform driver</code>，3 个 patch，状态均为 new / needs review。</li>
+                    <li>binding patch 说明 JHB100 UFS controller 基于 Synopsys DesignWare UFS controller。</li>
+                    <li>common-code patch 说明 AMD Versal2 的 PHY register read/write API 可作为 DesignWare UFS MIPI PHY 共用函数，移动到 <code>ufshcd-dwc.c</code>。</li>
+                    <li>driver patch 增加 <code>drivers/ufs/host/ufs-starfive.c</code>，context 提到 M-PHY/RMMI/UniPro specific configurations。</li>
+                  </ul>
+                </div>
+                <div class="inference-box">
+                  <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                  <p>UFS host driver 通常分三层：UFS core 处理 SCSI/block 对接和 UIC 操作，vendor host glue 处理 clocks/resets/PHY/quirks，PHY driver 或 SoC wrapper 管具体寄存器。DesignWare 类控制器的难点是“IP 相同”不代表平台完全相同，M-PHY、RMMI、UniPro reset 顺序和 PHY register access 可能各家不同。</p>
+                </div>
+              </div>
+
+              <div class="logic-diagram">
+                <div class="diagram-title">Layering question: common DWC helper or platform-specific quirk?</div>
+                <div class="flow four">
+                  <div class="node"><b>DT binding</b><span>compatible, clocks, resets, PHY handles, register resources</span></div>
+                  <div class="node"><b>ufshcd core</b><span>UIC, SCSI host, error handling, runtime PM</span></div>
+                  <div class="node"><b>ufshcd-dwc common</b><span>shared DWC PHY register access and controller operations</span></div>
+                  <div class="node"><b>ufs-starfive</b><span>JHB100-specific M-PHY, RMMI, UniPro setup</span></div>
+                </div>
+              </div>
+
+              <table class="compare-table">
+                <thead><tr><th>Review dimension</th><th>要问的问题</th><th>对 UFS 固件/平台 bring-up 的意义</th></tr></thead>
+                <tbody>
+                  <tr><td>DT binding</td><td>资源是否完整表达硬件依赖，是否把 driver 内部假设泄漏进 binding。</td><td>binding 一旦进入 ABI，错误抽象会长期限制板级变体。</td></tr>
+                  <tr><td>common helper</td><td>从 AMD Versal2 挪到 DWC common 后，函数名和语义是否真的 vendor-neutral。</td><td>固件团队复用平台代码时，要区分 IP-level 行为和 SoC glue 行为。</td></tr>
+                  <tr><td>init order</td><td>M-PHY/RMMI/UniPro 配置发生在 link startup 前后哪个阶段。</td><td>很多 link-up 失败不是设备问题，而是 host 侧寄存器和 PHY 状态机没有按顺序对齐。</td></tr>
+                  <tr><td>failure unwind</td><td>probe 中 clocks/resets/PHY enable 失败后是否完整回滚。</td><td>失败一次后再 probe 成功，是平台驱动质量的重要信号。</td></tr>
+                </tbody>
+              </table>
+              <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260509062759.125472-2-minda.chen@starfivetech.com/" target="_blank" rel="noreferrer">Binding patch</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260509062759.125472-3-minda.chen@starfivetech.com/" target="_blank" rel="noreferrer">DWC common patch</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260509062759.125472-4-minda.chen@starfivetech.com/" target="_blank" rel="noreferrer">StarFive driver patch</a></div>
+            </div>
+          </article>
+
+          <article class="topic" id="loop-race">
+            <header>
+              <div class="report-meta"><span>block</span><span>loop</span><span>race</span><span>check success</span></div>
+              <h2>3. loop_queue_rq 竞态：block freeze 不会自动覆盖 driver 的私有异步队列</h2>
+            </header>
+            <div class="topic-body">
+              <div class="topic-grid">
+                <div class="fact-box">
+                  <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                  <ul>
+                    <li>条目：<code>loop: Fix NULL pointer dereference by synchronizing lo_release and loop_queue_rq</code>。</li>
+                    <li>影响文件：<code>drivers/block/loop.c</code>，状态 new，信号 check: success。</li>
+                    <li>snapshot excerpt 说明 crash 发生在 <code>lo_rw_aio()</code> 访问已被 <code>__loop_clr_fd()</code> 清空的 <code>lo->lo_backing_file</code>。</li>
+                    <li>excerpt 说明修复引入 SRCU-based synchronization，并在 device release 时显式 drain workqueue。</li>
+                  </ul>
+                </div>
+                <div class="inference-box">
+                  <h3><span class="source-tag gpt">GPT interpretation</span> 问题怎样形成</h3>
+                  <p>block layer 的 freeze 主要约束 request queue 的可见状态，但 loop driver 在 <code>queue_rq</code> 之后还把请求交给自己的 workqueue。只要一个 request 已经通过 <code>loop_queue_rq()</code> 的状态检查，还没真正排进或执行私有 work，就存在 teardown 先清 <code>lo_backing_file</code>、异步 work 后访问的窗口。</p>
+                </div>
+              </div>
+
+              <div class="logic-diagram">
+                <div class="diagram-title">Race window across block queue and loop private workqueue</div>
+                <div class="flow">
+                  <div class="node"><b>submit bio</b><span>block layer dispatches request</span></div>
+                  <div class="edge">→</div>
+                  <div class="node"><b>loop_queue_rq</b><span>state check passed, request not fully owned by workqueue yet</span></div>
+                  <div class="edge">→</div>
+                  <div class="node"><b>loop workqueue</b><span>lo_rw_aio later dereferences lo_backing_file</span></div>
+                </div>
+                <div style="height:10px"></div>
+                <div class="flow three">
+                  <div class="node"><b>release path</b><span>lo_release / __loop_clr_fd starts teardown</span></div>
+                  <div class="node"><b>gap</b><span>freeze cannot see every private async handoff</span></div>
+                  <div class="node"><b>fix logic</b><span>SRCU guards handoff and drain waits before freeing backing state</span></div>
+                </div>
+              </div>
+
+              <div class="split-notes">
+                <div class="review-box">
+                  <h3>Review 时应该看什么</h3>
+                  <ul>
+                    <li>SRCU read-side critical section 是否覆盖从 state check 到 work enqueue 的窗口。</li>
+                    <li>release path 的 drain 是否等待所有已越过边界的 work，而不仅仅是 queue freeze。</li>
+                    <li>teardown 对 <code>lo_backing_file</code> 清空、引用释放和 request completion 的顺序是否可证明。</li>
+                  </ul>
+                </div>
+                <div class="review-box">
+                  <h3>对 UFS/固件稳定性的启发</h3>
+                  <p>任何“主队列到私有队列”的交接都是竞态高发区。UFS 中类似场景包括 error handler、async scan、reset work、runtime PM work 和 completion work。仅靠上层状态位或 freeze 不够，必须明确谁拥有对象引用，release 等待的是哪个生命周期边界。</p>
+                </div>
+              </div>
+              <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-block/patch/e33b4060-69d9-4d02-a330-2fbd19249237@I-love.SAKURA.ne.jp/" target="_blank" rel="noreferrer">Patchwork</a><a href="https://lore.kernel.org/r/e33b4060-69d9-4d02-a330-2fbd19249237@I-love.SAKURA.ne.jp" target="_blank" rel="noreferrer">Lore</a></div>
+            </div>
+          </article>
+
+          <article class="topic" id="mpi3mr-sgl">
+            <header>
+              <div class="report-meta"><span>SCSI</span><span>BSG</span><span>critical</span><span>stable candidate</span></div>
+              <h2>4. mpi3mr BSG SGL 越界：用户态长度和 kernel buffer 长度必须在同一个语义域</h2>
+            </header>
+            <div class="topic-body">
+              <div class="topic-grid">
+                <div class="fact-box">
+                  <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                  <ul>
+                    <li>条目：<code>scsi: mpi3mr: fix out-of-bounds write in mpi3mr_bsg_build_sgl()</code>。</li>
+                    <li>影响文件：<code>drivers/scsi/mpi3mr/mpi3mr_app.c</code>，风险标签 critical，信号 needs review。</li>
+                    <li>snapshot excerpt 说明 RAIDMGMT_CMD path 将 <code>kern_buf_len</code> 设为 chain buffer size，但 <code>bsg_buf_len</code> 仍保留用户传入值。</li>
+                    <li>当 <code>bsg_buf_len &gt; kern_buf_len</code> 时，<code>mpi3mr_bsg_build_sgl()</code> 中 unsigned subtraction 使 <code>available_sges</code> underflow，导致越界写；修复是将 <code>bsg_buf_len</code> clamp 到 <code>kern_buf_len</code>。</li>
+                  </ul>
+                </div>
+                <div class="inference-box">
+                  <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                  <p>BSG 是用户态管理工具向 SCSI HBA/RAID 控制器发送 vendor 或 management command 的入口。它看起来不是普通数据 I/O，但本质仍会构造 scatter-gather 描述符交给控制器或 firmware。这里的安全边界是：用户态声明的长度、kernel 预分配的 chain buffer、firmware 可消费的 SGE 数量，三者必须收敛到同一个上限。</p>
+                </div>
+              </div>
+
+              <div class="logic-diagram">
+                <div class="diagram-title">Length mismatch creates SGL overwrite</div>
+                <div class="flow four">
+                  <div class="node"><b>User BSG request</b><span>bsg_buf_len can be larger than real chain buffer</span></div>
+                  <div class="node"><b>RAIDMGMT_CMD path</b><span>kern_buf_len set to chain buffer size</span></div>
+                  <div class="node"><b>SGL builder</b><span>unsigned subtraction underflows available_sges</span></div>
+                  <div class="node"><b>Fix</b><span>clamp bsg_buf_len to kern_buf_len before SGL construction</span></div>
+                </div>
+              </div>
+
+              <table class="compare-table">
+                <thead><tr><th>边界</th><th>错误模式</th><th>review 检查点</th></tr></thead>
+                <tbody>
+                  <tr><td>用户态 ABI</td><td>用户长度被误当作已验证的 kernel 内部长度。</td><td>所有从 ioctl/bsg 进入的 length 都需要最早归一化。</td></tr>
+                  <tr><td>kernel chain buffer</td><td>预分配 buffer 比用户请求短，SGL 计算仍按用户请求走。</td><td>对称检查 CMD 和 RESP 两条路径，避免只有一边 clamp。</td></tr>
+                  <tr><td>firmware command</td><td>错误 SGL 可能把管理命令变成 kernel memory overwrite。</td><td>对固件命令路径应用和数据 I/O 同等级的边界校验。</td></tr>
+                </tbody>
+              </table>
+              <p>对 UFS 固件开发的启发：UFS vendor command、RPMB、FFU、query request 等管理路径也常被当作“控制面”。控制面同样需要严格的 host buffer 长度、device payload 长度和 descriptor 数量一致性校验。</p>
+              <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/SYBPR01MB7881B11E32668EA113475980AF3B2@SYBPR01MB7881.ausprd01.prod.outlook.com/" target="_blank" rel="noreferrer">Patchwork</a><a href="https://lore.kernel.org/r/SYBPR01MB7881B11E32668EA113475980AF3B2@SYBPR01MB7881.ausprd01.prod.outlook.com" target="_blank" rel="noreferrer">Lore</a></div>
+            </div>
+          </article>
+
+          <article class="topic" id="block-nvmem">
+            <header>
+              <div class="report-meta"><span>block</span><span>NVMEM</span><span>embedded</span><span>v2 series</span></div>
+              <h2>5. block-as-NVMEM：把 eMMC 分区当配置 EEPROM 时，lifetime 是第一问题</h2>
+            </header>
+            <div class="topic-body">
+              <div class="topic-grid">
+                <div class="fact-box">
+                  <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                  <ul>
+                    <li>系列：<code>Support for block device NVMEM providers</code>。</li>
+                    <li>核心 patch：<code>[v2,4/8] block: implement NVMEM provider</code>，影响 <code>block/blk-nvmem.c</code>、<code>drivers/nvmem/core.c</code> 和 <code>include/linux/nvmem-consumer.h</code>。</li>
+                    <li>snapshot excerpt 说明嵌入式设备常用 eMMC 分区存 MAC 地址和 Wi-Fi calibration EEPROM data。</li>
+                    <li>excerpt 还说明新增 <code>nvmem_dev()</code> accessor，让 provider private data 的释放延后到 consumers release cells 之后。</li>
+                  </ul>
+                </div>
+                <div class="inference-box">
+                  <h3><span class="source-tag gpt">GPT interpretation</span> 问题怎样形成</h3>
+                  <p>这不是“从 block device 读几个字节”那么简单。NVMEM consumer 可能在 Wi-Fi、Bluetooth 或网络驱动里长期持有 cell 引用，而 block provider 可能随设备移除、分区重扫、devm teardown 被释放。private data 如果跟 provider device 生命周期绑定得太短，consumer 释放 cell 时就可能访问已释放对象。</p>
+                </div>
+              </div>
+
+              <div class="logic-diagram">
+                <div class="diagram-title">Provider and consumer lifetime</div>
+                <div class="flow five">
+                  <div class="node"><b>eMMC / block partition</b><span>stores MAC, calibration, board data</span></div>
+                  <div class="edge">→</div>
+                  <div class="node"><b>blk-nvmem provider</b><span>maps partition bytes into NVMEM cells</span></div>
+                  <div class="edge">→</div>
+                  <div class="node"><b>Consumers</b><span>Wi-Fi, Bluetooth, networking drivers</span></div>
+                </div>
+                <div style="height:10px"></div>
+                <div class="flow three">
+                  <div class="node"><b>Risk</b><span>provider private data freed before all cell users release</span></div>
+                  <div class="node"><b>Patch direction</b><span>register devm action on nvmem device lifetime</span></div>
+                  <div class="node"><b>Review point</b><span>ensure block teardown and NVMEM cell release order is explicit</span></div>
+                </div>
+              </div>
+
+              <div class="split-notes">
+                <div class="review-box">
+                  <h3>Review 时应该看什么</h3>
+                  <ul>
+                    <li>cell read 路径是否处理 block device disappearance、I/O error、partition size mismatch。</li>
+                    <li>DT 中引用分区的语义是否稳定，避免把易变分区布局当硬 ABI。</li>
+                    <li>NVMEM provider private data 的释放是否跟 nvmem device 而不是 parent block device 粗略绑定。</li>
+                  </ul>
+                </div>
+                <div class="review-box">
+                  <h3>对 UFS/固件开发的启发</h3>
+                  <p>UFS 设备也可能承载出厂校准、板级配置或 provisioning 数据。把这些数据暴露给内核其他子系统时，最重要的不是读取 API 有多薄，而是断电、热移除、分区变更、consumer late release 时是否仍有清晰 lifetime 规则。</p>
+                </div>
+              </div>
+              <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-block/patch/20260507-block-as-nvmem-v2-4-bf17edd5134e@oss.qualcomm.com/" target="_blank" rel="noreferrer">Patchwork</a><a href="https://lore.kernel.org/r/20260507-block-as-nvmem-v2-4-bf17edd5134e@oss.qualcomm.com" target="_blank" rel="noreferrer">Lore</a></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="report-section">
+          <div class="report-section-head"><p class="eyebrow">Brief notes</p><h2>补充阅读线索</h2></div>
+          <div class="brief-list">
+            <div class="brief-item"><h3>blk-mq stale cached request</h3><p><span class="source-tag fact">snapshot fact</span> <code>[PATCHv2] blk-mq: check for stale cached request in blk_mq_submit_bio</code>，Patchwork check success。<span class="source-tag gpt">GPT interpretation</span> 适合补读 request cache、queue mapping 和 submit path 中“复用对象是否仍属于当前 queue/context”的不变量。</p></div>
+            <div class="brief-item"><h3>UFS bRefClkFreq write failure in HS-LSS mode</h3><p><span class="source-tag fact">snapshot fact</span> accepted fix，风险标签 error-handling。<span class="source-tag gpt">GPT interpretation</span> 可作为 UFS attribute write、link mode 和 error handling 的短案例，尤其适合检查“低速/特殊 mode 是否走了和 HS mode 不同的 guard”。</p></div>
+            <div class="brief-item"><h3>SCSI lock context analysis</h3><p><span class="source-tag fact">snapshot fact</span> Bart Van Assche 的 56-patch series 中包含 <code>Enable lock context analysis</code> 和 <code>Protect host state changes with the host lock</code>。<span class="source-tag gpt">GPT interpretation</span> 适合系统性学习 host state、spinlock context 和 SCSI core 并发注解。</p></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

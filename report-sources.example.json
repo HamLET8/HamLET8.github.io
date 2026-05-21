@@ -1,0 +1,53 @@
+{
+  "siteTitle": "Reports",
+  "siteSubtitle": "A public reading portal for locally generated HTML reports.",
+  "baseUrl": "https://hamlet8.github.io/reports/",
+  "sections": [
+    {
+      "id": "trading",
+      "title": "Trading System",
+      "description": "Trading-system learning, review, and execution reports.",
+      "collections": [
+        {
+          "id": "trading-system-15-days",
+          "title": "Trading System 15-Day Learning",
+          "description": "Daily HTML reports generated from a local learning workflow.",
+          "source": "/absolute/path/to/trading-system-15-days",
+          "destination": "reports/trading/trading-system-15-days",
+          "entry": "00_plan.html",
+          "tags": ["trading", "system", "learning"],
+          "copy": [
+            {
+              "from": ".",
+              "to": ".",
+              "extensions": [".html"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tech",
+      "title": "Technical Reports",
+      "description": "Storage, filesystem, and code-design reading reports.",
+      "collections": [
+        {
+          "id": "ssd-ftl",
+          "title": "SSD / FTL Code Design Reading",
+          "description": "A standalone HTML sequence for SSD and FTL design review.",
+          "source": "/absolute/path/to/code-design-reading-plan/html",
+          "destination": "reports/tech/ssd-ftl",
+          "entry": "index.html",
+          "tags": ["ssd", "ftl", "code design"],
+          "copy": [
+            {
+              "from": ".",
+              "to": ".",
+              "extensions": [".html"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

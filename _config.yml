@@ -212,8 +212,10 @@ exclude:
   - "*.gemspec"
   - docs
   - tools
+  - scripts
   - README.md
   - LICENSE
+  - report-sources*.json
   - "*.config.js"
   - package*.json
 

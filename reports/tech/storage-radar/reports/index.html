@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Reading Reports</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css?v=20260519-report">
+    <style>
+      .technical-report .report-hero h1 { max-width: 980px; }
+      .technical-report .lead { max-width: 900px; font-size: 16px; line-height: 1.75; color: var(--muted); }
+      .tech-layout { display: grid; gap: 18px; margin-top: 18px; }
+      .tech-block { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .tech-block > header { padding: 18px; border-bottom: 1px solid var(--line); }
+      .tech-block > header h2 { margin: 6px 0 0; font-size: 24px; line-height: 1.2; }
+      .tech-body { display: grid; gap: 16px; padding: 18px; }
+      .tech-body p, .tech-body li { color: var(--muted); font-size: 14px; line-height: 1.72; }
+      .tech-body p { margin: 0; }
+      .tech-body h3 { margin: 0 0 8px; color: var(--ink); font-size: 16px; }
+      .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr); gap: 14px; }
+      .note-box { padding: 14px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .note-box strong { color: var(--ink); }
+      .diagram { display: grid; gap: 10px; padding: 14px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .diagram-title { color: var(--subtle); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      .flow-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: center; }
+      .flow-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .flow-box { min-height: 74px; display: grid; align-content: center; gap: 5px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; }
+      .flow-box b { font-size: 12px; color: var(--ink); }
+      .flow-box span { color: var(--subtle); font-size: 11px; line-height: 1.4; }
+      .arrow { color: var(--accent-hover); text-align: center; font-weight: 700; }
+      .wait-graph { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .wait-node { padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; }
+      .wait-node h4 { margin: 0 0 6px; font-size: 13px; }
+      .wait-node p { font-size: 12px; line-height: 1.55; }
+      .edge-list { display: grid; gap: 8px; margin-top: 10px; }
+      .edge-list div { padding: 9px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; }
+      .tech-table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+      .tech-table th, .tech-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; line-height: 1.55; }
+      .tech-table th { color: var(--subtle); background: var(--panel-strong); font-weight: 700; }
+      .tech-table td { color: var(--muted); }
+      .lesson-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .lesson-card { padding: 13px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .lesson-card h3 { font-size: 14px; }
+      .reading-order { counter-reset: item; display: grid; gap: 1px; background: var(--line); }
+      .reading-order a { counter-increment: item; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; padding: 14px; color: inherit; background: var(--panel); text-decoration: none; }
+      .reading-order a:before { content: counter(item); width: 26px; height: 26px; display: grid; place-items: center; color: var(--accent-hover); background: var(--accent-soft); border: 1px solid rgba(94,106,210,.28); border-radius: 50%; font-family: var(--font-mono); font-size: 12px; }
+      .reading-order strong { display: block; margin-top: 4px; font-size: 14px; }
+      .reading-order p { margin: 5px 0 0; color: var(--subtle); font-size: 12px; line-height: 1.5; }
+      @media (max-width: 900px) { .two-col, .flow-row, .flow-row.three, .wait-graph, .lesson-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body><div class="report-page-shell"><main class="report-page"><nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav><header class="report-hero"><p class="eyebrow">Scheduled reports</p><h1>Storage Reading Reports</h1><p>每周二、周四、周六由 Codex 侧 GPT-5.5 生成真正的技术报告：梳理背景、问题结构、修复逻辑和阅读检查点。</p><div class="report-stats"><span>2 reports</span><span>Tue / Thu / Sat</span><span>GPT-5.5</span></div></header><section class="report-section"><div class="report-section-head"><p class="eyebrow">Archive</p><h2>Generated Reports</h2></div><div class="report-index-list"><a class="report-index-item" href="./report-2026-05-21-gpt-linux-storage.html"><div><div class="report-meta"><span>2026-05-21T05:23:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div><strong>Linux Storage Technical Reading · 2026-05-21 · GPT</strong><p>精选 UFS hibern8 notify、StarFive/DWC UFS 平台化、loop queue/workqueue 竞态、mpi3mr BSG SGL 越界和 block-as-NVMEM lifetime 语义。</p></div><span aria-hidden="true">→</span></a><a class="report-index-item" href="./report-2026-05-20-technical-gpt.html"><div><div class="report-meta"><span>2026-05-20T00:52:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div><strong>Storage Technical Report · 2026-05-20 · GPT</strong><p>重写为技术报告：重点解释 UFS QCOM ICE probe race、F2FS gc_merge deadlock、iomap REQ_POLLED/REQ_NOWAIT 语义，并补充 UFS tracepoint 与 Hawi PHY bring-up 的阅读线索。</p></div><span aria-hidden="true">→</span></a></div></section></main></div></body>
+</html>

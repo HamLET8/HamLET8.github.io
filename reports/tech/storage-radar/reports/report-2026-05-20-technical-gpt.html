@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Technical Report · 2026-05-20 · GPT</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css?v=20260519-report">
+    <style>
+      .technical-report .report-hero h1 { max-width: 980px; }
+      .technical-report .lead { max-width: 900px; font-size: 16px; line-height: 1.75; color: var(--muted); }
+      .tech-layout { display: grid; gap: 18px; margin-top: 18px; }
+      .tech-block { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .tech-block > header { padding: 18px; border-bottom: 1px solid var(--line); }
+      .tech-block > header h2 { margin: 6px 0 0; font-size: 24px; line-height: 1.2; }
+      .tech-body { display: grid; gap: 16px; padding: 18px; }
+      .tech-body p, .tech-body li { color: var(--muted); font-size: 14px; line-height: 1.72; }
+      .tech-body p { margin: 0; }
+      .tech-body h3 { margin: 0 0 8px; color: var(--ink); font-size: 16px; }
+      .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr); gap: 14px; }
+      .note-box { padding: 14px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .note-box strong { color: var(--ink); }
+      .diagram { display: grid; gap: 10px; padding: 14px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .diagram-title { color: var(--subtle); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      .flow-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: center; }
+      .flow-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .flow-box { min-height: 74px; display: grid; align-content: center; gap: 5px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; }
+      .flow-box b { font-size: 12px; color: var(--ink); }
+      .flow-box span { color: var(--subtle); font-size: 11px; line-height: 1.4; }
+      .arrow { color: var(--accent-hover); text-align: center; font-weight: 700; }
+      .wait-graph { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .wait-node { padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; }
+      .wait-node h4 { margin: 0 0 6px; font-size: 13px; }
+      .wait-node p { font-size: 12px; line-height: 1.55; }
+      .edge-list { display: grid; gap: 8px; margin-top: 10px; }
+      .edge-list div { padding: 9px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; }
+      .tech-table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+      .tech-table th, .tech-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; line-height: 1.55; }
+      .tech-table th { color: var(--subtle); background: var(--panel-strong); font-weight: 700; }
+      .tech-table td { color: var(--muted); }
+      .lesson-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .lesson-card { padding: 13px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; }
+      .lesson-card h3 { font-size: 14px; }
+      .reading-order { counter-reset: item; display: grid; gap: 1px; background: var(--line); }
+      .reading-order a { counter-increment: item; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; padding: 14px; color: inherit; background: var(--panel); text-decoration: none; }
+      .reading-order a:before { content: counter(item); width: 26px; height: 26px; display: grid; place-items: center; color: var(--accent-hover); background: var(--accent-soft); border: 1px solid rgba(94,106,210,.28); border-radius: 50%; font-family: var(--font-mono); font-size: 12px; }
+      .reading-order strong { display: block; margin-top: 4px; font-size: 14px; }
+      .reading-order p { margin: 5px 0 0; color: var(--subtle); font-size: 12px; line-height: 1.5; }
+      @media (max-width: 900px) { .two-col, .flow-row, .flow-row.three, .wait-graph, .lesson-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body><div class="report-page-shell technical-report"><main class="report-page">
+  <nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav>
+  <header class="report-hero">
+    <p class="eyebrow">Technical report</p>
+    <h1>Storage Technical Report · 2026-05-20 · GPT</h1>
+    <p class="lead">这份报告不是链接摘要，而是把最近几条值得读的 patch 当作学习材料来拆解。重点不在“发生了什么”，而在“为什么这类问题会出现、代码路径如何相互影响、读 patch 时应该抓住哪些不变量”。</p>
+    <div class="report-stats"><span>Generated 2026-05-20T00:52:00+08:00</span><span>Snapshot 2026-05-20 00:09 CST</span><span>GPT-5.5 / Codex-side</span><span>5 technical topics</span></div>
+  </header>
+
+  <section class="report-section">
+    <div class="report-section-head"><p class="eyebrow">Map first</p><h2>本期阅读地图</h2></div>
+    <div class="tech-body">
+      <p>这些 patch 可以放在一条从设备到文件系统的路径上理解：UFS 平台初始化决定设备是否可靠上线；UFS core tracepoint 影响热路径可观测成本；iomap direct I/O 定义上层如何提交和等待 I/O；F2FS 的 GC/writeback 决定真实负载下是否会长时间等待或触发崩溃。</p>
+      <div class="diagram">
+        <div class="diagram-title">Storage stack relation</div>
+        <div class="flow-row">
+          <div class="flow-box"><b>UFS PHY / Platform</b><span>SoC compatible, PHY table, ICE provider</span></div>
+          <div class="arrow">→</div>
+          <div class="flow-box"><b>UFS Host / MCQ</b><span>ufshcd, tracepoints, completion path</span></div>
+          <div class="arrow">→</div>
+          <div class="flow-box"><b>SCSI / Block / FS</b><span>bio, polling, iomap, F2FS writeback</span></div>
+        </div>
+      </div>
+      <div class="reading-order">
+        <a href="#ufs-ice"><div><span class="badge priority-must-read">must read</span><strong>UFS QCOM ICE probe race</strong><p>学习 provider/consumer 初始化时序和错误返回协议。</p></div></a>
+        <a href="#f2fs-deadlock"><div><span class="badge priority-must-read">must read</span><strong>F2FS gc_merge deadlock</strong><p>把 GC、writeback、folio lock 画成等待图。</p></div></a>
+        <a href="#iomap-polled"><div><span class="badge priority-watch">watch</span><strong>REQ_POLLED 与 REQ_NOWAIT</strong><p>厘清性能测试中 polling 和 nonblocking 的语义边界。</p></div></a>
+        <a href="#ufs-trace"><div><span class="badge priority-reference">reference</span><strong>UFS tracepoint hot path</strong><p>学习可观测性如何避免污染未启用时热路径。</p></div></a>
+        <a href="#ufs-hawi"><div><span class="badge priority-reference">reference</span><strong>Hawi UFS PHY bring-up</strong><p>看平台支持 patch 应如何检查硬件假设。</p></div></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="tech-layout">
+    <article class="tech-block" id="ufs-ice"><header><div class="report-meta"><span>UFS</span><span>race</span><span>platform</span><span>v7</span></div><h2>1. UFS QCOM ICE：真正的问题不是 NULL，而是 probe 时序</h2></header><div class="tech-body">
+      <div class="two-col"><div><h3>问题拆解</h3><p>patch 标题是删除 <code>devm_of_qcom_ice_get()</code> 的 NULL 检查，但这只是表层。真正的变化是 helper 的返回协议已经收敛：它不再用 NULL 表达“没有拿到对象”，而是用明确的错误值表达失败或延迟。UFS consumer 侧继续保留 NULL 分支，会让读代码的人误以为 NULL 仍是合法状态，也可能让错误路径的语义变得不一致。</p><p>这类问题对 UFS 固件开发者有实际意义。Inline crypto、PHY、clock、power domain 等资源经常由另一个 platform driver 发布。consumer 太早取资源时，正确行为通常不是继续跑，而是推迟 probe 或返回明确错误。否则你看到的可能不是稳定复现的 probe failure，而是某些板子、某些启动顺序下的偶发能力缺失。</p></div><div class="note-box"><strong>阅读目标</strong><p>不要只看删除了几行。要追 helper 定义、所有调用方、返回值约定，以及 reviewer 是否确认 optional ICE 与 OP-TEE/TZ 场景。</p><div class="report-code-list"><code>drivers/ufs/host/ufs-qcom.c</code></div></div></div>
+      <div class="diagram"><div class="diagram-title">Return protocol matters</div><div class="flow-row"><div class="flow-box"><b>ICE provider</b><span>qcom_ice_probe publishes resource</span></div><div class="arrow">→</div><div class="flow-box"><b>helper</b><span>devm_of_qcom_ice_get()</span></div><div class="arrow">→</div><div class="flow-box"><b>UFS consumer</b><span>must handle object vs ERR_PTR</span></div></div></div>
+      <div class="lesson-grid"><div class="lesson-card"><h3>要检查什么</h3><p>所有调用方是否都已经从 NULL 分支迁移到错误码分支。</p></div><div class="lesson-card"><h3>为什么是 v7</h3><p>版本号高通常说明 review 已经围绕接口语义、兼容性或测试场景反复收敛。</p></div><div class="lesson-card"><h3>迁移到你的工作</h3><p>固件能力发现接口也应避免含糊状态，尤其是“暂不可用”和“永久不存在”。</p></div></div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260518-qcom-ice-fix-v7-5-2a595382185b@oss.qualcomm.com/" target="_blank" rel="noreferrer">Open original</a>
+    </div></article>
+
+    <article class="tech-block" id="f2fs-deadlock"><header><div class="report-meta"><span>F2FS</span><span>locking</span><span>writeback</span><span>GC_MERGE</span></div><h2>2. F2FS gc_merge：先画等待关系，再看修复</h2></header><div class="tech-body">
+      <p>这条 patch 的价值很高，因为它不是单点 bug，而是一个跨路径等待环。写回路径把 data bio 缓存在内部队列里，然后进入 <code>f2fs_balance_fs()</code> 唤醒 GC 并等待；truncation 路径锁 folio 并等待 writeback 清除；GC 线程又试图锁同一个 folio。结果是三个路径互相等待。</p>
+      <div class="diagram"><div class="diagram-title">Wait-for graph</div><div class="wait-graph"><div class="wait-node"><h4>Kworker writeback</h4><p>folio_start_writeback 后缓存 bio，进入 f2fs_balance_fs()，等待 GC 线程完成。</p></div><div class="wait-node"><h4>GC thread</h4><p>foreground GC 被唤醒，move_data_page 时需要锁目标 folio。</p></div><div class="wait-node"><h4>Truncator</h4><p>持有或等待 folio lock，并等待 writeback 标志被清除。</p></div></div><div class="edge-list"><div>Kworker → waits for GC thread</div><div>GC thread → waits for folio lock</div><div>Truncator → waits for writeback completion</div><div>writeback completion → stuck behind cached bio not submitted</div></div></div>
+      <div class="two-col"><div><h3>修复逻辑</h3><p>patch 让 GC_MERGE 路径像 NOGC_MERGE 路径一样，在等待前提交 cached data bios 和 IPU writes。也就是说，修复不是“加锁”，而是打破等待环：先把会释放 writeback 条件的 I/O 推出去，再等待 GC。</p></div><div class="note-box"><strong>阅读检查点</strong><ul><li>确认提交 cached bio 的时机不会破坏 write ordering。</li><li>确认 GC_MERGE 和 NOGC_MERGE 行为收敛是否合理。</li><li>注意 Cc stable 和 Fixes tag，它说明这是稳定性修复，不只是优化。</li></ul><div class="report-code-list"><code>fs/f2fs/segment.c</code></div></div></div>
+      <p>对 UFS 性能调优的启发：用户看到的“设备慢”不一定来自设备。上层文件系统的 GC、writeback、folio lock 等待会把 I/O 延迟放大，并且最终表现为 tail latency 或 D state。</p>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/f2fs/patch/20260519011438.1168155-1-chao@kernel.org/" target="_blank" rel="noreferrer">Open original</a>
+    </div></article>
+
+    <article class="tech-block" id="iomap-polled"><header><div class="report-meta"><span>MM / Block</span><span>direct I/O</span><span>polling</span></div><h2>3. iomap：REQ_POLLED 不是 REQ_NOWAIT</h2></header><div class="tech-body">
+      <p>这条 patch 适合作为性能调优基础知识。<code>REQ_POLLED</code> 表示调用方希望通过轮询完成 I/O，减少中断路径影响；<code>REQ_NOWAIT</code> 表示提交路径不能睡眠。二者目标不同，不能因为都和低延迟相关就绑定在一起。</p>
+      <table class="tech-table"><thead><tr><th>概念</th><th>含义</th><th>读 patch 时的判断</th></tr></thead><tbody><tr><td>REQ_POLLED</td><td>completion 侧通过 polling 等待结果。</td><td>关注完成路径、CPU 消耗、中断规避和尾延迟。</td></tr><tr><td>REQ_NOWAIT</td><td>submit 侧不允许阻塞。</td><td>关注页锁、块映射、元数据分配失败时如何返回。</td></tr><tr><td>iomap direct write</td><td>文件系统写入不是简单 bio 操作。</td><td>不能只重试 bio；错误恢复可能需要重试更大的文件系统操作。</td></tr></tbody></table>
+      <div class="diagram"><div class="diagram-title">Two different axes</div><div class="flow-row three"><div class="flow-box"><b>Submit path</b><span>may need mapping, locks, metadata</span></div><div class="flow-box"><b>Completion path</b><span>polling can reduce interrupt overhead</span></div><div class="flow-box"><b>Retry model</b><span>file writes are not simple bio-level retries</span></div></div></div>
+      <p>对你的 UFS 性能实验来说，这条提醒很实用：记录 hipri/polling/nowait 时要分开。否则你可能把“轮询完成带来的收益”误判成“非阻塞提交语义”的收益。</p><div class="report-code-list"><code>fs/iomap/direct-io.c</code><code>include/linux/bio.h</code></div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-block/patch/20260518062917.506483-1-hch@lst.de/" target="_blank" rel="noreferrer">Open original</a>
+    </div></article>
+
+    <article class="tech-block" id="ufs-trace"><header><div class="report-meta"><span>UFS</span><span>tracepoint</span><span>hot path</span></div><h2>4. UFS tracepoint：可观测性也要守住热路径成本</h2></header><div class="tech-body"><p>这条 patch 把已经被 <code>trace_foo_enabled()</code> 包住的调用点改成 <code>trace_call__foo()</code>，避免进入 trace 宏后再次执行 static branch 判断。它不是功能修复，但展示了内核在热路径上的标准：未启用 tracing 时，观测设施应尽量接近零成本。</p><div class="note-box"><strong>阅读检查点</strong><p>逐个确认替换点外层确实有 enabled guard；确认参数求值和上下文没有变化；关注 reviewer 是否要求这类改动在其他子系统保持一致。</p><div class="report-code-list"><code>drivers/ufs/core/ufshcd.c</code></div></div><a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260515135946.2238888-1-vineeth@bitbyteword.org/" target="_blank" rel="noreferrer">Open original</a></div></article>
+
+    <article class="tech-block" id="ufs-hawi"><header><div class="report-meta"><span>UFS</span><span>PHY</span><span>platform bring-up</span></div><h2>5. Hawi UFS PHY：平台 patch 要看硬件假设如何进入通用驱动</h2></header><div class="tech-body"><p>Hawi UFS PHY 支持属于平台 bring-up，不一定马上影响你的核心路径，但很适合学习 upstream 如何接收新 SoC 支持。重点看 compatible、PHY init sequence、clock/reset/power 描述是否只影响新平台，以及是否复用了相近 QMP UFS PHY 版本。</p><div class="diagram"><div class="diagram-title">Bring-up review path</div><div class="flow-row"><div class="flow-box"><b>DT binding</b><span>compatible and resources</span></div><div class="arrow">→</div><div class="flow-box"><b>PHY table</b><span>init sequence and version data</span></div><div class="arrow">→</div><div class="flow-box"><b>UFS host</b><span>link quality and power sequence</span></div></div></div><div class="report-code-list"><code>drivers/phy/qualcomm/phy-qcom-qmp-ufs.c</code><code>Documentation/devicetree/bindings/ufs/qcom,sm8650-ufshc.yaml</code></div><a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260518165346.1732548-4-palash.kambar@oss.qualcomm.com/" target="_blank" rel="noreferrer">Open original</a></div></article>
+  </section>
+
+  <section class="report-section"><div class="report-section-head"><p class="eyebrow">Source caveat</p><h2>syzbot 状态</h2></div><div class="tech-body"><p>工作站当前访问 <code>syzkaller.appspot.com:443</code> 超时，最新快照的 <code>sourceHealth.syzbot</code> 显示 block/scsi 两个 subsystem 都是 fetch failed。本报告没有把 syzbot 列表作为主要输入；但 Patchwork 中引用 syzbot 的 F2FS 修复仍然可以正常分析。</p></div></section>
+</main></div></body>
+</html>

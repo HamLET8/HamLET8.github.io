@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Day 1 - 交易不是预测，而是系统</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #5f6f7f;
+      --line: #d9e0e8;
+      --navy: #113247;
+      --blue: #2563eb;
+      --green: #13795b;
+      --amber: #a15c07;
+      --red: #b42318;
+      --soft-blue: #eaf1ff;
+      --soft-green: #e8f5ef;
+      --soft-amber: #fff4df;
+      --soft-red: #fff0ed;
+      --soft-gray: #eef2f6;
+      --shadow: 0 18px 46px rgba(31, 41, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, #e9eef4 0, rgba(233, 238, 244, 0) 360px),
+        var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .page {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--soft-blue);
+      color: var(--blue);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .hero {
+      background: var(--navy);
+      color: #fff;
+      border-radius: 8px;
+      padding: clamp(24px, 5vw, 48px);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 26px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      bottom: -100px;
+      width: 300px;
+      height: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      transform: rotate(34deg);
+    }
+
+    .hero-content,
+    .hero-panel {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5.4vw, 4.6rem);
+      line-height: 1.04;
+      max-width: 760px;
+    }
+
+    .lead {
+      max-width: 760px;
+      margin: 18px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: clamp(1rem, 2.1vw, 1.18rem);
+    }
+
+    .hero-panel {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      padding: 18px;
+      align-self: start;
+    }
+
+    .summary-item {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 12px 0;
+    }
+
+    .summary-item:first-child {
+      padding-top: 0;
+    }
+
+    .summary-item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .summary-item span {
+      display: block;
+      color: rgba(255, 255, 255, 0.64);
+      font-size: 0.82rem;
+      margin-bottom: 3px;
+    }
+
+    .summary-item strong {
+      display: block;
+      color: #fff;
+      line-height: 1.5;
+    }
+
+    section {
+      margin-top: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(20px, 4vw, 34px);
+      box-shadow: 0 10px 26px rgba(31, 41, 51, 0.04);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(1.35rem, 2.8vw, 2rem);
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.06rem;
+      line-height: 1.35;
+    }
+
+    p {
+      margin: 0 0 12px;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: var(--muted);
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .goal-grid,
+    .book-grid,
+    .concept-grid,
+    .case-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .goal,
+    .book-card,
+    .concept-card,
+    .case-card,
+    .exercise-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 16px;
+    }
+
+    .goal strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 5px;
+    }
+
+    .book-card.tharp {
+      border-top: 4px solid var(--blue);
+    }
+
+    .book-card.marks {
+      border-top: 4px solid var(--green);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--soft-gray);
+      color: #334155;
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .fusion {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .fusion-note {
+      background: var(--soft-amber);
+      border: 1px solid #f4d39a;
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .fusion-note strong {
+      color: var(--amber);
+    }
+
+    .system-map {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .system-node {
+      min-height: 112px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .system-node strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+
+    .system-node span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf2f7;
+      color: #314255;
+      font-size: 0.88rem;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .flow-card {
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .flow-card.bad {
+      background: var(--soft-red);
+      border-color: #ffd0c7;
+    }
+
+    .flow-card.good {
+      background: var(--soft-green);
+      border-color: #bfe8d4;
+    }
+
+    .flow-steps {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(100, 116, 139, 0.16);
+    }
+
+    .step b {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.86rem;
+    }
+
+    .step span {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .svg-box {
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      margin-top: 12px;
+      padding: 10px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .case-card strong {
+      color: var(--ink);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .data-block {
+      background: #111827;
+      color: #dbeafe;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92rem;
+      line-height: 1.65;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      margin: 12px 0 0;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 10px;
+    }
+
+    .check-item {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+    }
+
+    .box {
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--blue);
+      border-radius: 5px;
+      margin-top: 2px;
+      background: #fff;
+    }
+
+    .footer {
+      margin-top: 22px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 880px) {
+      .page {
+        width: min(100% - 20px, 1160px);
+        padding-top: 16px;
+      }
+
+      .topbar,
+      .hero,
+      .goal-grid,
+      .book-grid,
+      .concept-grid,
+      .case-grid,
+      .fusion,
+      .system-map,
+      .flow-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .hero {
+        padding: 24px 18px;
+      }
+
+      section {
+        padding: 20px 16px;
+      }
+
+      table {
+        min-width: 720px;
+      }
+    }
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <span>15天交易系统阅读学习 · Day 1</span>
+      <span class="badge">Learning Only</span>
+    </div>
+
+    <header class="hero">
+      <div class="hero-content">
+        <p class="eyebrow">Day 1 / 15</p>
+        <h1>交易不是预测，而是系统</h1>
+        <p class="lead">今天的核心转向：把“我觉得市场会怎样”改写为“在何种条件下，我如何控制风险、执行规则并复盘结果”。</p>
+      </div>
+      <aside class="hero-panel" aria-label="顶部摘要区">
+        <div class="summary-item">
+          <span>一句话核心判断</span>
+          <strong>交易优势不来自持续预测正确，而来自可重复的规则、可承受的风险和可纠错的反馈机制。</strong>
+        </div>
+        <div class="summary-item">
+          <span>今日关键词</span>
+          <strong>系统 · 信念 · R 倍数 · 仓位 · 纪律 · 复盘</strong>
+        </div>
+        <div class="summary-item">
+          <span>今日风险提醒</span>
+          <strong>不要把任何教学案例理解为买卖信号；本日训练只用于建立决策框架，不用于实盘冲动交易。</strong>
+        </div>
+      </aside>
+    </header>
+
+    <section>
+      <h2>今日学习目标</h2>
+      <div class="goal-grid">
+        <div class="goal"><strong>1. 区分预测和系统</strong><p>能说清“猜方向”和“定义规则、风险、退出、复盘”的区别。</p></div>
+        <div class="goal"><strong>2. 识别系统组件</strong><p>列出一个交易系统至少应包含的信念、市场、入场、退出、仓位和日志。</p></div>
+        <div class="goal"><strong>3. 建立风险先行语言</strong><p>在讨论机会前先问：如果错了，损失边界在哪里，是否会影响继续学习。</p></div>
+        <div class="goal"><strong>4. 连接两本书</strong><p>理解 Tharp 的执行框架如何帮助落实 Marks 的风险意识和二阶思维。</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>两本书的核心思想</h2>
+      <div class="book-grid">
+        <article class="book-card tharp">
+          <h3>Van K. Tharp：交易系统先于交易观点</h3>
+          <p>Tharp 的重点不是寻找神奇入场点，而是让交易者把自己的目标、信念、市场假设、入场条件、退出规则、仓位规模和复盘机制组织成一个完整系统。系统的价值在于它能被执行、被统计、被纠错。</p>
+          <p>在这个框架中，单笔交易只是长期样本的一部分。真正需要观察的是每次承担的风险单位、亏损是否受控、盈利是否足以补偿亏损，以及交易者是否按规则行动。</p>
+          <div class="pill-row">
+            <span class="pill">R 倍数</span>
+            <span class="pill">期望值</span>
+            <span class="pill">仓位管理</span>
+            <span class="pill">纪律</span>
+          </div>
+        </article>
+
+        <article class="book-card marks">
+          <h3>Howard Marks：优秀决策来自风险识别</h3>
+          <p>Marks 强调，投资和交易中的关键不是预测下一段行情，而是在不确定性中识别风险是否被低估、价格是否过度反映共识、周期位置是否让人变得过度自信。</p>
+          <p>他提醒读者，风险常在市场看起来最安全时累积。安全边际、二阶思维和防守意识，不是让人永远保守，而是让人在信息不完整时不把自己暴露在不可恢复的损失中。</p>
+          <div class="pill-row">
+            <span class="pill">二阶思维</span>
+            <span class="pill">市场周期</span>
+            <span class="pill">安全边际</span>
+            <span class="pill">防守</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>融合解释</h2>
+      <div class="fusion">
+        <div class="fusion-note">
+          <h3>今天的整合句</h3>
+          <p><strong>Marks 告诉你为什么必须谦逊地面对不确定性；Tharp 提供把这种谦逊落成规则的方法。</strong></p>
+          <p>如果只读 Marks，容易停留在“要重视风险”的原则层面；如果只读 Tharp，容易把系统当成机械信号。二者结合后，交易系统既要能执行，也要能承认周期、情绪和错误定价会改变风险环境。</p>
+        </div>
+        <div class="system-map" aria-label="交易系统组件图">
+          <div class="system-node"><strong>信念与目标</strong><span>我为什么交易，能承受什么损失，学习目标是否高于短期刺激。</span></div>
+          <div class="system-node"><strong>市场环境</strong><span>当前情绪、周期和风险补偿是否支持参与，是否存在明显拥挤。</span></div>
+          <div class="system-node"><strong>入场条件</strong><span>不是“感觉会上涨”，而是满足预先定义的观察条件。</span></div>
+          <div class="system-node"><strong>退出规则</strong><span>亏损退出、盈利退出、时间退出和系统失效退出必须事前写清。</span></div>
+          <div class="system-node"><strong>仓位管理</strong><span>每笔风险先被限制，再谈潜在收益，避免一次错误毁掉长期样本。</span></div>
+          <div class="system-node"><strong>复盘反馈</strong><span>记录是否按系统执行，以及错误来自规则、环境还是心理。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>图表化理解</h2>
+      <h3>图表 1：预测型交易 vs 系统型交易</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>维度</th>
+              <th>预测型交易</th>
+              <th>系统型交易</th>
+              <th>学习重点</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>核心问题</td>
+              <td>下一步会涨还是会跌？</td>
+              <td>在什么条件下参与，错了如何退出？</td>
+              <td>把方向判断降级为系统中的一个输入。</td>
+            </tr>
+            <tr>
+              <td>风险定义</td>
+              <td>价格波动让我不舒服。</td>
+              <td>预设亏损、仓位暴露和失控行为边界。</td>
+              <td>先定义能承受的错误，再讨论机会。</td>
+            </tr>
+            <tr>
+              <td>结果评价</td>
+              <td>这次赚钱就是对，亏钱就是错。</td>
+              <td>过程合规、R 倍数分布、期望值和复盘结论。</td>
+              <td>短期结果不能替代长期样本。</td>
+            </tr>
+            <tr>
+              <td>心理状态</td>
+              <td>容易追随情绪、新闻和他人观点。</td>
+              <td>用规则限制冲动，用日志暴露重复错误。</td>
+              <td>纪律不是意志力口号，而是流程设计。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="margin-top:22px;">图表 2：从“观点”到“系统”的决策流程</h3>
+      <div class="flow-wrap">
+        <div class="flow-card bad">
+          <h3>脆弱流程</h3>
+          <div class="flow-steps">
+            <div class="step"><b>1</b><span>看到价格快速变化或听到强烈观点。</span></div>
+            <div class="step"><b>2</b><span>临时判断“应该还有空间”。</span></div>
+            <div class="step"><b>3</b><span>先入场，之后再寻找理由。</span></div>
+            <div class="step"><b>4</b><span>亏损后扩大理由，盈利后强化自信。</span></div>
+          </div>
+        </div>
+        <div class="flow-card good">
+          <h3>稳健流程</h3>
+          <div class="flow-steps">
+            <div class="step"><b>1</b><span>记录市场背景、情绪和可能的共识。</span></div>
+            <div class="step"><b>2</b><span>检查是否符合系统条件和风险边界。</span></div>
+            <div class="step"><b>3</b><span>先写退出与仓位，再决定是否参与。</span></div>
+            <div class="step"><b>4</b><span>用 R 倍数和日志评价过程，不用单次盈亏定义能力。</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:22px;">图表 3：Tharp 与 Marks 的互补关系</h3>
+      <div class="svg-box">
+        <svg viewBox="0 0 900 320" role="img" aria-label="Tharp 与 Marks 互补关系图">
+          <rect x="20" y="28" width="250" height="264" rx="10" fill="#eaf1ff" stroke="#93b4ff"/>
+          <text x="145" y="64" text-anchor="middle" font-size="22" font-weight="700" fill="#1d4ed8">Tharp</text>
+          <text x="145" y="104" text-anchor="middle" font-size="16" fill="#334155">系统 · R 倍数 · 仓位</text>
+          <text x="145" y="138" text-anchor="middle" font-size="16" fill="#334155">退出 · 期望值 · 纪律</text>
+          <text x="145" y="188" text-anchor="middle" font-size="15" fill="#475569">把交易行为变成</text>
+          <text x="145" y="214" text-anchor="middle" font-size="15" fill="#475569">可执行和可复盘流程</text>
+
+          <rect x="630" y="28" width="250" height="264" rx="10" fill="#e8f5ef" stroke="#88d6b0"/>
+          <text x="755" y="64" text-anchor="middle" font-size="22" font-weight="700" fill="#047857">Marks</text>
+          <text x="755" y="104" text-anchor="middle" font-size="16" fill="#334155">风险 · 周期 · 情绪</text>
+          <text x="755" y="138" text-anchor="middle" font-size="16" fill="#334155">二阶思维 · 安全边际</text>
+          <text x="755" y="188" text-anchor="middle" font-size="15" fill="#475569">把机会判断放进</text>
+          <text x="755" y="214" text-anchor="middle" font-size="15" fill="#475569">不确定性和周期背景</text>
+
+          <rect x="330" y="88" width="240" height="144" rx="10" fill="#fff4df" stroke="#e4b96f"/>
+          <text x="450" y="126" text-anchor="middle" font-size="21" font-weight="700" fill="#92400e">整合系统</text>
+          <text x="450" y="164" text-anchor="middle" font-size="16" fill="#374151">先识别环境风险</text>
+          <text x="450" y="192" text-anchor="middle" font-size="16" fill="#374151">再用规则限制行为</text>
+
+          <path d="M272 160 L326 160" stroke="#64748b" stroke-width="3" fill="none"/>
+          <path d="M318 150 L330 160 L318 170" fill="none" stroke="#64748b" stroke-width="3"/>
+          <path d="M628 160 L574 160" stroke="#64748b" stroke-width="3" fill="none"/>
+          <path d="M582 150 L570 160 L582 170" fill="none" stroke="#64748b" stroke-width="3"/>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <h2>交易场景案例</h2>
+      <p>以下为虚构学习场景，不涉及任何真实标的或实时市场判断。</p>
+      <div class="case-grid">
+        <div class="case-card">
+          <strong>市场背景</strong>
+          <p>某类资产连续上涨数周，社交平台讨论热烈，很多人把上涨解释为“新周期开始”。价格已经远离近期均值，但波动被短期乐观情绪掩盖。</p>
+        </div>
+        <div class="case-card">
+          <strong>常见错误</strong>
+          <p>交易者因为害怕错过而立即买入，没有写下退出条件，也没有限制仓位。入场理由是“大家都在讨论，而且之前涨了很多”。</p>
+        </div>
+        <div class="case-card">
+          <strong>Tharp 会如何看</strong>
+          <p>这不是系统交易，因为入场条件、初始风险、退出规则和仓位规模都没有预先定义。交易者无法用 R 倍数复盘，也无法判断长期期望值。</p>
+        </div>
+        <div class="case-card">
+          <strong>Marks 会如何看</strong>
+          <p>群体乐观可能意味着风险补偿变差。真正的问题不是上涨能否继续，而是价格中已经包含了多少好消息，以及如果共识反转会怎样。</p>
+        </div>
+      </div>
+      <div class="data-block">
+        整合判断：先暂停冲动。记录市场情绪与共识，检查系统是否允许参与；若没有明确退出、仓位和复盘字段，则学习动作是“观察并写计划”，不是临场交易。
+      </div>
+    </section>
+
+    <section>
+      <h2>今日反思练习</h2>
+      <div class="exercise-card">
+        <h3>把一个交易想法改写成系统语句</h3>
+        <p>选择一个虚构或历史上的交易想法，不写具体标的名称，只填写下面 6 个字段。目标不是证明它能赚钱，而是判断它是否已经从“预测”变成“可复盘系统”。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>字段</th>
+                <th>要写清的问题</th>
+                <th>合格标准</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>市场背景</td>
+                <td>当前情绪、周期位置、参与者共识是什么？</td>
+                <td>能说明自己可能错在哪里。</td>
+              </tr>
+              <tr>
+                <td>入场条件</td>
+                <td>什么事实出现后才允许行动？</td>
+                <td>条件可观察，不依赖临场感觉。</td>
+              </tr>
+              <tr>
+                <td>退出条件</td>
+                <td>亏损、盈利、时间和系统失效如何退出？</td>
+                <td>入场前已经写好。</td>
+              </tr>
+              <tr>
+                <td>单笔风险</td>
+                <td>如果错误，最大计划损失是多少个 R？</td>
+                <td>损失不会影响继续学习和复盘。</td>
+              </tr>
+              <tr>
+                <td>仓位规则</td>
+                <td>仓位如何由风险边界倒推，而不是由信心决定？</td>
+                <td>仓位不会因兴奋临时放大。</td>
+              </tr>
+              <tr>
+                <td>复盘字段</td>
+                <td>事后记录过程合规、R 倍数和心理偏差。</td>
+                <td>能把结果变成下一次改进依据。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>今日检查清单</h2>
+      <div class="checklist">
+        <div class="check-item"><span class="box" aria-hidden="true"></span><span>我能用一句话解释：交易系统不是预测工具，而是风险和行为控制工具。</span></div>
+        <div class="check-item"><span class="box" aria-hidden="true"></span><span>我已列出一个交易系统的六个基本组件：信念、环境、入场、退出、仓位、复盘。</span></div>
+        <div class="check-item"><span class="box" aria-hidden="true"></span><span>我能在任何交易想法前先写出“如果错了怎么办”。</span></div>
+        <div class="check-item"><span class="box" aria-hidden="true"></span><span>我没有把今天的虚构案例理解为真实市场买卖建议。</span></div>
+        <div class="check-item"><span class="box" aria-hidden="true"></span><span>我完成了一个交易想法的系统化改写练习。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>明日预告</h2>
+      <p>Day 2 的主题是“风险不是波动，而是永久损失与失控”。今天先建立系统框架，明天会进一步定义系统中最重要的变量：风险。我们会把 Tharp 的单笔风险和 R 倍数，连接到 Marks 对永久损失、周期乐观和安全边际的提醒。</p>
+    </section>
+
+    <p class="footer">生成日期：2026-05-18 · 本报告仅用于学习、复盘和方法论训练，不构成投资建议。</p>
+  </main>
+</body>
+</html>

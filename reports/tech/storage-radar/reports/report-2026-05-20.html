@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Reading Report · 2026-05-20</title>
+    <script>
+      (() => {
+        const choice = localStorage.getItem("storage-radar-theme") || "dark";
+        const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = choice === "system" ? (dark ? "dark" : "light") : choice;
+        document.documentElement.dataset.themeChoice = choice;
+      })();
+    </script>
+    <link rel="stylesheet" href="../assets/styles.css?v=20260519-report">
+  </head>
+  <body>
+      <div class="report-page-shell">
+        <main class="report-page">
+          
+    <nav class="report-topnav">
+      <a href="../index.html">← Storage Radar</a>
+      <a href="./index.html">Reports</a>
+    </nav>
+  
+          <header class="report-hero">
+            <p class="eyebrow">Scheduled reading report</p>
+            <h1>Storage Reading Report · 2026-05-20</h1>
+            <p>本期选择 6 条，主要集中在 UFS 4、Block 1、SCSI 1。包含 33 条 syzbot 条目。</p>
+            <div class="report-stats">
+              <span>Generated 05/20 00:06</span>
+              <span>Snapshot 05/11 20:39</span>
+              <span>AI 05/11 20:39</span>
+              <span>rule-based</span>
+            </div>
+          </header>
+
+          <section class="report-section">
+            <div class="report-section-head">
+              <p class="eyebrow">Reading order</p>
+              <h2>Priority List</h2>
+            </div>
+            <div class="report-overview-list">
+              
+                <a class="report-overview-item" href="#patch-14557399">
+                  <div>
+                    <div class="report-meta">
+                      <span>#1</span>
+                      <span>SCSI</span>
+                      <span>watch</span>
+                      <span>score 162</span>
+                    </div>
+                    <strong>[2/2] scsi: smartpqi: increase SIS ctrl ready resume timeout to 180s</strong>
+                    <p>这个 patch 主要讨论：风险聚焦在 timeout, reset, power-management。 当前信号：needs review。 还处在新提交阶段，适合看 v1/v2 之间的设计变化。。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+                <a class="report-overview-item" href="#patch-14555159">
+                  <div>
+                    <div class="report-meta">
+                      <span>#2</span>
+                      <span>UFS</span>
+                      <span>watch</span>
+                      <span>score 148</span>
+                    </div>
+                    <strong>[v8,phy-next,13/31] scsi: ufs: qcom: keep separate track of PHY power state</strong>
+                    <p>这个 patch 主要讨论：风险聚焦在 reset, platform。。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+                <a class="report-overview-item" href="#patch-14551652">
+                  <div>
+                    <div class="report-meta">
+                      <span>#3</span>
+                      <span>UFS</span>
+                      <span>watch</span>
+                      <span>score 144</span>
+                    </div>
+                    <strong>[v5] scsi: ufs: core: call hibern8 notify when hibern8 cmd failed</strong>
+                    <p>这个 patch 主要讨论：风险聚焦在 power-management。 当前信号：needs review。 还处在新提交阶段，适合看 v1/v2 之间的设计变化。。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+                <a class="report-overview-item" href="#patch-14495403">
+                  <div>
+                    <div class="report-meta">
+                      <span>#4</span>
+                      <span>UFS</span>
+                      <span>watch</span>
+                      <span>score 140</span>
+                    </div>
+                    <strong>[v5,06/12] scsi: ufs: core: Add helpers to pause and resume command processing</strong>
+                    <p>这个 patch 主要讨论：风险聚焦在 reset, power-management。。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+                <a class="report-overview-item" href="#syzbot-07d6f9c5d7633ed4a5c8">
+                  <div>
+                    <div class="report-meta">
+                      <span>#5</span>
+                      <span>Block</span>
+                      <span>watch</span>
+                      <span>score 135</span>
+                    </div>
+                    <strong>INFO: rcu detected stall in blkdev_release (3)</strong>
+                    <p>这个 syzbot 报告主要是：last seen 4d13h, reported 280d。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+                <a class="report-overview-item" href="#patch-14562637">
+                  <div>
+                    <div class="report-meta">
+                      <span>#6</span>
+                      <span>UFS</span>
+                      <span>watch</span>
+                      <span>score 134</span>
+                    </div>
+                    <strong>[v2,3/3] scsi: ufs: starfive: Add UFS support for StarFive JHB100 SoC</strong>
+                    <p>这个 patch 主要讨论：Add support for the UFS host controller on JHB100 SoC, built on
+the Synopsys DWC UFS controller and using UFSHCD platform driver.。 影响文件：MAINTAINERS, drivers/ufs/host/Kconfig, drivers/ufs/host/Makefile, drivers/ufs/host/ufs-starfive.c。</p>
+                  </div>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              
+            </div>
+          </section>
+
+          <section class="report-section">
+            <div class="report-section-head">
+              <p class="eyebrow">Deep dive</p>
+              <h2>Selected Items</h2>
+            </div>
+            
+    <article class="report-deep-item" id="patch-14557399">
+      <div>
+        <div class="report-meta">
+          <span>#1</span>
+          <span>SCSI</span>
+          <span>new</span>
+          <span>05/06 14:01</span>
+          <span>v1</span>
+        </div>
+        <h2>[2/2] scsi: smartpqi: increase SIS ctrl ready resume timeout to 180s</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 patch 主要讨论：风险聚焦在 timeout, reset, power-management。 当前信号：needs review。 还处在新提交阶段，适合看 v1/v2 之间的设计变化。。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：和异常恢复、超时或链路恢复路径有关，适合存储固件/驱动重点关注。 相关性：匹配你的关注方向 reset, timeout。</p>
+        </div>
+      </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：回归分析</h3>
+              <p>回归问题优先看可复现条件、好坏版本、bisect 结果和 Fixes tag。对存储路径来说，D state、timeout 和 reset 往往会互相放大。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>先看 v1/v2/v3 之间修改点，确认这版解决了什么 review 意见。</li><li>检查异常恢复路径是否会影响正常 I/O、runtime PM 或队列恢复顺序。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          <p>scsi</p>
+        </div>
+      </div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/ecabb7c8ab89554d362f2e15c4351e41814d073f.1778075755.git.mateusz.nowicki@posteo.net/" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+    <article class="report-deep-item" id="patch-14555159">
+      <div>
+        <div class="report-meta">
+          <span>#2</span>
+          <span>UFS</span>
+          <span>not-applicable</span>
+          <span>05/05 10:05</span>
+          <span>v8</span>
+        </div>
+        <h2>[v8,phy-next,13/31] scsi: ufs: qcom: keep separate track of PHY power state</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 patch 主要讨论：风险聚焦在 reset, platform。。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：和异常恢复、超时或链路恢复路径有关，适合存储固件/驱动重点关注。 相关性：匹配你的关注方向 ufs, reset。</p>
+        </div>
+      </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：UFS MCQ/CQE</h3>
+              <p>UFS MCQ 使用多个 completion queue 来降低单队列瓶颈。CQE 处理通常处在 I/O 完成热路径，锁持有时间、回调位置和队列 head/tail 更新都会影响尾延迟。</p>
+            </div>
+          
+            <div class="report-detail-box">
+              <h3>预备知识：平台时序</h3>
+              <p>平台驱动常依赖 probe 顺序、资源发布和电源/crypto 引擎初始化。race 类 patch 要重点看调用方是否可能在 provider 未完成初始化时取得对象。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>先看 v1/v2/v3 之间修改点，确认这版解决了什么 review 意见。</li><li>检查异常恢复路径是否会影响正常 I/O、runtime PM 或队列恢复顺序。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          <p>ufs</p>
+        </div>
+      </div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260505100523.1922388-14-vladimir.oltean@nxp.com/" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+    <article class="report-deep-item" id="patch-14551652">
+      <div>
+        <div class="report-meta">
+          <span>#3</span>
+          <span>UFS</span>
+          <span>new</span>
+          <span>05/02 14:30</span>
+          <span>v5</span>
+        </div>
+        <h2>[v5] scsi: ufs: core: call hibern8 notify when hibern8 cmd failed</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 patch 主要讨论：风险聚焦在 power-management。 当前信号：needs review。 还处在新提交阶段，适合看 v1/v2 之间的设计变化。。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：需要结合原始线程确认讨论深度和风险。 相关性：匹配你的关注方向 ufs, hibern8。</p>
+        </div>
+      </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：UFS MCQ/CQE</h3>
+              <p>UFS MCQ 使用多个 completion queue 来降低单队列瓶颈。CQE 处理通常处在 I/O 完成热路径，锁持有时间、回调位置和队列 head/tail 更新都会影响尾延迟。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>先看 v1/v2/v3 之间修改点，确认这版解决了什么 review 意见。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          <p>ufs</p>
+        </div>
+      </div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260502143012.2859480-1-hongjiefang@asrmicro.com/" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+    <article class="report-deep-item" id="patch-14495403">
+      <div>
+        <div class="report-meta">
+          <span>#4</span>
+          <span>UFS</span>
+          <span>accepted</span>
+          <span>03/25 15:21</span>
+          <span>v5</span>
+        </div>
+        <h2>[v5,06/12] scsi: ufs: core: Add helpers to pause and resume command processing</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 patch 主要讨论：风险聚焦在 reset, power-management。。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：和异常恢复、超时或链路恢复路径有关，适合存储固件/驱动重点关注。 相关性：匹配你的关注方向 ufs, reset。</p>
+        </div>
+      </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：UFS MCQ/CQE</h3>
+              <p>UFS MCQ 使用多个 completion queue 来降低单队列瓶颈。CQE 处理通常处在 I/O 完成热路径，锁持有时间、回调位置和队列 head/tail 更新都会影响尾延迟。</p>
+            </div>
+          
+            <div class="report-detail-box">
+              <h3>预备知识：回归分析</h3>
+              <p>回归问题优先看可复现条件、好坏版本、bisect 结果和 Fixes tag。对存储路径来说，D state、timeout 和 reset 往往会互相放大。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>检查异常恢复路径是否会影响正常 I/O、runtime PM 或队列恢复顺序。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          <p>ufs</p>
+        </div>
+      </div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260325152154.1604082-7-can.guo@oss.qualcomm.com/" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+    <article class="report-deep-item" id="syzbot-07d6f9c5d7633ed4a5c8">
+      <div>
+        <div class="report-meta">
+          <span>#5</span>
+          <span>Block</span>
+          <span>syzbot open</span>
+          <span>unknown</span>
+          
+        </div>
+        <h2>INFO: rcu detected stall in blkdev_release (3)</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 syzbot 报告主要是：last seen 4d13h, reported 280d。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：和异常恢复、超时或链路恢复路径有关，适合存储固件/驱动重点关注。 相关性：暂未明显匹配 UFS 固件关注词，可低优先级浏览。</p>
+        </div>
+      </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：锁粒度</h3>
+              <p>热路径里应只在锁内保护共享状态更新，耗时操作应尽量移出临界区。review 时要确认移出后是否引入新的并发窗口。</p>
+            </div>
+          
+            <div class="report-detail-box">
+              <h3>预备知识：回归分析</h3>
+              <p>回归问题优先看可复现条件、好坏版本、bisect 结果和 Fixes tag。对存储路径来说，D state、timeout 和 reset 往往会互相放大。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>检查锁外移动的代码是否仍然满足对象生命周期和内存可见性要求。</li><li>检查异常恢复路径是否会影响正常 I/O、runtime PM 或队列恢复顺序。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          <p>block</p>
+        </div>
+      </div>
+      <a class="report-source-link" href="https://syzkaller.appspot.com/bug?extid=07d6f9c5d7633ed4a5c8" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+    <article class="report-deep-item" id="patch-14562637">
+      <div>
+        <div class="report-meta">
+          <span>#6</span>
+          <span>UFS</span>
+          <span>new</span>
+          <span>05/09 06:27</span>
+          <span>v2</span>
+        </div>
+        <h2>[v2,3/3] scsi: ufs: starfive: Add UFS support for StarFive JHB100 SoC</h2>
+      </div>
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>主要内容</h3>
+          <p>这个 patch 主要讨论：Add support for the UFS host controller on JHB100 SoC, built on
+the Synopsys DWC UFS controller and using UFSHCD platform driver.。 影响文件：MAINTAINERS, drivers/ufs/host/Kconfig, drivers/ufs/host/Makefile, drivers/ufs/host/ufs-starfive.c。</p>
+        </div>
+        <div class="report-detail-box">
+          <h3>为什么值得看</h3>
+          <p>影响判断：偏平台 bring-up 或 SoC 支持，重点看硬件假设和初始化时序。 相关性：匹配你的关注方向 ufs, ufshcd。</p>
+        </div>
+      </div>
+      
+        <div class="report-detail-box">
+          <h3>上下文摘录</h3>
+          <p>Add support for the UFS host controller on JHB100 SoC, built on the Synopsys DWC UFS controller and using UFSHCD platform driver. This controller requires specific configurations like M-PHY/RMMI/UniPro</p>
+        </div>
+      
+      
+        <div class="report-detail-grid">
+          
+            <div class="report-detail-box">
+              <h3>预备知识：UFS MCQ/CQE</h3>
+              <p>UFS MCQ 使用多个 completion queue 来降低单队列瓶颈。CQE 处理通常处在 I/O 完成热路径，锁持有时间、回调位置和队列 head/tail 更新都会影响尾延迟。</p>
+            </div>
+          
+            <div class="report-detail-box">
+              <h3>预备知识：平台时序</h3>
+              <p>平台驱动常依赖 probe 顺序、资源发布和电源/crypto 引擎初始化。race 类 patch 要重点看调用方是否可能在 provider 未完成初始化时取得对象。</p>
+            </div>
+          
+        </div>
+      
+      <div class="report-detail-grid">
+        <div class="report-detail-box">
+          <h3>阅读检查点</h3>
+          <ul>
+            <li>先看 v1/v2/v3 之间修改点，确认这版解决了什么 review 意见。</li><li>打开原始链接确认 maintainer/reviewer 是否已经给出方向性意见。</li>
+          </ul>
+        </div>
+        <div class="report-detail-box">
+          <h3>影响范围</h3>
+          
+            <div class="report-code-list">
+              <code>MAINTAINERS</code><code>drivers/ufs/host/Kconfig</code><code>drivers/ufs/host/Makefile</code><code>drivers/ufs/host/ufs-starfive.c</code><code>drivers/ufs/host/ufshcd-dwc.h</code>
+            </div>
+          
+        </div>
+      </div>
+      <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260509062759.125472-4-minda.chen@starfivetech.com/" target="_blank" rel="noreferrer">Open original</a>
+    </article>
+  
+          </section>
+        </main>
+      </div>
+    </body>
+</html>

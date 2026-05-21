@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 8：Metadata Journal 的最小可恢复记录</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 8 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a class="active" href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">记录表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 8 · SSD / FTL 代码设计判断</p>
+				<h1>Metadata Journal 的最小可恢复记录：记录领域变更，而不是转储内存结构</h1>
+				<p class="lead">
+					今天的核心判断是：Journal 应记录 FTL 领域变更意图，而不是把运行时 struct 原样写到 NAND。
+					每条记录都必须可重放、可幂等、可校验，并能让 Power Loss Recovery 判断事务停在哪个边界。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">Journal 是恢复契约，不是调试转储</span>
+					<span class="badge">涉及：Metadata Journal / Mapping / Block Manager / GC / Recovery</span>
+					<span class="badge">关键词：领域事件 · redo log · 幂等 · checksum · seq · commit boundary</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							Journal record 应表达“把 LBA 从 old PPA 切到 new PPA”“把 block 从 VICTIM 推进到 ERASING”
+							这类领域事件。它不应该依赖内存布局、指针、缓存字段或某个版本的 struct padding。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Metadata Journal、Mapping Table、Block Manager、GC Relocation、Victim Block Selection、
+							Free Block Pool、Power Loss Recovery、NAND Program / Erase Flow。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：Journal 是写给未来系统看的接口</h2>
+				<p>
+					Metadata Journal 的读者不是当前函数，而是掉电后的 Recovery。它必须在没有内存上下文、
+					没有锁状态、没有临时缓存的情况下解释系统事实。最小可恢复记录的目标，是用尽量少的稳定字段表达足够恢复的领域语义。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>信息隐藏不等于少暴露函数，而是隐藏易变表示。Journal 格式一旦落盘，就是长期接口。</td>
+								<td>Journal 不写 <span class="inline-code">struct map_entry</span> 的内存镜像；只写恢复需要的 LBA、old PPA、new PPA、mapping seq、校验信息。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>可逆性和正交性要求关键决策可撤退、可重放。日志记录必须让系统从中间失败点回到一致状态。</td>
+								<td>每条记录要有 magic、version、type、seq、length、crc，Recovery 能跳过 torn record，也能重复 replay 不破坏状态。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计不是追求信息最多，而是选择恰好足够的约束。多写字段会把当前实现锁进未来。</td>
+								<td>把 record 设计成领域事件集合，而不是“一条万能 metadata blob”；不同事件有自己的必要字段和校验边界。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域事件描述已经发生、需要被系统承认的事实。Journal 是领域事件的持久化边界。</td>
+								<td>使用 <span class="inline-code">JNL_MAP_DELTA</span>、<span class="inline-code">JNL_BLOCK_STATE</span>、<span class="inline-code">JNL_GC_RELOCATION</span> 表达业务含义，而不是 mode/flag。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：最小记录要同时满足三件事</h2>
+				<p>
+					Metadata Journal 的记录太少，Recovery 无法判断该不该 replay；记录太多，落盘格式会绑死内存实现。
+					合理边界是：记录领域事件、携带前置条件、保留校验信息。这样接口稳定、错误路径可解释、状态机可推进，
+					并且未来可以演进 record version，而不是迁移整个内存结构。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Journal 记录不是“把当前状态保存下来”，而是“保存一个可验证的领域变更”。它必须能回答：
+					这条记录描述什么事件、事件的前置事实是什么、重复应用是否安全、记录本身是否完整。
+				</div>
+				<div class="diagram" aria-label="Metadata Journal 记录与恢复关系">
+					<svg viewBox="0 0 1160 430" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="42" y="74" width="142" height="70" rx="12"></rect>
+						<text class="t" x="113" y="102" text-anchor="middle">FTL 意图</text>
+						<text class="s" x="113" y="124" text-anchor="middle">map delta / block event</text>
+						<path class="line" d="M184 109 L238 109"></path>
+						<rect class="key" x="238" y="54" width="220" height="110" rx="12"></rect>
+						<text class="t" x="348" y="82" text-anchor="middle">最小可恢复记录</text>
+						<text class="s" x="348" y="106" text-anchor="middle">type + seq + payload</text>
+						<text class="s" x="348" y="126" text-anchor="middle">precondition + crc</text>
+						<text class="s" x="348" y="146" text-anchor="middle">versioned contract</text>
+						<path class="line" d="M458 109 L512 109"></path>
+						<rect class="box" x="512" y="74" width="142" height="70" rx="12"></rect>
+						<text class="t" x="583" y="102" text-anchor="middle">NAND append</text>
+						<text class="s" x="583" y="124" text-anchor="middle">atomic page write</text>
+						<path class="line" d="M654 109 L708 109"></path>
+						<rect class="box" x="708" y="74" width="142" height="70" rx="12"></rect>
+						<text class="t" x="779" y="102" text-anchor="middle">Mapping commit</text>
+						<text class="s" x="779" y="124" text-anchor="middle">逻辑可见</text>
+						<path class="line" d="M850 109 L904 109"></path>
+						<rect class="box" x="904" y="74" width="142" height="70" rx="12"></rect>
+						<text class="t" x="975" y="102" text-anchor="middle">Block commit</text>
+						<text class="s" x="975" y="124" text-anchor="middle">状态推进</text>
+
+						<path class="dash" d="M583 144 C583 196, 360 198, 328 232"></path>
+						<path class="dash" d="M779 144 C779 196, 620 198, 588 232"></path>
+						<path class="dash" d="M975 144 C975 196, 876 198, 844 232"></path>
+						<rect class="warn" x="216" y="246" width="224" height="88" rx="12"></rect>
+						<text class="t" x="328" y="276" text-anchor="middle">torn record</text>
+						<text class="s" x="328" y="300" text-anchor="middle">magic/len/crc 不通过</text>
+						<text class="s" x="328" y="318" text-anchor="middle">停止扫描，保留 checkpoint</text>
+						<rect class="key" x="476" y="246" width="224" height="88" rx="12"></rect>
+						<text class="t" x="588" y="276" text-anchor="middle">replay idempotently</text>
+						<text class="s" x="588" y="300" text-anchor="middle">已应用则跳过</text>
+						<text class="s" x="588" y="318" text-anchor="middle">未应用则按前置条件提交</text>
+						<rect class="err" x="736" y="246" width="224" height="88" rx="12"></rect>
+						<text class="t" x="848" y="276" text-anchor="middle">invariant violation</text>
+						<text class="s" x="848" y="300" text-anchor="middle">seq gap / bad crc / stale old PPA</text>
+						<text class="s" x="848" y="318" text-anchor="middle">进入只读或扫描修复路径</text>
+						<path class="line" d="M700 290 L736 290"></path>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Host Write Mapping Commit</h3>
+						<p>Program 成功后，Journal 记录 <span class="inline-code">LBA: old PPA -&gt; new PPA</span> 和 mapping seq。掉电后 Recovery 可判断是否已经提交。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC Relocation</h3>
+						<p>GC 搬迁不能只写“某个 page 有效”。它要记录 relocation delta，说明从 victim PPA 搬到 new PPA，并允许重复 replay。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Block State Event</h3>
+						<p>Victim block 进入 ERASING 或 erase 成功回 FREE，应作为 block state event 记录，避免 Recovery 重新把不可用 block 放回 free pool。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>Recovery 按 seq 扫描 journal：校验 header，识别 record type，执行幂等 replay，遇到 torn record 停止而不是猜测。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Management</h3>
+						<p>Program/erase fail 后的 retire block 需要 journal 化，否则掉电后坏块可能被重新分配，形成数据破坏。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Mapping Snapshot</h3>
+						<p>Checkpoint 只截断已持久化前缀。Journal record 的 seq 与 checkpoint seq 共同定义恢复起点。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：把内存结构当 Journal 格式</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把 Mapping、Block、GC 的运行时结构直接写入 journal。它依赖 struct 布局，
+					没有 record type、version、seq、crc，也没有前置条件；重放时会重复增加计数，无法幂等。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：Journal 变成内存转储</span>
+						<span>C</span>
+					</div>
+					<pre><code>struct map_entry_bad {
+	u64 lba;
+	struct ftl_ppa ppa;
+	struct ftl_block *owner;
+	u32 flags;
+	u32 valid_pages_snapshot;
+};
+
+struct journal_blob_bad {
+	u32 mode;
+	u32 size;
+	u8 data[512];
+};
+
+int journal_write_mapping_bad(struct ftl_dev *ftl,
+			      struct map_entry_bad *entry)
+{
+	struct journal_blob_bad blob;
+
+	blob.mode = 3;
+	blob.size = sizeof(*entry);
+	memcpy(blob.data, entry, sizeof(*entry));
+
+	return nand_program_page(ftl-&gt;nand, ftl-&gt;journal_cursor, &amp;blob,
+				 sizeof(blob));
+}
+
+int recovery_replay_blob_bad(struct ftl_dev *ftl,
+			     const struct journal_blob_bad *blob)
+{
+	struct map_entry_bad entry;
+	struct ftl_block *blk;
+
+	if (blob-&gt;mode != 3)
+		return -EINVAL;
+
+	memcpy(&amp;entry, blob-&gt;data, sizeof(entry));
+	blk = entry.owner;
+	ftl-&gt;l2p[entry.lba] = entry.ppa;
+
+	if (entry.flags &amp; 0x1)
+		blk-&gt;valid_pages++;
+
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>恢复后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>落盘格式依赖内存布局</td>
+								<td>直接 <span class="inline-code">memcpy()</span> struct，包含指针和 padding。</td>
+								<td>版本升级或重启后指针无意义，字段变化会破坏旧 journal。</td>
+							</tr>
+							<tr>
+								<td>领域语义丢失</td>
+								<td><span class="inline-code">mode = 3</span> 和 flags 表达不出 mapping delta、relocation、retire block 的区别。</td>
+								<td>Recovery 无法判断记录应该调用 Mapping、Block Manager 还是 GC 补偿。</td>
+							</tr>
+							<tr>
+								<td>不可校验</td>
+								<td>没有 magic、version、length、crc、seq。</td>
+								<td>torn record 可能被当成有效记录重放，造成 silent corruption。</td>
+							</tr>
+							<tr>
+								<td>不可幂等</td>
+								<td>重放时无条件增加 <span class="inline-code">valid_pages</span>。</td>
+								<td>重复 replay 会让计数漂移，GC victim selection 和 free block pressure 失真。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：版本化、可校验、可幂等的领域记录</h2>
+				<p>
+					改进版把 journal 格式设计成公开契约：header 负责完整性和顺序，payload 只表达某类领域事件的必要字段。
+					Recovery 不复制内存，而是根据 record type 调用对应模块的幂等提交接口。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>journal.h：最小可恢复记录接口</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_JOURNAL_H
+#define FTL_JOURNAL_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+#define FTL_JOURNAL_MAGIC	0x4a4e4c31u
+#define FTL_JOURNAL_VERSION	1u
+
+enum journal_record_type {
+	JNL_REC_MAP_DELTA = 1,
+	JNL_REC_GC_RELOCATION,
+	JNL_REC_BLOCK_STATE,
+	JNL_REC_CHECKPOINT,
+};
+
+struct journal_record_header {
+	u32 magic;
+	u16 version;
+	u16 type;
+	u64 seq;
+	u32 payload_len;
+	u32 payload_crc;
+};
+
+struct journal_map_delta {
+	u64 lba;
+	struct ftl_ppa old_ppa;
+	struct ftl_ppa new_ppa;
+	u64 expected_mapping_seq;
+	u64 new_mapping_seq;
+};
+
+struct journal_block_state {
+	struct ftl_ppa block_ppa;
+	enum ftl_block_state from;
+	enum ftl_block_state to;
+	u64 reason_seq;
+};
+
+struct ftl_journal;
+struct ftl_recovery_ctx;
+
+int journal_append_mapping_delta(struct ftl_journal *jnl,
+				 const struct journal_map_delta *delta);
+int journal_append_block_state(struct ftl_journal *jnl,
+			       const struct journal_block_state *state);
+int journal_replay_record(struct ftl_recovery_ctx *ctx,
+			  const struct journal_record_header *hdr,
+			  const void *payload);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>journal.c：append 和 replay 都围绕领域事件</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int journal_validate_header(const struct journal_record_header *hdr,
+				   u32 payload_crc)
+{
+	if (hdr-&gt;magic != FTL_JOURNAL_MAGIC)
+		return -EINVAL;
+	if (hdr-&gt;version != FTL_JOURNAL_VERSION)
+		return -EOPNOTSUPP;
+	if (hdr-&gt;payload_crc != payload_crc)
+		return -EILSEQ;
+	if (!hdr-&gt;payload_len)
+		return -EINVAL;
+
+	return 0;
+}
+
+int journal_append_mapping_delta(struct ftl_journal *jnl,
+				 const struct journal_map_delta *delta)
+{
+	struct journal_record_header hdr;
+	u32 crc;
+
+	if (!ftl_ppa_valid(&amp;delta-&gt;new_ppa))
+		return -EINVAL;
+	if (delta-&gt;new_mapping_seq &lt;= delta-&gt;expected_mapping_seq)
+		return -EINVAL;
+
+	crc = ftl_crc32(delta, sizeof(*delta));
+	hdr.magic = FTL_JOURNAL_MAGIC;
+	hdr.version = FTL_JOURNAL_VERSION;
+	hdr.type = JNL_REC_MAP_DELTA;
+	hdr.seq = journal_next_seq(jnl);
+	hdr.payload_len = sizeof(*delta);
+	hdr.payload_crc = crc;
+
+	return journal_append_raw(jnl, &amp;hdr, delta, sizeof(*delta));
+}
+
+static int replay_mapping_delta(struct ftl_recovery_ctx *ctx,
+				const struct journal_map_delta *delta)
+{
+	int ret;
+
+	if (map_delta_already_applied(ctx-&gt;map, delta))
+		return 0;
+
+	ret = map_commit_delta_if_current(ctx-&gt;map, delta-&gt;lba,
+					  &amp;delta-&gt;old_ppa,
+					  &amp;delta-&gt;new_ppa,
+					  delta-&gt;expected_mapping_seq,
+					  delta-&gt;new_mapping_seq);
+	if (ret == -ESTALE &amp;&amp; map_delta_already_applied(ctx-&gt;map, delta))
+		return 0;
+
+	return ret;
+}
+
+int journal_replay_record(struct ftl_recovery_ctx *ctx,
+			  const struct journal_record_header *hdr,
+			  const void *payload)
+{
+	u32 crc;
+	int ret;
+
+	crc = ftl_crc32(payload, hdr-&gt;payload_len);
+	ret = journal_validate_header(hdr, crc);
+	if (ret)
+		return ret;
+
+	switch (hdr-&gt;type) {
+	case JNL_REC_MAP_DELTA:
+		if (hdr-&gt;payload_len != sizeof(struct journal_map_delta))
+			return -EINVAL;
+		return replay_mapping_delta(ctx, payload);
+	case JNL_REC_BLOCK_STATE:
+		if (hdr-&gt;payload_len != sizeof(struct journal_block_state))
+			return -EINVAL;
+		return block_replay_state_event(ctx-&gt;bm, payload);
+	case JNL_REC_GC_RELOCATION:
+		return gc_replay_relocation(ctx, payload, hdr-&gt;payload_len);
+	case JNL_REC_CHECKPOINT:
+		return recovery_accept_checkpoint(ctx, payload, hdr-&gt;seq);
+	default:
+		return -EOPNOTSUPP;
+	}
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>记录表与思想落点表</h2>
+				<h3>最小可恢复记录字段表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>字段</th>
+								<th>必须性</th>
+								<th>解决的问题</th>
+								<th>设计约束</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>magic</td>
+								<td>识别 journal record 起点。</td>
+								<td>避免把随机 NAND 数据或 torn page 当成有效记录。</td>
+								<td>固定值，跨版本保持可识别。</td>
+							</tr>
+							<tr>
+								<td>version</td>
+								<td>区分 record 格式。</td>
+								<td>允许未来扩展 payload，而不破坏旧 Recovery。</td>
+								<td>新增字段必须有兼容策略或迁移边界。</td>
+							</tr>
+							<tr>
+								<td>type</td>
+								<td>表达领域事件类型。</td>
+								<td>Recovery 能分派到 Mapping、Block Manager、GC 等所有者。</td>
+								<td>禁止用 mode/flag 表达多个概念混合状态。</td>
+							</tr>
+							<tr>
+								<td>seq</td>
+								<td>定义重放顺序和 checkpoint 边界。</td>
+								<td>检测 gap、重复记录、旧记录覆盖新事实。</td>
+								<td>单调递增；checkpoint 只截断已确认前缀。</td>
+							</tr>
+							<tr>
+								<td>payload_len</td>
+								<td>定义校验和扫描边界。</td>
+								<td>避免越界读取或误读下一个 record。</td>
+								<td>必须和 type 的 payload schema 匹配。</td>
+							</tr>
+							<tr>
+								<td>payload_crc</td>
+								<td>判断 record 是否完整。</td>
+								<td>识别 torn write、bit flip 和错误扫描位置。</td>
+								<td>校验失败时停止或进入恢复策略，不能盲目 replay。</td>
+							</tr>
+							<tr>
+								<td>precondition</td>
+								<td>让 replay 幂等。</td>
+								<td>重复应用不会二次增加计数或覆盖更新版本。</td>
+								<td>如 old PPA、expected seq、from state 必须是领域前置事实。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>掉电位置到恢复动作矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>掉电位置</th>
+								<th>Journal 状态</th>
+								<th>Recovery 判断</th>
+								<th>动作</th>
+								<th>所有者</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Program 成功前</td>
+								<td>无记录</td>
+								<td>没有可见变更。</td>
+								<td>保留旧 mapping；可扫描未提交 page。</td>
+								<td>Recovery / Block Manager</td>
+							</tr>
+							<tr>
+								<td>Program 成功，Journal 前</td>
+								<td>无记录</td>
+								<td>新 page 是 orphan 候选。</td>
+								<td>不提交 mapping；标记 ORPHAN 或等待 GC 回收。</td>
+								<td>Block Manager</td>
+							</tr>
+							<tr>
+								<td>Journal append 中断</td>
+								<td>torn record</td>
+								<td>crc 或 length 不通过。</td>
+								<td>停止扫描到最后完整 seq；不 replay 破损记录。</td>
+								<td>Journal / Recovery</td>
+							</tr>
+							<tr>
+								<td>Journal 完整，Mapping 前</td>
+								<td>完整 map delta</td>
+								<td>领域事件已持久化但未必可见。</td>
+								<td>按前置条件幂等 replay 到 Mapping。</td>
+								<td>Mapping Table</td>
+							</tr>
+							<tr>
+								<td>Mapping 后，Block commit 前</td>
+								<td>完整 map delta</td>
+								<td>mapping 可能已应用，page 状态可能未推进。</td>
+								<td>检测 mapping seq；已应用则补齐 page COMMITTED。</td>
+								<td>Mapping / Block Manager</td>
+							</tr>
+							<tr>
+								<td>Erase 完成前</td>
+								<td>block state event 可能完整</td>
+								<td>不能假设 block 可用。</td>
+								<td>重新校验 erase 结果；失败转 RETIRED，成功转 FREE。</td>
+								<td>Block Manager / Bad Block</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>信息隐藏和深模块：隐藏易变表示，暴露稳定语义。</td>
+								<td>Journal record schema、append/replay API。</td>
+								<td>不能把内存 struct、指针、缓存字段写成落盘接口。</td>
+								<td>避免格式和实现强绑定，导致演进困难。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>可逆性、正交性、契约清晰。</td>
+								<td>seq、crc、version、幂等 replay。</td>
+								<td>每条记录必须能验证完整性，并能安全重复应用。</td>
+								<td>避免 torn record、重复 replay、silent corruption。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍是选择恰好足够的约束，而不是保存一切。</td>
+								<td>最小 payload、record type 分解、checkpoint 边界。</td>
+								<td>字段必须服务恢复语义，不能因为“以后可能有用”无限膨胀。</td>
+								<td>避免 journal 变成不可维护的 metadata 垃圾场。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域事件表达系统已经承认的事实。</td>
+								<td>JNL_REC_MAP_DELTA、JNL_REC_BLOCK_STATE、JNL_REC_GC_RELOCATION。</td>
+								<td>Record type 必须映射到明确领域所有者和恢复动作。</td>
+								<td>避免 mode/flag 让 Recovery 无法解释事件含义。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">记录表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

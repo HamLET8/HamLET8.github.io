@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Reading Report · 2026-05-20 · GPT</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css?v=20260519-report">
+  </head>
+  <body><div class="report-page-shell"><main class="report-page">
+  <nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav>
+  <header class="report-hero">
+    <p class="eyebrow">GPT curated report</p>
+    <h1>Storage Reading Report · 2026-05-20 · GPT</h1>
+    <p>本期由 Codex 侧 GPT 分析生成，选择 6 条：3 条 UFS 直接相关，2 条 F2FS/writeback 稳定性案例，1 条 iomap polling 语义参考。工作站 syzbot block/scsi 源当前建连失败，本期未把 syzbot 列表作为主要输入。</p>
+    <div class="report-stats"><span>Generated 2026-05-20T00:24:00+08:00</span><span>Snapshot 2026-05-20 00:09 CST</span><span>AI 2026-05-20 00:12 CST</span><span>GPT-5.5 / Codex-side</span></div>
+  </header>
+  <section class="report-section">
+    <div class="report-section-head"><p class="eyebrow">Source caveat</p><h2>syzbot 状态</h2></div>
+    <article class="report-deep-item"><p>工作站当前访问 syzkaller.appspot.com:443 超时，快照中的 sourceHealth 显示 block/scsi 两个 syzbot subsystem 均 fetch failed。因此本期精选不把 syzbot 列表作为主要依据；但 Patchwork 中引用 syzbot 的 F2FS 修复仍正常纳入。</p></article>
+  </section>
+  <section class="report-section"><div class="report-section-head"><p class="eyebrow">Reading order</p><h2>Priority List</h2></div><div class="report-overview-list">
+    <a class="report-overview-item" href="#patch-14579203"><div><div class="report-meta"><span>#1</span><span>UFS</span><span>new · v7 · needs review</span></div><strong>[v7,5/5] scsi: ufs: ufs-qcom: Remove NULL check from devm_of_qcom_ice_get()</strong><p>它看起来只是 cleanup，但真正值得看的是 provider/consumer probe 顺序。UFS host 依赖 Qualcomm ICE inline crypto 资源，如果 provider 尚未 ready，consumer 必须得到可区分的错误状态，而不是把 NULL 当成“没有 ICE”继续跑。对固件/平台 bring-up 来说，这类 race 会表现成偶发初始化失败或 crypto 能力不一致。</p></div><span aria-hidden="true">↓</span></a><a class="report-overview-item" href="#patch-14579546"><div><div class="report-meta"><span>#2</span><span>UFS</span><span>new · v1 · needs review</span></div><strong>[V1,3/3] phy: qcom-qmp-ufs: Add UFS PHY support on Hawi</strong><p>UFS 性能和稳定性不只在 ufshcd core，PHY 参数、lane 初始化、refclk、power/reset 顺序都会决定链路质量。v1 平台 patch 的价值在于学习 upstream reviewer 如何检查硬件假设是否被写进了通用驱动，尤其是 QMP UFS PHY 的版本表和寄存器序列是否复用合理。</p></div><span aria-hidden="true">↓</span></a><a class="report-overview-item" href="#patch-14575008"><div><div class="report-meta"><span>#3</span><span>UFS</span><span>new · v3 · needs review</span></div><strong>[v3,08/11] scsi: ufs: Use trace_call__##name() at guarded tracepoint call sites</strong><p>这是典型的热路径微优化：单次收益很小，但位置在 UFS core 的 trace 调用点，可能覆盖 request/completion/error 等频繁路径。它还反映了现代内核 review 的一个重点：可观测性不能在未启用时给热路径留下额外成本。</p></div><span aria-hidden="true">↓</span></a><a class="report-overview-item" href="#patch-14580420"><div><div class="report-meta"><span>#4</span><span>F2FS</span><span>new · v1 · needs review</span></div><strong>[f2fs-dev] f2fs: fix potential deadlock in gc_merge path of f2fs_balance_fs()</strong><p>这是今天最值得看的非 UFS patch。它把 writeback、folio lock、F2FS GC、waitqueue 连成一个具体死锁环，适合训练“不要只看单个函数，要把等待关系画出来”的能力。对移动存储性能调优也有意义，因为 GC/writeback 死锁或长等待经常被用户感知为卡顿。</p></div><span aria-hidden="true">↓</span></a><a class="report-overview-item" href="#patch-14577041"><div><div class="report-meta"><span>#5</span><span>F2FS</span><span>new · v1 · needs review</span></div><strong>[f2fs-dev] f2fs: don&#39;t BUG on node footer mismatch in f2fs_write_end_io</strong><p>这条值得看，因为它体现了 syzbot 类问题的常见修复原则：不是所有一致性错误都应该 BUG；如果错误来自可疑介质或 fuzzed image，内核更好的行为通常是标记需要 fsck、隔离错误并返回。这个思路对存储固件也有参考价值：错误分类比单纯 assert 更重要。</p></div><span aria-hidden="true">↓</span></a><a class="report-overview-item" href="#patch-14578205"><div><div class="report-meta"><span>#6</span><span>MM / Block</span><span>new · v1 · check success</span></div><strong>iomap: don&#39;t make REQ_POLLED imply REQ_NOWAIT</strong><p>这是性能调优必须关注的语义边界。UFS 或 block 性能实验里经常会用 polling、direct I/O、NOWAIT 组合做延迟测试，如果把 polling 误解为 nowait，会把文件系统写路径带到不支持的重试模型里。该 patch 明确指出文件系统写不是简单幂等操作，不能只重试 bio 而不重试整个操作。</p></div><span aria-hidden="true">↓</span></a>
+  </div></section>
+  <section class="report-section"><div class="report-section-head"><p class="eyebrow">Deep dive</p><h2>Selected Items</h2></div><article class="report-deep-item" id="patch-14579203">
+  <div><div class="report-meta"><span>#1</span><span>UFS</span><span>new · v7 · needs review</span><span>race</span><span>platform</span><span>ufs-direct</span></div><h2>[v7,5/5] scsi: ufs: ufs-qcom: Remove NULL check from devm_of_qcom_ice_get()</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条是 qcom ICE race 修复系列里的 UFS consumer 侧清理。系列已经把 devm_of_qcom_ice_get() 的返回语义收紧为不会返回 NULL，因此 ufs-qcom 里继续保留 NULL 分支会误导错误路径；patch 删除 NULL 检查，保留正常的错误处理。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>它看起来只是 cleanup，但真正值得看的是 provider/consumer probe 顺序。UFS host 依赖 Qualcomm ICE inline crypto 资源，如果 provider 尚未 ready，consumer 必须得到可区分的错误状态，而不是把 NULL 当成“没有 ICE”继续跑。对固件/平台 bring-up 来说，这类 race 会表现成偶发初始化失败或 crypto 能力不一致。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：provider/consumer probe race</h3><p>Linux 平台驱动经常通过 devm_* helper 获取由另一个驱动发布的资源。关键点不是 helper 名字，而是返回协议：成功对象、ERR_PTR、EPROBE_DEFER、或 NULL。返回协议一旦变更，所有调用方的分支都要跟着收敛，否则错误路径会掩盖真实初始化问题。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>确认 devm_of_qcom_ice_get() 的所有调用方是否都按新返回语义处理。</li><li>重点看 v7 之前 reviewer 是否质疑过 EPROBE_DEFER、optional ICE 或 OP-TEE/TZ 场景。</li><li>检查删除 NULL 分支后，非 ICE 平台和 ICE probe 延迟平台是否仍有明确路径。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>drivers/ufs/host/ufs-qcom.c</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260518-qcom-ice-fix-v7-5-2a595382185b@oss.qualcomm.com/" target="_blank" rel="noreferrer">Open original</a>
+</article><article class="report-deep-item" id="patch-14579546">
+  <div><div class="report-meta"><span>#2</span><span>UFS</span><span>new · v1 · needs review</span><span>platform</span><span>ufs-phy</span><span>bring-up</span></div><h2>[V1,3/3] phy: qcom-qmp-ufs: Add UFS PHY support on Hawi</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条给 Qualcomm Hawi SoC 增加 UFS QMP PHY 支持，核心是新增 PHY init sequence 和配置表。它和同系列的 dt-bindings/controller compatible 是一组平台 bring-up 工作。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>UFS 性能和稳定性不只在 ufshcd core，PHY 参数、lane 初始化、refclk、power/reset 顺序都会决定链路质量。v1 平台 patch 的价值在于学习 upstream reviewer 如何检查硬件假设是否被写进了通用驱动，尤其是 QMP UFS PHY 的版本表和寄存器序列是否复用合理。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：UFS PHY bring-up</h3><p>UFS host controller 负责协议和队列，PHY 负责高速 SerDes 链路。平台支持 patch 通常包含 compatible、clock/reset/power 描述和 PHY 初始化表。review 时要区分“新增 SoC 数据表”与“改变通用初始化逻辑”。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>确认新增 Hawi 配置是否只影响新 compatible，不改变已有平台行为。</li><li>检查 PHY table 是否有明确版本来源，是否复用了相近 SoC 的参数。</li><li>把 dt-binding patch 和 driver patch 连起来看，确认 clock、reset、regulator 描述一致。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>drivers/phy/qualcomm/phy-qcom-qmp-pcs-ufs-v7.h</code><code>drivers/phy/qualcomm/phy-qcom-qmp-qserdes-txrx-ufs-v8.h</code><code>drivers/phy/qualcomm/phy-qcom-qmp-ufs.c</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260518165346.1732548-4-palash.kambar@oss.qualcomm.com/" target="_blank" rel="noreferrer">Open original</a>
+</article><article class="report-deep-item" id="patch-14575008">
+  <div><div class="report-meta"><span>#3</span><span>UFS</span><span>new · v3 · needs review</span><span>performance</span><span>tracepoint</span><span>ufs-core</span></div><h2>[v3,08/11] scsi: ufs: Use trace_call__##name() at guarded tracepoint call sites</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条把已经由 trace_foo_enabled() 保护的 UFS tracepoint 调用，从 trace_foo() 改为 trace_call__foo()，避免再次执行 static branch 判断。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>这是典型的热路径微优化：单次收益很小，但位置在 UFS core 的 trace 调用点，可能覆盖 request/completion/error 等频繁路径。它还反映了现代内核 review 的一个重点：可观测性不能在未启用时给热路径留下额外成本。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：tracepoint static branch</h3><p>内核 tracepoint 通过 static key/static branch 降低未启用时开销。如果调用点外层已经判断 enabled，再调用普通 trace 宏会重复判断。trace_call__* 适合只在已经确认 enabled 的 guarded call site 使用。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>逐个确认替换点外层确实有 trace_*_enabled() guard。</li><li>确认 trace_call__* 不改变参数求值、RCU 或 preempt 相关语义。</li><li>关注 reviewer 是否要求把同类改动保持一致，而不是只改 UFS 局部。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>drivers/ufs/core/ufshcd.c</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-scsi/patch/20260515135946.2238888-1-vineeth@bitbyteword.org/" target="_blank" rel="noreferrer">Open original</a>
+</article><article class="report-deep-item" id="patch-14580420">
+  <div><div class="report-meta"><span>#4</span><span>F2FS</span><span>new · v1 · needs review</span><span>locking</span><span>writeback</span><span>gc</span></div><h2>[f2fs-dev] f2fs: fix potential deadlock in gc_merge path of f2fs_balance_fs()</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条修复 gc_merge 挂载选项下 f2fs_balance_fs() 的潜在死锁：写回路径缓存 data bio 后唤醒 foreground GC 并等待，而 truncation 路径等待 folio writeback 清除，GC 又可能卡在同一个 folio lock 上。patch 的方向是在 GC_MERGE 路径也提交 cached bios，和 NOGC_MERGE 路径保持一致。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>这是今天最值得看的非 UFS patch。它把 writeback、folio lock、F2FS GC、waitqueue 连成一个具体死锁环，适合训练“不要只看单个函数，要把等待关系画出来”的能力。对移动存储性能调优也有意义，因为 GC/writeback 死锁或长等待经常被用户感知为卡顿。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：F2FS GC 与 writeback 等待环</h3><p>F2FS 在空间紧张时会触发 GC。GC_MERGE 试图把 foreground GC 合并到后台线程，减少重复工作，但它也引入了等待队列。如果调用方持有或间接依赖 folio writeback 状态，就要避免“等待 GC，而 GC 又等待当前 folio”的环。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>把 patch 描述中的三条执行路径画成 wait-for graph。</li><li>确认提交 cached bios 是否会改变原有 write ordering 或错误处理。</li><li>注意 Cc stable 和 Fixes tag，判断这是 bug fix 还是行为收敛。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>fs/f2fs/segment.c</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/f2fs/patch/20260519011438.1168155-1-chao@kernel.org/" target="_blank" rel="noreferrer">Open original</a>
+</article><article class="report-deep-item" id="patch-14577041">
+  <div><div class="report-meta"><span>#5</span><span>F2FS</span><span>new · v1 · needs review</span><span>f2fs</span><span>syzbot-related</span><span>writeback</span></div><h2>[f2fs-dev] f2fs: don&#39;t BUG on node footer mismatch in f2fs_write_end_io</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条处理 f2fs_write_end_io() 中 node footer mismatch 时继续 BUG 的问题。此前 sanity helper 已经能标记 SBI_NEED_FSCK 并报警，但 write_end_io 后面仍保留 f2fs_bug_on()，导致 fuzzed on-disk image 仍能触发 kernel BUG。patch 的实际目标是把可恢复/可标记的坏盘状态从 panic 路径移出来。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>这条值得看，因为它体现了 syzbot 类问题的常见修复原则：不是所有一致性错误都应该 BUG；如果错误来自可疑介质或 fuzzed image，内核更好的行为通常是标记需要 fsck、隔离错误并返回。这个思路对存储固件也有参考价值：错误分类比单纯 assert 更重要。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：end_io 错误分类</h3><p>end_io 是 I/O 完成路径，常在 softirq/kworker 上下文执行。这里的 BUG 会把一次坏数据或坏元数据直接升级成系统级崩溃。文件系统通常要区分“内核状态不可能发生”与“介质/镜像损坏导致的不一致”。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>确认 helper 返回错误后，调用方是否真正停止后续危险处理。</li><li>看 reviewer 是否要求保留调试信息但降低为 warning。</li><li>关注 syzbot reproducer 是否覆盖 write_end_io 和 read_end_io 两条路径。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>fs/f2fs/data.c</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/f2fs/patch/20260517005230.28172-1-kartikey406@gmail.com/" target="_blank" rel="noreferrer">Open original</a>
+</article><article class="report-deep-item" id="patch-14578205">
+  <div><div class="report-meta"><span>#6</span><span>MM / Block</span><span>new · v1 · check success</span><span>polling</span><span>direct-io</span><span>performance-semantics</span></div><h2>iomap: don&#39;t make REQ_POLLED imply REQ_NOWAIT</h2></div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>主要内容</h3><p>这条把 iomap direct I/O 的 REQ_POLLED 与 REQ_NOWAIT 语义拆开：轮询完成不等于提交过程不能阻塞。patch 删除 bio_set_polled helper，改为只设置 REQ_POLLED。</p></div>
+    <div class="report-detail-box"><h3>为什么值得看</h3><p>这是性能调优必须关注的语义边界。UFS 或 block 性能实验里经常会用 polling、direct I/O、NOWAIT 组合做延迟测试，如果把 polling 误解为 nowait，会把文件系统写路径带到不支持的重试模型里。该 patch 明确指出文件系统写不是简单幂等操作，不能只重试 bio 而不重试整个操作。</p></div>
+  </div>
+  <div class="report-detail-grid">
+    <div class="report-detail-box"><h3>预备知识：REQ_POLLED vs REQ_NOWAIT</h3><p>REQ_POLLED 表示调用方希望通过轮询等待完成，减少中断路径影响；REQ_NOWAIT 表示提交路径不应睡眠。二者优化目标不同。direct I/O 写入还涉及页锁、块映射、元数据和错误回滚，不具备随意 bio 级重试的简单语义。</p></div>
+    <div class="report-detail-box"><h3>阅读检查点</h3><ul><li>确认该改动和 block 层同类修复保持一致。</li><li>看 iomap direct write 是否还有其它地方隐式依赖 REQ_NOWAIT。</li><li>做 UFS 性能测试时，把 polling、hipri、nowait 三个概念分开记录。</li></ul></div>
+  </div>
+  <div class="report-detail-box"><h3>影响范围</h3><div class="report-code-list"><code>fs/iomap/direct-io.c</code><code>include/linux/bio.h</code></div></div>
+  <a class="report-source-link" href="https://patchwork.kernel.org/project/linux-block/patch/20260518062917.506483-1-hch@lst.de/" target="_blank" rel="noreferrer">Open original</a>
+</article></section>
+</main></div></body>
+</html>

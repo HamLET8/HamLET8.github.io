@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 3：接口深度：把参数列表变成领域意图</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html {
+			scroll-behavior: smooth;
+		}
+
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+
+		a {
+			color: var(--ink);
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+
+		.top-actions {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+
+		.pill.primary {
+			border-color: var(--canvas-dark);
+			background: var(--canvas-dark);
+			color: #ffffff;
+		}
+
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+
+		.sidebar,
+		.toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+
+		.toc {
+			display: none;
+		}
+
+		.sidebar-section {
+			margin-bottom: 24px;
+		}
+
+		.sidebar-title,
+		.toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+
+		.nav-list,
+		.toc-list {
+			display: grid;
+			gap: 2px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.nav-list a,
+		.toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+
+		.nav-list a.active {
+			background: var(--surface);
+			color: var(--ink);
+			font-weight: 600;
+		}
+
+		.toc-list a {
+			padding: 5px 0;
+			border-radius: 0;
+			font-size: 13px;
+		}
+
+		main {
+			min-width: 0;
+		}
+
+		.hero {
+			padding: 42px 0 28px;
+		}
+
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+
+		h1,
+		h2,
+		h3 {
+			margin: 0;
+			color: var(--ink);
+			font-weight: 600;
+			letter-spacing: 0;
+			line-height: 1.2;
+		}
+
+		h1 {
+			max-width: 900px;
+			font-size: 46px;
+			letter-spacing: -1px;
+		}
+
+		h2 {
+			margin-top: 48px;
+			padding-top: 34px;
+			border-top: 1px solid var(--hairline);
+			font-size: 28px;
+		}
+
+		h3 {
+			margin-top: 26px;
+			font-size: 20px;
+		}
+
+		p {
+			margin: 12px 0;
+			color: var(--charcoal);
+		}
+
+		.lead {
+			max-width: 840px;
+			margin-top: 18px;
+			color: var(--slate);
+			font-size: 18px;
+			line-height: 1.5;
+		}
+
+		.meta-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 24px;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.badge.mint {
+			border-color: rgba(0, 212, 164, 0.32);
+			background: var(--mint-soft);
+			color: #006b55;
+		}
+
+		.summary-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+			margin-top: 28px;
+		}
+
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+
+		.card.soft {
+			background: var(--surface-soft);
+		}
+
+		.card h3 {
+			margin-top: 0;
+			font-size: 18px;
+		}
+
+		.card p:last-child {
+			margin-bottom: 0;
+		}
+
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+
+		.callout.warning {
+			border-left-color: var(--warn);
+			background: #fffaf0;
+		}
+
+		.callout.bad {
+			border-left-color: var(--error);
+			background: #fff7f7;
+		}
+
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+
+		.diagram svg {
+			display: block;
+			width: 100%;
+			min-width: 760px;
+			height: auto;
+		}
+
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+
+		table {
+			width: 100%;
+			min-width: 0;
+			border-collapse: collapse;
+			table-layout: fixed;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+
+		tr:last-child td {
+			border-bottom: 0;
+		}
+
+		.code-panel {
+			margin: 20px 0;
+			overflow: hidden;
+			border-radius: var(--radius-md);
+			background: var(--surface-code);
+		}
+
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+
+		code {
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+		}
+
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+
+		.scenario-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 12px;
+			margin-top: 18px;
+		}
+
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+
+		.scenario-card h3 {
+			margin-top: 0;
+			font-size: 16px;
+		}
+
+		.scenario-card p {
+			font-size: 14px;
+		}
+
+		@media (min-width: 1500px) {
+			.docs-shell {
+				grid-template-columns: 220px minmax(0, 1fr) 180px;
+				gap: 28px;
+			}
+
+			.toc {
+				display: block;
+			}
+		}
+
+		@media (max-width: 1080px) {
+			.docs-shell {
+				grid-template-columns: minmax(0, 1fr);
+				padding: 24px 20px 56px;
+			}
+
+			.sidebar,
+			.toc {
+				position: static;
+				max-height: none;
+			}
+
+			.sidebar {
+				border-bottom: 1px solid var(--hairline);
+				padding-bottom: 18px;
+			}
+		}
+
+		@media (max-width: 760px) {
+			.topbar {
+				align-items: flex-start;
+				flex-direction: column;
+				padding: 12px 18px;
+			}
+
+			.docs-shell {
+				padding: 18px 16px 44px;
+			}
+
+			.hero {
+				padding-top: 24px;
+			}
+
+			h1 {
+				font-size: 34px;
+				letter-spacing: -0.5px;
+			}
+
+			h2 {
+				margin-top: 38px;
+				padding-top: 26px;
+				font-size: 24px;
+			}
+
+			.summary-grid,
+			.scenario-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.card,
+			.scenario-card {
+				padding: 18px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 3 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a class="active" href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">接口与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 3 · SSD / FTL 代码设计判断</p>
+				<h1>接口深度：把参数列表变成领域意图</h1>
+				<p class="lead">
+					今天的核心判断是：Block Manager 不应该暴露一个万能
+					<span class="inline-code">alloc_page(type, mode, flags)</span>。
+					它应该接收明确的写入意图，例如 host write、GC relocation、SLC flush、metadata journal write，
+					并在模块内部处理 free pool、open block、reserve、磨损和坏块约束。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">接口表达意图，模块吸收策略</span>
+					<span class="badge">涉及：Block Manager / GC / WriteBooster / Journal / Mapping</span>
+					<span class="badge">关键词：深模块 · 正交性 · 契约 · 领域意图</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							深接口不是参数少，而是调用者不需要知道内部策略。调用者只说明“为什么要分配”，
+							Block Manager 决定“从哪里分配、是否触发 GC、是否使用 reserve、是否拒绝该请求”。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Block Manager、Free Block Pool、GC、Victim Block Selection、WriteBooster、
+							Metadata Journal、Bad Block Management、NAND Program Flow。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：接口是复杂度的边境</h2>
+				<p>
+					Day 1 划了模块边界，Day 2 建了领域语言。Day 3 要把这两件事落实到接口：
+					如果接口仍然要求调用者传 magic flag，边界和语言都会退化成装饰。
+				</p>
+
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>
+									深模块通过简单接口隐藏大量复杂度。浅接口会把内部细节转嫁给调用者，导致每个调用点都理解同一套策略。
+								</td>
+								<td>
+									<span class="inline-code">block_alloc_page_for_write()</span>
+									应该隐藏 open block 选择、free pool 水位、reserve pool、wear hint 和 bad block 过滤。
+								</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>
+									正交性要求分配策略变化不污染 GC、WriteBooster、Journal；DRY 要求 free pool 规则只有一个所有者。
+								</td>
+								<td>
+									GC 不应该复制“metadata reserve 不能用”的规则；它只提交
+									<span class="inline-code">FTL_WRITE_GC_RELOCATE</span> 意图。
+								</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>
+									概念完整性来自统一取舍：接口应该围绕“分配物理页”这个主概念，而不是把每个场景补成一个布尔开关。
+								</td>
+								<td>
+									一个请求结构可以稳定承载 origin、page role、temperature、reserve policy；这比不断扩展参数列表更能演进。
+								</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>
+									接口是通用语言的落点。领域服务和聚合边界必须通过参数类型、返回值和错误语义表达。
+								</td>
+								<td>
+									Block Manager 拥有 block/page 生命周期；调用者传入写入意图，不直接传 open block id 或 write pointer。
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：好的接口让调用者少知道一点</h2>
+				<p>
+					FTL 的写入路径天然有多种来源：host write、GC relocation、SLC flush、metadata journal write。
+					它们都需要物理页，但它们不是同一种请求。坏设计会把这些差异压成
+					<span class="inline-code">type</span>、<span class="inline-code">mode</span>、<span class="inline-code">flags</span>；
+					好设计会把这些差异建模为写入意图，然后让 Block Manager 做策略决策。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					调用者负责表达领域意图，Block Manager 负责维护空间不变量。接口越深，调用者越不需要知道 free pool、open block、erase count、reserve pool 和 bad block 的内部规则。
+				</div>
+
+				<div class="diagram" aria-label="浅接口到深接口的转变">
+					<svg viewBox="0 0 980 390" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.bad { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.t { font: 600 15px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #d45656; stroke-width: 1.2; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="bad" x="36" y="54" width="190" height="84" rx="12"></rect>
+						<text class="t" x="131" y="86" text-anchor="middle">浅接口</text>
+						<text class="s" x="131" y="112" text-anchor="middle">alloc_page(type, flags)</text>
+						<path class="dash" d="M226 96 L318 96"></path>
+						<rect class="bad" x="318" y="54" width="220" height="84" rx="12"></rect>
+						<text class="t" x="428" y="86" text-anchor="middle">调用者理解策略</text>
+						<text class="s" x="428" y="112" text-anchor="middle">reserve / open block / bad block</text>
+						<path class="dash" d="M538 96 L630 96"></path>
+						<rect class="bad" x="630" y="54" width="260" height="84" rx="12"></rect>
+						<text class="t" x="760" y="86" text-anchor="middle">策略知识散落</text>
+						<text class="s" x="760" y="112" text-anchor="middle">GC / WriteBooster / Journal 各自复制</text>
+
+						<rect class="key" x="36" y="244" width="190" height="84" rx="12"></rect>
+						<text class="t" x="131" y="276" text-anchor="middle">深接口</text>
+						<text class="s" x="131" y="302" text-anchor="middle">block_alloc_page_for_write(req)</text>
+						<path class="line" d="M226 286 L318 286"></path>
+						<rect class="box" x="318" y="244" width="220" height="84" rx="12"></rect>
+						<text class="t" x="428" y="276" text-anchor="middle">请求表达意图</text>
+						<text class="s" x="428" y="302" text-anchor="middle">origin / role / temperature</text>
+						<path class="line" d="M538 286 L630 286"></path>
+						<rect class="key" x="630" y="244" width="260" height="84" rx="12"></rect>
+						<text class="t" x="760" y="276" text-anchor="middle">Block Manager 吸收复杂度</text>
+						<text class="s" x="760" y="302" text-anchor="middle">free pool / wear / reserve / bad block</text>
+
+						<path class="line" d="M760 244 C760 202, 760 178, 760 138"></path>
+						<text class="s" x="790" y="190">复杂度保留在所有者模块内</text>
+					</svg>
+				</div>
+
+				<p>
+					这里四本书互相制约：深模块要求接口少暴露内部知识；务实工程要求分配规则不要重复；
+					概念完整性要求接口围绕稳定主概念；DDD 要求参数类型表达领域意图。合起来就是：
+					<strong>不要让调用者通过参数组合选择内部策略，让调用者说清业务意图。</strong>
+				</p>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Host Write</h3>
+						<p>
+							Host 写入需要低延迟和普通 user data page。调用者只传
+							<span class="inline-code">FTL_WRITE_HOST</span>，不直接选择 open block。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC Relocation</h3>
+						<p>
+							GC 搬移有效页需要避免抢占 metadata reserve，并可能接受更高延迟。
+							它应通过 relocation origin 表达，而不是复用 host write flag。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Metadata Journal</h3>
+						<p>
+							Journal 写入需要保留空间和更严格的失败语义。
+							如果普通 user data 可以耗尽 journal reserve，掉电恢复会被破坏。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>SLC Cache / WriteBooster</h3>
+						<p>
+							WriteBooster 的 SLC page 分配不应暴露 SLC open block 游标。
+							它提交加速写入意图，Block Manager 决定介质类别和 fallback。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Free Block Pool</h3>
+						<p>
+							低水位不是所有调用者都能绕过的条件。Block Manager 依据请求来源返回
+							<span class="inline-code">-ENOSPC</span>、触发 GC 建议或允许 reserve。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Management</h3>
+						<p>
+							分配接口必须过滤 bad block candidate 和 retired block。
+							调用者不应该带着 block id 绕过坏块隔离边界。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：万能分配接口让调用者背锅</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这个接口看起来通用，实际上要求 GC、Host Write、Journal 都理解 Block Manager 的内部规则。
+					一旦 free pool、reserve 或 wear leveling 策略变化，所有调用点都会被迫修改。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：alloc_page() 暴露内部策略</span>
+						<span>C</span>
+					</div>
+					<pre><code>#define ALLOC_FAST		0x01
+#define ALLOC_META		0x02
+#define ALLOC_GC		0x04
+#define ALLOC_USE_RESERVE	0x08
+
+int alloc_page(struct ftl_dev *ftl, int pool, int flags, int *ppn)
+{
+	int blk;
+
+	if (flags &amp; ALLOC_META)
+		blk = ftl-&gt;bm.meta_open_blk;
+	else if (flags &amp; ALLOC_FAST)
+		blk = ftl-&gt;bm.slc_open_blk;
+	else
+		blk = ftl-&gt;bm.user_open_blk;
+
+	if (ftl-&gt;bm.free_cnt[pool] &lt; 2 &amp;&amp; !(flags &amp; ALLOC_USE_RESERVE))
+		return -ENOSPC;
+
+	if (ftl-&gt;bm.blocks[blk].is_bad)
+		return -EIO;
+
+	*ppn = blk * ftl-&gt;geo.pages_per_blk +
+	       ftl-&gt;bm.blocks[blk].write_ptr++;
+
+	if (flags &amp; ALLOC_GC)
+		ftl-&gt;bm.gc_alloc_cnt++;
+
+	return 0;
+}
+
+int gc_move_page(struct ftl_dev *ftl, int old_ppn, u64 lba)
+{
+	int new_ppn;
+	int ret;
+
+	ret = alloc_page(ftl, 0, ALLOC_GC, &amp;new_ppn);
+	if (ret == -ENOSPC) {
+		ret = alloc_page(ftl, 1, ALLOC_GC | ALLOC_USE_RESERVE,
+				 &amp;new_ppn);
+	}
+	if (ret)
+		return ret;
+
+	return nand_copy_page(ftl-&gt;nand, old_ppn, new_ppn);
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>问题</th>
+								<th>代码表现</th>
+								<th>工程后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>模块边界泄漏</td>
+								<td>调用者知道 pool 编号、reserve flag、SLC/META open block 的隐含关系。</td>
+								<td>Block Manager 的内部策略变化会扩散到 GC 和写路径。</td>
+							</tr>
+							<tr>
+								<td>领域意图被压扁</td>
+								<td>GC relocation 和 metadata write 都只是 flags 的组合。</td>
+								<td>错误路径无法区分“可延迟搬移失败”和“元数据空间耗尽”。</td>
+							</tr>
+							<tr>
+								<td>不变量不可集中维护</td>
+								<td>调用者可以使用 <span class="inline-code">ALLOC_USE_RESERVE</span> 绕开低水位。</td>
+								<td>Power Loss Recovery 依赖的 metadata reserve 可能被普通路径消耗。</td>
+							</tr>
+							<tr>
+								<td>返回值语义模糊</td>
+								<td><span class="inline-code">-ENOSPC</span> 不说明是 user pool、metadata reserve 还是 SLC fallback 失败。</td>
+								<td>上层只能补更多 if/else，错误路径继续散落。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：请求结构承载领域意图</h2>
+				<p>
+					改进后的接口不要求调用者知道 pool 编号或 reserve 规则。调用者只提交分配意图；
+					Block Manager 返回 PPA、介质类别和必要的分配诊断。
+				</p>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>block_manager.h：用请求结构定义接口契约</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef BLOCK_MANAGER_H
+#define BLOCK_MANAGER_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum ftl_write_origin {
+	FTL_WRITE_HOST = 0,
+	FTL_WRITE_SLC_FLUSH,
+	FTL_WRITE_GC_RELOCATE,
+	FTL_WRITE_METADATA,
+};
+
+enum ftl_page_role {
+	FTL_PAGE_USER_DATA = 0,
+	FTL_PAGE_MAPPING_META,
+	FTL_PAGE_JOURNAL_META,
+};
+
+enum ftl_media_class {
+	FTL_MEDIA_ANY = 0,
+	FTL_MEDIA_SLC,
+	FTL_MEDIA_TLC,
+};
+
+enum block_alloc_policy {
+	BLOCK_ALLOC_NORMAL = 0,
+	BLOCK_ALLOC_ALLOW_BACKGROUND_GC,
+	BLOCK_ALLOC_METADATA_RESERVE,
+};
+
+struct ftl_ppa {
+	u32 ch;
+	u32 lun;
+	u32 blk;
+	u32 page;
+};
+
+struct block_alloc_req {
+	u64 lba;
+	enum ftl_write_origin origin;
+	enum ftl_page_role page_role;
+	enum ftl_media_class preferred_media;
+	enum block_alloc_policy policy;
+};
+
+struct block_alloc_result {
+	struct ftl_ppa ppa;
+	enum ftl_media_class media;
+	bool used_reserve;
+	bool should_trigger_gc;
+};
+
+int block_alloc_page_for_write(struct block_manager *bm,
+			       const struct block_alloc_req *req,
+			       struct block_alloc_result *result);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>block_manager.c：策略留在所有者模块内</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int block_select_pool(struct block_manager *bm,
+			     const struct block_alloc_req *req,
+			     struct block_pool **pool)
+{
+	if (req-&gt;page_role == FTL_PAGE_JOURNAL_META) {
+		*pool = &amp;bm-&gt;journal_pool;
+		return 0;
+	}
+
+	if (req-&gt;preferred_media == FTL_MEDIA_SLC &amp;&amp;
+	    block_pool_available(&amp;bm-&gt;slc_pool)) {
+		*pool = &amp;bm-&gt;slc_pool;
+		return 0;
+	}
+
+	*pool = &amp;bm-&gt;user_pool;
+	return 0;
+}
+
+int block_alloc_page_for_write(struct block_manager *bm,
+			       const struct block_alloc_req *req,
+			       struct block_alloc_result *result)
+{
+	struct block_pool *pool;
+	struct nand_block *blk;
+	int ret;
+
+	if (!bm || !req || !result)
+		return -EINVAL;
+
+	ret = block_select_pool(bm, req, &amp;pool);
+	if (ret)
+		return ret;
+
+	if (block_pool_below_low_watermark(pool)) {
+		result-&gt;should_trigger_gc = true;
+		if (req-&gt;policy != BLOCK_ALLOC_METADATA_RESERVE)
+			return -ENOSPC;
+	}
+
+	ret = block_pool_get_open_block(bm, pool, req, &amp;blk);
+	if (ret)
+		return ret;
+
+	if (block_is_bad_or_retired(blk))
+		return -EIO;
+
+	ret = block_next_writable_ppa(bm, blk, &amp;result-&gt;ppa);
+	if (ret)
+		return ret;
+
+	result-&gt;media = pool-&gt;media;
+	result-&gt;used_reserve = pool-&gt;is_reserve;
+
+	return 0;
+}</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>gc.c：调用者表达意图，不复制分配策略</span>
+						<span>C</span>
+					</div>
+					<pre><code>int gc_alloc_relocation_page(struct ftl_dev *ftl, u64 lba,
+			     struct block_alloc_result *result)
+{
+	struct block_alloc_req req = {
+		.lba = lba,
+		.origin = FTL_WRITE_GC_RELOCATE,
+		.page_role = FTL_PAGE_USER_DATA,
+		.preferred_media = FTL_MEDIA_TLC,
+		.policy = BLOCK_ALLOC_ALLOW_BACKGROUND_GC,
+	};
+	int ret;
+
+	ret = block_alloc_page_for_write(ftl-&gt;bm, &amp;req, result);
+	if (ret == -ENOSPC &amp;&amp; result-&gt;should_trigger_gc)
+		return gc_request_emergency(ftl-&gt;gc, GC_CAUSE_FREE_POOL_LOW);
+
+	return ret;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>接口与责任表</h2>
+				<h3>浅接口与深接口对比</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>维度</th>
+								<th>浅接口</th>
+								<th>深接口</th>
+								<th>设计收益</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>参数</td>
+								<td><span class="inline-code">pool, flags, mode</span></td>
+								<td><span class="inline-code">struct block_alloc_req</span></td>
+								<td>调用者表达意图，而不是选择内部策略。</td>
+							</tr>
+							<tr>
+								<td>错误语义</td>
+								<td>所有空间不足都返回 <span class="inline-code">-ENOSPC</span></td>
+								<td>结果中带 <span class="inline-code">should_trigger_gc</span>、reserve 使用情况</td>
+								<td>上层可以做正确补偿，不需要猜测原因。</td>
+							</tr>
+							<tr>
+								<td>策略所有权</td>
+								<td>GC / Host Write / Journal 各自判断 reserve</td>
+								<td>Block Manager 统一维护 free pool 和 reserve 规则</td>
+								<td>避免知识重复和策略漂移。</td>
+							</tr>
+							<tr>
+								<td>演进能力</td>
+								<td>新增介质类别需要修改所有调用点</td>
+								<td>新增字段或内部策略即可吸收变化</td>
+								<td>支持 SLC/TLC/QLC、hot/cold、wear hint 演进。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>分配请求到 Block Manager 决策矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>请求来源</th>
+								<th>Page Role</th>
+								<th>可用池</th>
+								<th>低水位处理</th>
+								<th>典型返回</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Host Write</td>
+								<td>User Data</td>
+								<td>SLC 优先或 TLC user pool</td>
+								<td>返回 <span class="inline-code">-ENOSPC</span> 并建议 foreground GC</td>
+								<td><span class="inline-code">0</span>、<span class="inline-code">-ENOSPC</span>、<span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>GC Relocation</td>
+								<td>User Data</td>
+								<td>TLC user pool，不使用 metadata reserve</td>
+								<td>跳过 victim 或请求 emergency GC</td>
+								<td><span class="inline-code">0</span>、<span class="inline-code">-ENOSPC</span>、<span class="inline-code">-ESTALE</span></td>
+							</tr>
+							<tr>
+								<td>Journal Write</td>
+								<td>Journal Meta</td>
+								<td>journal pool / metadata reserve</td>
+								<td>允许 reserve，失败后标记恢复风险</td>
+								<td><span class="inline-code">0</span>、<span class="inline-code">-ENOSPC</span>、<span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>SLC Flush</td>
+								<td>User Data</td>
+								<td>TLC user pool</td>
+								<td>保留 SLC 数据并触发后台 GC</td>
+								<td><span class="inline-code">0</span>、<span class="inline-code">-EAGAIN</span>、<span class="inline-code">-ENOSPC</span></td>
+							</tr>
+							<tr>
+								<td>Recovery Replay</td>
+								<td>Mapping Meta / User Data</td>
+								<td>受恢复阶段限制</td>
+								<td>不触发普通 GC，进入恢复失败路径</td>
+								<td><span class="inline-code">0</span>、<span class="inline-code">-EILSEQ</span>、<span class="inline-code">-EIO</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>约束了什么</th>
+								<th>帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块：简单接口隐藏复杂内部策略。</td>
+								<td>Block Manager 分配接口。</td>
+								<td>调用者不得直接选择 open block、reserve pool、write pointer。</td>
+								<td>避免空间管理细节泄漏到 FTL Core、GC、Journal。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>DRY 和正交性：策略知识只属于一个模块。</td>
+								<td>Free Block Pool、metadata reserve、bad block 过滤。</td>
+								<td>分配规则只能由 Block Manager 维护。</td>
+								<td>避免 GC 和 WriteBooster 复制空间水位判断。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性：接口围绕稳定主概念，而非临时开关。</td>
+								<td><span class="inline-code">block_alloc_page_for_write()</span> 的请求/结果模型。</td>
+								<td>新增场景应扩展意图模型，不应堆布尔参数。</td>
+								<td>避免万能函数逐步腐化为策略垃圾场。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>接口承载通用语言和上下文边界。</td>
+								<td>origin、page role、media class、alloc policy。</td>
+								<td>请求字段必须对应真实 FTL 领域词汇。</td>
+								<td>避免参数名看似通用但语义无法审查。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">接口与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

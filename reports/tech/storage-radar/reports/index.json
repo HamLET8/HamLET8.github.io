@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-05-21T05:23:00+08:00",
+  "reports": [
+    {
+      "id": "report-2026-05-21-gpt-linux-storage",
+      "title": "Linux Storage Technical Reading · 2026-05-21 · GPT",
+      "date": "2026-05-21",
+      "generatedAt": "2026-05-21T05:23:00+08:00",
+      "snapshotGeneratedAt": "2026-05-11T12:39:46.482Z",
+      "insightsGeneratedAt": "2026-05-11T12:39:46.581Z",
+      "model": "GPT-5.5 / Codex-side",
+      "itemCount": 5,
+      "path": "./reports/report-2026-05-21-gpt-linux-storage.html",
+      "summary": "精选 UFS hibern8 notify、StarFive/DWC UFS 平台化、loop queue/workqueue 竞态、mpi3mr BSG SGL 越界和 block-as-NVMEM lifetime 语义。"
+    },
+    {
+      "id": "report-2026-05-20-technical-gpt",
+      "title": "Storage Technical Report · 2026-05-20 · GPT",
+      "date": "2026-05-20",
+      "generatedAt": "2026-05-20T00:52:00+08:00",
+      "snapshotGeneratedAt": "2026-05-20 00:09 CST",
+      "insightsGeneratedAt": "2026-05-20 00:12 CST",
+      "model": "GPT-5.5 / Codex-side",
+      "itemCount": 5,
+      "path": "./reports/report-2026-05-20-technical-gpt.html",
+      "summary": "重写为技术报告：重点解释 UFS QCOM ICE probe race、F2FS gc_merge deadlock、iomap REQ_POLLED/REQ_NOWAIT 语义，并补充 UFS tracepoint 与 Hawi PHY bring-up 的阅读线索。"
+    }
+  ]
+}

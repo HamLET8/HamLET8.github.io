@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 6：错误路径不是 return 语句</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 920px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 860px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 800px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 6 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a class="active" href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">错误矩阵与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 6 · SSD / FTL 代码设计判断</p>
+				<h1>错误路径不是 return 语句：先把 NAND 结果映射成 FTL 决策</h1>
+				<p class="lead">
+					今天的核心判断是：NAND program/read/erase 的失败不能被主路径简单透传。
+					FTL 必须先把介质结果转成领域决策，再进入 Block Manager、Mapping、Journal、Recovery 的补偿路径。
+					否则错误处理会散落，掉电恢复也无法解释系统停在哪个阶段。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">介质错误先领域化，再补偿</span>
+					<span class="badge">涉及：NAND / Block Manager / Mapping / Journal / Recovery</span>
+					<span class="badge">关键词：错误矩阵 · 补偿路径 · orphan page · recovery boundary</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							主路径不应该写成 <span class="inline-code">if (ret) return ret;</span>。
+							它应该识别失败发生在哪个事务阶段，并调用对应模块完成 discard、retire、retry、replay 标记或映射回滚。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							NAND Program / Erase / Read Flow、ECC、Read Retry、Bad Block Management、
+							Metadata Journal、Mapping Table、Power Loss Recovery、Free Block Pool。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：错误是设计的一部分</h2>
+				<p>
+					在 FTL 里，错误不是边角 case。NAND 介质会失败，写入事务会卡在中间阶段，journal 可能写不进去，
+					erase 可能退役 block，read 可能依赖 ECC 或 read retry。错误路径就是设计路径。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>复杂度来自特殊情况扩散。深模块应隐藏错误细节，向上暴露稳定决策。</td>
+								<td>NAND 层返回介质结果，FTL 错误转换层把它映射为 retry、retire、discard、recovery-required。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>务实工程要求失败早暴露、契约明确。不要让调用方猜错误码背后的状态。</td>
+								<td><span class="inline-code">-EIO</span> 不够；需要附带阶段、PPA、介质动作和可执行补偿建议。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍要承认现实约束。错误路径必须服务概念完整性，而不是散在每个 if 分支。</td>
+								<td>program 成功但 journal 失败时，概念上是“已写未提交页”，不是普通写失败。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域异常要用领域语言表达。错误不是硬件状态码，而是 FTL 状态转换事件。</td>
+								<td>使用 orphan page、bad block candidate、recovery-required、stale mapping 等领域词汇建模失败。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：错误路径必须绑定事务阶段</h2>
+				<p>
+					同一个 <span class="inline-code">-EIO</span> 在不同阶段含义完全不同。
+					Program 前失败，可能只是没有空间；program 失败，可能要隔离 block；program 成功但 journal 失败，
+					会产生已写但不可见的 orphan page；journal 成功但 mapping commit 失败，则 Recovery 必须能重放。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					错误处理的第一步不是返回错误码，而是定位事务阶段。阶段决定补偿所有者：NAND 负责介质结果，
+					Block Manager 负责 page/block 生命周期，Journal 负责可恢复记录，Mapping 负责逻辑可见性，Recovery 负责跨重启收敛。
+				</div>
+				<div class="diagram" aria-label="错误路径与事务阶段关系">
+					<svg viewBox="0 0 1100 390" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="36" y="72" width="126" height="64" rx="12"></rect>
+						<text class="t" x="99" y="98" text-anchor="middle">Allocate</text>
+						<text class="s" x="99" y="118" text-anchor="middle">reserve PPA</text>
+						<path class="line" d="M162 104 L202 104"></path>
+						<rect class="box" x="202" y="72" width="126" height="64" rx="12"></rect>
+						<text class="t" x="265" y="98" text-anchor="middle">Program</text>
+						<text class="s" x="265" y="118" text-anchor="middle">介质写入</text>
+						<path class="line" d="M328 104 L368 104"></path>
+						<rect class="key" x="368" y="72" width="126" height="64" rx="12"></rect>
+						<text class="t" x="431" y="98" text-anchor="middle">Journal</text>
+						<text class="s" x="431" y="118" text-anchor="middle">可恢复记录</text>
+						<path class="line" d="M494 104 L534 104"></path>
+						<rect class="key" x="534" y="72" width="126" height="64" rx="12"></rect>
+						<text class="t" x="597" y="98" text-anchor="middle">Mapping</text>
+						<text class="s" x="597" y="118" text-anchor="middle">逻辑可见</text>
+						<path class="line" d="M660 104 L700 104"></path>
+						<rect class="box" x="700" y="72" width="126" height="64" rx="12"></rect>
+						<text class="t" x="763" y="98" text-anchor="middle">Invalidate</text>
+						<text class="s" x="763" y="118" text-anchor="middle">旧页失效</text>
+
+						<path class="line" d="M265 136 C265 184, 196 198, 174 226"></path>
+						<rect class="err" x="82" y="238" width="184" height="72" rx="12"></rect>
+						<text class="t" x="174" y="266" text-anchor="middle">program fail</text>
+						<text class="s" x="174" y="288" text-anchor="middle">retire / retry / remap</text>
+						<path class="line" d="M431 136 C431 184, 374 198, 352 226"></path>
+						<rect class="err" x="280" y="238" width="184" height="72" rx="12"></rect>
+						<text class="t" x="372" y="266" text-anchor="middle">journal fail</text>
+						<text class="s" x="372" y="288" text-anchor="middle">discard orphan page</text>
+						<path class="line" d="M597 136 C597 184, 558 198, 536 226"></path>
+						<rect class="err" x="478" y="238" width="184" height="72" rx="12"></rect>
+						<text class="t" x="570" y="266" text-anchor="middle">mapping fail</text>
+						<text class="s" x="570" y="288" text-anchor="middle">journal replay required</text>
+						<path class="line" d="M763 136 C763 184, 738 198, 716 226"></path>
+						<rect class="err" x="676" y="238" width="184" height="72" rx="12"></rect>
+						<text class="t" x="768" y="266" text-anchor="middle">invalidate fail</text>
+						<text class="s" x="768" y="288" text-anchor="middle">scrub / reconcile</text>
+						<rect class="key" x="902" y="238" width="160" height="72" rx="12"></rect>
+						<text class="t" x="982" y="266" text-anchor="middle">Recovery</text>
+						<text class="s" x="982" y="288" text-anchor="middle">以 journal 收敛</text>
+						<path class="line" d="M662 274 L902 274"></path>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>NAND Program Failure</h3>
+						<p>Program fail 发生在 mapping 可见前。FTL 应报告 Block Manager，隔离候选坏块，并重新分配或返回可解释错误。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Journal Append Failure</h3>
+						<p>Program 已成功但 journal 失败，新页不能成为当前映射；它应被标为 uncommitted/orphan，等待 GC 回收。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Mapping Commit Failure</h3>
+						<p>Journal 已成功但 Mapping commit 失败，不能丢弃记录；系统应标记 recovery required，允许重放收敛。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Read Retry / ECC</h3>
+						<p>Read correctable 不是普通成功，应该反馈介质健康；uncorrectable 进入 read retry、镜像副本或恢复路径。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Erase Failure</h3>
+						<p>Erase fail 表示 block 不能回到 free pool。Block Manager 应退役或隔离 block，更新坏块统计。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>恢复时不能重走普通错误路径，而应根据 journal 与 NAND metadata 判断事务停在哪个阶段。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：错误码透传导致补偿丢失</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把所有失败都当作 <span class="inline-code">return ret</span>。
+					它没有记录事务阶段，也没有让拥有者模块执行补偿动作。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：错误路径散落且不可恢复</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_write_bad(struct ftl_dev *ftl, u64 lba, const void *buf)
+{
+	struct ftl_ppa old_ppa;
+	struct ftl_ppa new_ppa;
+	int ret;
+
+	ret = map_lookup_l2p(ftl-&gt;map, lba, &amp;old_ppa);
+	if (ret &amp;&amp; ret != -ENOENT)
+		return ret;
+
+	ret = block_alloc_page(ftl-&gt;bm, &amp;new_ppa);
+	if (ret)
+		return ret;
+
+	ret = nand_program_page(ftl-&gt;nand, &amp;new_ppa, buf);
+	if (ret)
+		return ret;
+
+	ret = journal_append(ftl-&gt;journal, lba, &amp;old_ppa, &amp;new_ppa);
+	if (ret)
+		return ret;
+
+	ret = map_set_l2p(ftl-&gt;map, lba, &amp;new_ppa);
+	if (ret)
+		return ret;
+
+	block_invalidate_page(ftl-&gt;bm, &amp;old_ppa);
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Program fail 无补偿</td>
+								<td>直接返回 NAND 错误。</td>
+								<td>Block Manager 不知道 PPA 分配失败、block 可能需要隔离。</td>
+							</tr>
+							<tr>
+								<td>Journal fail 产生 orphan</td>
+								<td>program 成功后 journal 失败直接返回。</td>
+								<td>已写 page 没有 mapping，也没有被标记为 uncommitted。</td>
+							</tr>
+							<tr>
+								<td>Mapping fail 不可恢复</td>
+								<td>journal 已存在但 mapping 失败直接返回。</td>
+								<td>下次启动可能能重放，但系统没有标记 recovery required。</td>
+							</tr>
+							<tr>
+								<td>Invalidate fail 被忽略</td>
+								<td>旧页失效返回值未处理。</td>
+								<td>valid count 可能漂移，GC victim selection 失真。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：错误转换层与阶段化补偿</h2>
+				<p>
+					改进版把 NAND 结果先转换成 FTL 决策，并在每个事务阶段收敛到明确补偿点。
+					主路径仍然简洁，但错误路径不再隐形。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_error.h：介质结果到 FTL 决策</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_ERROR_H
+#define FTL_ERROR_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum nand_op {
+	NAND_OP_READ = 0,
+	NAND_OP_PROGRAM,
+	NAND_OP_ERASE,
+};
+
+enum ftl_error_action {
+	FTL_ERR_NONE = 0,
+	FTL_ERR_RETRY,
+	FTL_ERR_RETIRE_BLOCK,
+	FTL_ERR_DISCARD_PAGE,
+	FTL_ERR_MARK_RECOVERY_REQUIRED,
+	FTL_ERR_READ_RECLAIM,
+};
+
+struct nand_op_result {
+	enum nand_op op;
+	struct ftl_ppa ppa;
+	int status;
+	u32 ecc_corrected_bits;
+	bool timeout;
+	bool program_fail;
+	bool erase_fail;
+	bool uncorrectable;
+};
+
+struct ftl_error_decision {
+	int errno_value;
+	enum ftl_error_action action;
+	const char *reason;
+};
+
+void ftl_classify_nand_result(const struct nand_op_result *result,
+			      struct ftl_error_decision *decision);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_write.c：按事务阶段补偿</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_submit_write(struct ftl_dev *ftl, const struct ftl_write_req *req)
+{
+	struct block_alloc_result alloc;
+	struct ftl_mapping_delta delta;
+	struct nand_op_result nand_result;
+	struct ftl_error_decision decision;
+	int ret;
+
+	ret = ftl_prepare_write_delta(ftl, req, &amp;delta, &amp;alloc);
+	if (ret)
+		return ret;
+
+	ret = nand_program_page(ftl-&gt;nand, &amp;alloc.ppa, req-&gt;buf,
+				req-&gt;len, &amp;nand_result);
+	if (ret)
+		goto err_program;
+
+	delta.new_ppa = alloc.ppa;
+
+	ret = journal_append_mapping_delta(ftl-&gt;journal, &amp;delta);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_delta_if_current(ftl-&gt;map, &amp;delta);
+	if (ret)
+		goto err_mapping;
+
+	ret = block_commit_programmed_page(ftl-&gt;bm, &amp;alloc.ppa);
+	if (ret)
+		goto err_block_commit;
+
+	if (ftl_ppa_valid(&amp;delta.old_ppa))
+		block_invalidate_page(ftl-&gt;bm, &amp;delta.old_ppa);
+
+	return 0;
+
+err_block_commit:
+	ftl_mark_recovery_required(ftl, FTL_RECOVERY_MAPPING_COMMITTED);
+	return ret;
+
+err_mapping:
+	ftl_mark_recovery_required(ftl, FTL_RECOVERY_JOURNAL_REPLAY);
+	return ret;
+
+err_journal:
+	block_discard_uncommitted_page(ftl-&gt;bm, &amp;alloc.ppa);
+	return ret;
+
+err_program:
+	ftl_classify_nand_result(&amp;nand_result, &amp;decision);
+	block_apply_program_failure(ftl-&gt;bm, &amp;alloc.ppa, &amp;decision);
+	return decision.errno_value;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>错误矩阵与落点表</h2>
+				<h3>NAND 结果到 FTL 决策矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>NAND 结果</th>
+								<th>FTL 领域解释</th>
+								<th>负责模块</th>
+								<th>补偿动作</th>
+								<th>返回语义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Program fail</td>
+								<td>new PPA 未提交，不可逻辑可见</td>
+								<td>Block Manager / Bad Block</td>
+								<td>标记 program failure，隔离候选 block，重新分配或失败返回</td>
+								<td><span class="inline-code">-EIO</span> 或 <span class="inline-code">-EAGAIN</span></td>
+							</tr>
+							<tr>
+								<td>Journal append fail</td>
+								<td>page 已写但不可恢复</td>
+								<td>Journal / Block Manager</td>
+								<td>标记 uncommitted page，等待 GC 回收</td>
+								<td><span class="inline-code">-EIO</span>、<span class="inline-code">-ENOSPC</span></td>
+							</tr>
+							<tr>
+								<td>Mapping commit fail</td>
+								<td>journal 已记录但内存状态未收敛</td>
+								<td>Mapping / Recovery</td>
+								<td>标记 recovery required，后续 replay delta</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Read correctable</td>
+								<td>数据可用但介质健康下降</td>
+								<td>ECC / Read Path</td>
+								<td>记录 corrected bits，必要时 read reclaim</td>
+								<td><span class="inline-code">0</span></td>
+							</tr>
+							<tr>
+								<td>Read uncorrectable</td>
+								<td>当前副本不可用</td>
+								<td>Read Retry / Recovery</td>
+								<td>尝试 read retry、镜像副本、恢复扫描</td>
+								<td><span class="inline-code">-EILSEQ</span></td>
+							</tr>
+							<tr>
+								<td>Erase fail</td>
+								<td>block 不能回 free pool</td>
+								<td>Block Manager / Bad Block</td>
+								<td>retire block，更新坏块统计和 free pool</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>约束了什么</th>
+								<th>帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>特殊情况不能扩散；深模块应隐藏错误细节。</td>
+								<td>NAND result classifier、Block Manager 补偿接口。</td>
+								<td>主路径不解释硬件状态位。</td>
+								<td>避免每个调用点写一套错误判断。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>契约明确，失败可诊断。</td>
+								<td>负 errno + decision/action 结构。</td>
+								<td>错误码必须附带可执行补偿语义。</td>
+								<td>避免 <span class="inline-code">-EIO</span> 成为语义黑洞。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性要求错误路径遵守同一事务模型。</td>
+								<td>program、journal、mapping、invalidate 的阶段边界。</td>
+								<td>每个阶段失败都有唯一补偿所有者。</td>
+								<td>避免补丁式 if/else 破坏恢复语义。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域异常应使用领域语言表达。</td>
+								<td>orphan page、bad block candidate、recovery required。</td>
+								<td>错误路径要改变领域状态，而不仅是返回数字。</td>
+								<td>避免硬件错误码泄漏到上层业务判断。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">错误矩阵与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

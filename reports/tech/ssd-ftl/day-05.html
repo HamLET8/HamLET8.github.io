@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 5：Mapping Table 的所有权</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 920px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 860px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 780px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 5 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a class="active" href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">责任与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 5 · SSD / FTL 代码设计判断</p>
+				<h1>Mapping Table 的所有权：所有 L2P/P2L 一致性必须经过它</h1>
+				<p class="lead">
+					今天的核心判断是：Mapping 模块拥有 LBA 到 PPA 的当前事实。
+					GC、Recovery、WriteBooster、Host Write 都可以提出变更意图，但不能直接改 L2P/P2L。
+					它们必须通过条件提交接口，让 Mapping 保持一致性、不变量和恢复边界。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">Mapping 拥有地址关系事实</span>
+					<span class="badge">涉及：Mapping / GC / Recovery / Journal / WriteBooster</span>
+					<span class="badge">关键词：所有权 · 条件提交 · L2P/P2L 一致性 · 防腐边界</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							任何模块都不应直接写 <span class="inline-code">l2p[lba]</span>。
+							Mapping Table 提供 lookup、reverse lookup、prepare delta、commit delta if current、replay commit 等接口。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Mapping Table、GC Relocation、Metadata Journal、FTL Recovery、WriteBooster Flush、
+							Host Write、Victim Block Selection、Power Loss Recovery。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：数据所有权比访问便利更重要</h2>
+				<p>
+					FTL 里最容易被破坏的数据边界是 Mapping。因为所有路径都“需要更新映射”，所以最诱人的做法就是让每个模块都能写 L2P。
+					这会迅速摧毁恢复语义和 GC 正确性。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块隐藏关键数据结构，调用者不应依赖内部布局。</td>
+								<td>Mapping 内部的 cache、page-level table、translation page、dirty bitmap 不向 GC 和 Recovery 暴露。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>DRY 约束知识重复。当前映射事实只能有一个权威来源。</td>
+								<td>L2P/P2L 当前关系由 Mapping 维护，Journal 记录变更，Recovery 重放变更但不拥有当前事实。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性要求把“地址关系”作为稳定主概念，而不是散落到每条路径。</td>
+								<td>Host Write、GC relocation、SLC flush 都提交 mapping delta，而不是各自实现映射更新。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>聚合边界保护不变量。Mapping 是地址关系聚合，外部模块通过领域服务协作。</td>
+								<td>GC 可以询问 old PPA 是否仍当前有效，但不能绕过 Mapping 直接改 L2P。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：Mapping 是事实边界，不是数组工具</h2>
+				<p>
+					Mapping Table 不是一个方便大家读写的数组。它是 FTL 中“逻辑地址当前指向哪里”的事实边界。
+					一旦 GC、Recovery、WriteBooster 都能直接写 L2P，系统会出现多个事实来源：GC 认为搬移成功，
+					Recovery 认为 journal 尚未提交，Host Write 认为用户写入覆盖了旧页。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Mapping 模块应该接受“条件变更”，而不是暴露“直接赋值”。关键接口不是
+					<span class="inline-code">set_l2p(lba, ppa)</span>，而是
+					<span class="inline-code">map_commit_delta_if_current()</span>。
+				</div>
+				<div class="diagram" aria-label="Mapping 所有权边界">
+					<svg viewBox="0 0 1040 380" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.bad { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 15px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #d45656; stroke-width: 1.2; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="key" x="408" y="128" width="230" height="110" rx="14"></rect>
+						<text class="t" x="523" y="166" text-anchor="middle">Mapping Table</text>
+						<text class="s" x="523" y="190" text-anchor="middle">L2P / P2L 当前事实</text>
+						<text class="s" x="523" y="212" text-anchor="middle">条件提交 / 反查 / replay</text>
+
+						<rect class="box" x="52" y="54" width="180" height="72" rx="12"></rect>
+						<text class="t" x="142" y="84" text-anchor="middle">Host Write</text>
+						<text class="s" x="142" y="106" text-anchor="middle">mapping delta</text>
+						<path class="line" d="M232 90 C300 104, 338 128, 408 160"></path>
+
+						<rect class="box" x="52" y="250" width="180" height="72" rx="12"></rect>
+						<text class="t" x="142" y="280" text-anchor="middle">GC Relocation</text>
+						<text class="s" x="142" y="302" text-anchor="middle">if old PPA current</text>
+						<path class="line" d="M232 286 C304 266, 338 238, 408 206"></path>
+
+						<rect class="box" x="806" y="54" width="180" height="72" rx="12"></rect>
+						<text class="t" x="896" y="84" text-anchor="middle">WriteBooster</text>
+						<text class="s" x="896" y="106" text-anchor="middle">flush commit</text>
+						<path class="line" d="M806 90 C736 104, 704 128, 638 160"></path>
+
+						<rect class="box" x="806" y="250" width="180" height="72" rx="12"></rect>
+						<text class="t" x="896" y="280" text-anchor="middle">Recovery</text>
+						<text class="s" x="896" y="302" text-anchor="middle">journal replay</text>
+						<path class="line" d="M806 286 C736 266, 704 238, 638 206"></path>
+
+						<rect class="bad" x="408" y="286" width="230" height="58" rx="12"></rect>
+						<text class="t" x="523" y="310" text-anchor="middle">禁止直接写 l2p[]</text>
+						<text class="s" x="523" y="330" text-anchor="middle">外部只能提交领域变更</text>
+						<path class="dash" d="M523 286 L523 238"></path>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Host Write</h3>
+						<p>Host Write 通过 mapping delta 提交 old PPA 到 new PPA 的变化，Mapping 负责更新 L2P/P2L 和 dirty 状态。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC Relocation</h3>
+						<p>GC 必须使用条件提交：只有 old PPA 仍是当前映射时，才允许搬移结果成为 new PPA。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>WriteBooster Flush</h3>
+						<p>SLC 到 TLC 的 flush 不是普通覆盖；它必须确认 LBA 尚未被更新写覆盖，避免 stale flush 回滚用户数据。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Metadata Journal</h3>
+						<p>Journal 记录 mapping delta，不拥有当前 mapping；Recovery 重放时仍通过 Mapping 的 replay 接口提交。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>Recovery 不直接修 L2P 数组，而是扫描 journal 和 NAND metadata，然后调用 Mapping 的幂等 replay。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Victim Block Selection</h3>
+						<p>GC 需要知道 PPA 是否仍有效，应通过 reverse lookup 或 iterator，而不是读取 Mapping 内部表结构。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：每个模块都能写 L2P</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					GC、Recovery、WriteBooster 都直接改 L2P。短期少写接口，长期会出现 stale relocation、flush 覆盖新写入、replay 非幂等。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：Mapping 所有权被多个模块破坏</span>
+						<span>C</span>
+					</div>
+					<pre><code>int gc_move_valid_page(struct ftl_dev *ftl, u64 lba,
+		       int old_ppn, int new_ppn)
+{
+	nand_copy_page(ftl-&gt;nand, old_ppn, new_ppn);
+	ftl-&gt;l2p[lba] = new_ppn;
+	ftl-&gt;p2l[new_ppn] = lba;
+	ftl-&gt;p2l[old_ppn] = P2L_INVALID;
+	return 0;
+}
+
+int wb_flush_entry(struct ftl_dev *ftl, u64 lba, int slc_ppn,
+		   int tlc_ppn)
+{
+	nand_copy_page(ftl-&gt;nand, slc_ppn, tlc_ppn);
+	ftl-&gt;l2p[lba] = tlc_ppn;
+	ftl-&gt;p2l[tlc_ppn] = lba;
+	return 0;
+}
+
+int recovery_replay_record(struct ftl_dev *ftl, struct raw_record *r)
+{
+	if (r-&gt;type == REC_MAPPING) {
+		ftl-&gt;l2p[r-&gt;lba] = r-&gt;new_ppn;
+		ftl-&gt;p2l[r-&gt;new_ppn] = r-&gt;lba;
+	}
+
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>所有权分裂</td>
+								<td>三个模块都直接写 <span class="inline-code">l2p</span> 和 <span class="inline-code">p2l</span>。</td>
+								<td>Mapping 无法维护 L2P/P2L 互逆不变量。</td>
+							</tr>
+							<tr>
+								<td>缺少条件提交</td>
+								<td>GC 和 flush 不检查 old PPA 是否仍当前。</td>
+								<td>旧搬移结果可能覆盖更新的 host write。</td>
+							</tr>
+							<tr>
+								<td>Recovery 非幂等</td>
+								<td>replay 直接赋值，没有版本、原因和 old PPA 校验。</td>
+								<td>重复 replay 或部分 replay 后状态不可解释。</td>
+							</tr>
+							<tr>
+								<td>统计失真</td>
+								<td>旧 PPA 的失效和 valid count 更新不在同一提交边界。</td>
+								<td>GC victim selection 依赖的统计会漂移。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：Mapping 提供条件提交接口</h2>
+				<p>
+					改进版的关键是把“当前事实”和“变更请求”分开。外部模块提交 delta；
+					Mapping 模块决定这个 delta 是否仍然有效、如何更新 L2P/P2L、如何标记 dirty 和统计。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>mapping.h：Mapping 拥有提交语义</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_MAPPING_H
+#define FTL_MAPPING_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum map_commit_reason {
+	MAP_COMMIT_HOST_WRITE = 0,
+	MAP_COMMIT_GC_RELOCATION,
+	MAP_COMMIT_SLC_FLUSH,
+	MAP_COMMIT_RECOVERY_REPLAY,
+};
+
+struct map_delta {
+	u64 lba;
+	struct ftl_ppa old_ppa;
+	struct ftl_ppa new_ppa;
+	enum map_commit_reason reason;
+	u64 seq;
+};
+
+int map_lookup_l2p(struct map_table *map, u64 lba,
+		   struct ftl_ppa *ppa);
+int map_reverse_lookup(struct map_table *map, const struct ftl_ppa *ppa,
+		       u64 *lba);
+int map_commit_delta_if_current(struct map_table *map,
+				const struct map_delta *delta);
+int map_replay_delta(struct map_table *map,
+		     const struct map_delta *delta);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>mapping.c：条件提交保护当前事实</span>
+						<span>C</span>
+					</div>
+					<pre><code>int map_commit_delta_if_current(struct map_table *map,
+				const struct map_delta *delta)
+{
+	struct ftl_ppa current;
+	int ret;
+
+	if (!map || !delta || !ftl_ppa_valid(&amp;delta-&gt;new_ppa))
+		return -EINVAL;
+
+	ret = map_lookup_l2p(map, delta-&gt;lba, &amp;current);
+	if (ret &amp;&amp; ret != -ENOENT)
+		return ret;
+
+	if (ret == -ENOENT &amp;&amp; ftl_ppa_valid(&amp;delta-&gt;old_ppa))
+		return -ESTALE;
+
+	if (!ret &amp;&amp; !ftl_ppa_equal(&amp;current, &amp;delta-&gt;old_ppa))
+		return -ESTALE;
+
+	map_set_l2p_internal(map, delta-&gt;lba, &amp;delta-&gt;new_ppa);
+	map_set_p2l_internal(map, &amp;delta-&gt;new_ppa, delta-&gt;lba);
+
+	if (ftl_ppa_valid(&amp;delta-&gt;old_ppa))
+		map_clear_p2l_internal(map, &amp;delta-&gt;old_ppa);
+
+	map_mark_dirty(map, delta-&gt;lba);
+	return 0;
+}</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>gc.c：GC 只提交 relocation delta</span>
+						<span>C</span>
+					</div>
+					<pre><code>int gc_commit_relocation(struct ftl_dev *ftl, u64 lba,
+			 const struct ftl_ppa *old_ppa,
+			 const struct ftl_ppa *new_ppa)
+{
+	struct map_delta delta = {
+		.lba = lba,
+		.old_ppa = *old_ppa,
+		.new_ppa = *new_ppa,
+		.reason = MAP_COMMIT_GC_RELOCATION,
+		.seq = journal_next_seq(ftl-&gt;journal),
+	};
+	int ret;
+
+	ret = journal_append_map_delta(ftl-&gt;journal, &amp;delta);
+	if (ret)
+		return ret;
+
+	ret = map_commit_delta_if_current(ftl-&gt;map, &amp;delta);
+	if (ret == -ESTALE)
+		return 0;
+
+	return ret;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>责任与落点表</h2>
+				<h3>Mapping 协作边界表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>调用方</th>
+								<th>允许动作</th>
+								<th>禁止动作</th>
+								<th>Mapping 返回语义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Host Write</td>
+								<td>提交 host write delta</td>
+								<td>直接写 L2P/P2L</td>
+								<td>成功、旧映射不存在、内部错误</td>
+							</tr>
+							<tr>
+								<td>GC Relocation</td>
+								<td>条件提交 relocation delta</td>
+								<td>覆盖当前 LBA 映射</td>
+								<td><span class="inline-code">-ESTALE</span> 表示跳过 stale page</td>
+							</tr>
+							<tr>
+								<td>WriteBooster Flush</td>
+								<td>条件提交 SLC flush delta</td>
+								<td>把 flush 结果强制设为当前</td>
+								<td><span class="inline-code">-ESTALE</span> 表示 host 已更新</td>
+							</tr>
+							<tr>
+								<td>Recovery</td>
+								<td>幂等 replay journal delta</td>
+								<td>绕过 Mapping 重建数组</td>
+								<td>重复 replay 应返回成功或已应用</td>
+							</tr>
+							<tr>
+								<td>Victim Selection</td>
+								<td>查询 PPA 当前有效性</td>
+								<td>读取 Mapping 内部缓存布局</td>
+								<td>valid、stale、unknown</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>约束了什么</th>
+								<th>帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>信息隐藏：深模块保护内部数据结构。</td>
+								<td>Mapping Table 内部 L2P/P2L/cache。</td>
+								<td>外部不得依赖数组布局。</td>
+								<td>避免 Mapping 结构变化牵动 GC/Recovery。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>DRY：当前映射事实只能有一个权威来源。</td>
+								<td>Mapping commit 和 reverse lookup。</td>
+								<td>L2P/P2L 更新规则集中在 Mapping。</td>
+								<td>避免多模块重复维护地址关系。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性：地址关系是独立主概念。</td>
+								<td>map_delta、conditional commit、replay。</td>
+								<td>所有变更都表达为同一种可审查模型。</td>
+								<td>避免 Host/GC/Recovery 各走一套更新语义。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>聚合边界维护不变量。</td>
+								<td>Mapping 聚合与 GC/Recovery 领域服务协作。</td>
+								<td>外部只能提交领域变更，不能改内部状态。</td>
+								<td>避免跨上下文污染和 stale update。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">责任与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Radar</title>
+    <script>
+      (() => {
+        const choice = localStorage.getItem("storage-radar-theme") || "dark";
+        const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = choice === "system" ? (dark ? "dark" : "light") : choice;
+        document.documentElement.dataset.themeChoice = choice;
+      })();
+    </script>
+    <link rel="stylesheet" href="./assets/styles.css?v=20260520-reportnav">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Storage modules">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">SR</div>
+          <div>
+            <h1>Storage Radar</h1>
+            <p id="snapshot-age">loading</p>
+          </div>
+        </div>
+
+        <nav class="module-nav" id="module-nav" aria-label="Module filters"></nav>
+
+        <section class="source-panel" aria-label="Data sources">
+          <h2>Sources</h2>
+          <div id="source-list"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Linux storage development</p>
+            <h2 id="module-title">Overview</h2>
+          </div>
+          <div class="toolbar">
+            <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+              <button type="button" data-theme-choice="system">Auto</button>
+              <button type="button" data-theme-choice="light">Light</button>
+              <button type="button" data-theme-choice="dark">Dark</button>
+            </div>
+            <label class="search-box">
+              <span aria-hidden="true">⌕</span>
+              <input id="search-input" type="search" placeholder="搜索 patch、bug、reviewer、关键词">
+            </label>
+            <select id="risk-filter" aria-label="Risk filter">
+              <option value="all">全部风险</option>
+              <option value="critical">高风险</option>
+              <option value="locking">locking</option>
+              <option value="timeout">timeout</option>
+              <option value="reset">reset</option>
+              <option value="race">race</option>
+              <option value="error-handling">error handling</option>
+              <option value="performance">performance</option>
+              <option value="latency">latency</option>
+              <option value="queueing">queueing</option>
+              <option value="writeback">writeback</option>
+              <option value="flush">flush</option>
+              <option value="discard">discard</option>
+              <option value="power-management">power management</option>
+            </select>
+          </div>
+        </header>
+
+        <section class="metrics-grid" id="metrics-grid" aria-label="Module metrics"></section>
+
+        <section class="insight-panel" id="insight-panel" aria-label="AI insights" hidden>
+          <div class="insight-copy">
+            <p class="eyebrow">AI Insights</p>
+            <h3 id="insight-summary">No insight</h3>
+            <p id="daily-summary"></p>
+          </div>
+          <div class="watch-list" id="watch-list"></div>
+        </section>
+
+        <section class="tracking-panel" id="tracking-panel" aria-label="Tracked patches"></section>
+
+        <section class="reports-panel" id="reports-panel" aria-label="Reading reports"></section>
+
+        <section class="today-queue" id="today-queue" aria-label="Today reading queue"></section>
+
+        <section class="body-grid">
+          <section class="lane lane-wide" aria-label="Active reviews">
+            <div class="lane-header">
+              <div>
+                <p class="eyebrow">Patchwork / lore</p>
+                <h3>Active Reviews</h3>
+              </div>
+              <button class="icon-button" id="refresh-view" title="刷新视图" aria-label="Refresh view">↻</button>
+            </div>
+            <div id="review-list" class="item-list"></div>
+          </section>
+
+          <section class="lane" aria-label="Bugs and regressions">
+            <div class="lane-header">
+              <div>
+                <p class="eyebrow">Bugzilla / syzbot</p>
+                <h3>Bugs & Regressions</h3>
+              </div>
+            </div>
+            <div id="bug-list" class="item-list compact"></div>
+          </section>
+        </section>
+
+        <section class="body-grid lower">
+          <section class="lane" aria-label="Review themes">
+            <div class="lane-header">
+              <div>
+                <p class="eyebrow">Review signals</p>
+                <h3>Maintainer Focus</h3>
+              </div>
+            </div>
+            <div id="theme-list" class="theme-list"></div>
+          </section>
+
+          <section class="lane lane-wide" aria-label="Merged fixes">
+            <div class="lane-header">
+              <div>
+                <p class="eyebrow">Accepted / fixed</p>
+                <h3>Merged Fixes</h3>
+              </div>
+            </div>
+            <div id="fix-list" class="item-list compact"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="empty-template">
+      <div class="empty-state">
+        <strong>暂无匹配项</strong>
+        <span>换一个模块或搜索词看看。</span>
+      </div>
+    </template>
+
+    <script type="module" src="./assets/app.js?v=20260520-reportnav"></script>
+  </body>
+</html>

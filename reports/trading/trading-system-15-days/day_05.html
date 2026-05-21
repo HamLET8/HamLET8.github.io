@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 05/15｜市场周期与投资者情绪</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}.topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}.title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}.title .sub{color:var(--muted);font-size:13px}.badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}.badge{padding:8px 10px;font-size:12px}.pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}.dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}.kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}@media(max-width:920px){.grid{grid-template-columns:1fr}}
+    section{margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}.card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}.card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}.card .hd .hint{color:var(--muted);font-size:12px}.card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}.small{font-size:12px;color:var(--muted)}.tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}.divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}@media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}table{border-collapse:collapse;min-width:760px;width:100%}th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}td{font-size:13px}.mono{font-family:var(--mono);font-size:12px}.codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}@media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}@media(max-width:520px){.kv{grid-template-columns:1fr}}.kv .k{color:var(--muted);font-size:12px}.kv .v{font-size:13px}.warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}.footer{margin-top:16px;color:var(--faint);font-size:12px;text-align:center}
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --soft-blue: rgba(113,112,255,.14);
+      --soft-green: rgba(16,185,129,.14);
+      --soft-amber: rgba(255,204,102,.14);
+      --soft-red: rgba(255,107,107,.14);
+      --accent: #7170ff;
+      --accent2: #828fff;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.035);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    html { background: #08090a !important; }
+    body {
+      background: #08090a !important;
+      color: #f7f8f8 !important;
+      font-family: var(--sans) !important;
+      letter-spacing: 0 !important;
+    }
+    .page, .wrap { background: transparent !important; }
+    .hero, .topbar {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .hero::after { display: none !important; }
+    section, .card {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: var(--shadow) !important;
+      color: #f7f8f8 !important;
+    }
+    .card .hd, thead th {
+      background: rgba(255,255,255,.045) !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 05 / 15｜市场周期与投资者情绪</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws">
+          <span class="pill"><span class="dot"></span>市场周期</span>
+          <span class="pill"><span class="dot good"></span>风险模式</span>
+          <span class="pill"><span class="dot warn"></span>情绪传染</span>
+          <span class="pill"><span class="dot"></span>系统适配</span>
+          <span class="pill"><span class="dot bad"></span>追涨杀跌</span>
+          <span class="pill"><span class="dot"></span>逆向但不鲁莽</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>核心判断</b>：周期与情绪不告诉你“会涨会跌”，它提醒你“风险处在什么温度”，从而决定系统该如何收缩或扩张。</div>
+        <div class="badge"><span class="dot warn"></span><b>风险提醒</b>：把“情绪高涨”误当成“确定性变高”是常见自毁路径；系统需要预设降温机制。</div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">把“周期认知”接到“系统决策”</div></div>
+        <div class="bd">
+          <ul>
+            <li>能区分：<b>走势</b>（发生了什么）与 <b>周期/情绪</b>（大家怎么想、风险怎么变）。</li>
+            <li>建立“<b>风险模式</b>”概念：防守 / 常态 / 机会（用于学习框架，不是交易指令）。</li>
+            <li>把周期信息转化为系统参数：<b>入场过滤、仓位上限、止损执行宽严、交易频率上限</b>。</li>
+            <li>识别典型情绪误区：FOMO、锚定、近期偏差、群体认同与“故事驱动”。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="warnline"><span class="dot warn"></span><div><b>学习边界</b>：本页只讨论“如何用周期认知降低失控风险”。不提供任何实时行情判断、买卖点、标的建议或杠杆鼓励。</div></div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>顶部摘要卡</h2><div class="hint">快速复习</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">今日主题</div><div class="v">市场周期与投资者情绪</div>
+            <div class="k">一句话核心判断</div><div class="v">周期是“风险温度计”，系统用它来决定该收缩还是扩张（以规则而非冲动）。</div>
+            <div class="k">今日关键词</div><div class="v">周期、情绪温度、风险模式、反身性、纪律性收缩、逆向思考</div>
+            <div class="k">今日风险提醒</div><div class="v">在情绪极端期，<b>失控风险</b>往往比“预测错误”更致命；先确保能执行、能退出、能复盘。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <div class="small"><b>今日小结句</b></div>
+            <div>把“市场很热/很冷”的直觉，改写成三条可执行规则：<b>过滤（何时不做）</b>、<b>预算（最多暴露多少）</b>、<b>频率（最多做多少次）</b>。</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>两本书的核心思想</h2><div class="hint">Tharp × Marks</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Van K. Tharp：系统视角</div>
+            <ul>
+              <li>交易不是“猜对方向”，而是一个可重复的<b>决策系统</b>：何时参与、如何退出、如何控制风险、如何复盘。</li>
+              <li>系统的关键不只是入场逻辑，还包括：<b>执行纪律</b>与<b>资金/仓位约束</b>，否则优势无法兑现。</li>
+              <li>当环境变化时，系统不靠临场灵感，而靠预设的<b>条件触发</b>：比如暂停规则、风控阈值、频率上限。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Howard Marks：周期与风险</div>
+            <ul>
+              <li>市场常在“乐观—兴奋—狂热”与“失望—恐慌—绝望”之间摆动；<b>情绪不是噪声</b>，它会改变风险补偿与脆弱性。</li>
+              <li>周期不能精确计时，但能判断“温度”：当大家更愿意忽视风险时，风险会以更隐蔽的方式积累。</li>
+              <li>投资者最大的敌人常不是信息不足，而是<b>情绪与群体行为</b>导致的错误决策框架。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>融合解释</h2><div class="hint">用“周期温度”约束“系统输出”</div></div>
+      <div class="bd">
+        <p>Marks 的周期/情绪框架告诉我们：同样的价格波动，在不同阶段的<b>永久损失与失控概率</b>并不相同。Tharp 的系统框架告诉我们：你不需要预测阶段何时切换，但你必须让系统在高温/低温环境下都能执行、能退出、能复盘。</p>
+        <div class="two-col">
+          <div class="callout">
+            <div class="small"><b>互补点（加法）</b></div>
+            <ul>
+              <li><b>Marks → Tharp</b>：把“周期温度”转成系统的<b>风险模式</b>（防守/常态/机会），改变的是<b>上限与过滤</b>，不是临场拍脑袋。</li>
+              <li><b>Tharp → Marks</b>：把“情绪判断”落地为可执行的<b>规则与阈值</b>，避免“我觉得很热所以随便改策略”。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="small"><b>相互约束（减法）</b></div>
+            <ul>
+              <li><b>周期认知不能变成预测执念</b>：你可以判断温度，但不必押注“马上反转”。</li>
+              <li><b>系统优势不能忽略环境</b>：如果环境让你无法执行止损/风控（情绪冲击、流动性恶化、消息密集），就需要触发“收缩模式”。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="codebox" role="region" aria-label="把周期转成系统参数的最小接口（示例）">
+接口：Cycle/Sentiment → Risk Mode → System Constraints
+
+输入（你能观察到的“温度”线索）：
+  - 叙事强度：市场是否被单一故事主导？
+  - 风险忽视：是否普遍认为“这次不一样”？
+  - 波动结构：是有序波动还是跳跃/断层？
+  - 交易拥挤：同一方向是否高度一致？
+
+输出（系统只做四件事的调整，不做“预测”）：
+  1) 过滤：哪些情形一律不参与（避免失控）
+  2) 预算：单笔/当日/当周最大允许风险（以R为单位）
+  3) 上限：仓位上限、相关性上限、频率上限
+  4) 暂停：触发暂停与复盘的条件（回撤/连续亏损/执行偏差）
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（1/3）｜周期与情绪温度图</h2><div class="hint">用“温度”提醒风险，而非预测方向</div></div>
+      <div class="bd">
+        <div class="svg-wrap" role="img" aria-label="市场周期与情绪轮（示意）">
+          <svg viewBox="0 0 980 420" width="980" height="420" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="rgba(0,117,222,.20)"/>
+                <stop offset="1" stop-color="rgba(26,174,57,.18)"/>
+              </linearGradient>
+            </defs>
+            <rect x="18" y="18" width="944" height="384" rx="18" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)"/>
+            <text x="44" y="62" font-size="18" font-weight="700">情绪周期（示意）</text>
+            <text x="44" y="92" font-size="12">提示：阶段只用于识别“风险温度”，不用于精确择时。</text>
+
+            <!-- wheel -->
+            <circle cx="280" cy="235" r="130" fill="url(#g1)" opacity=".35"/>
+            <circle cx="280" cy="235" r="130" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+            <circle cx="280" cy="235" r="86" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.14)"/>
+
+            <path d="M 280 105 A 130 130 0 0 1 394 170" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <path d="M 394 170 A 130 130 0 0 1 394 300" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <path d="M 394 300 A 130 130 0 0 1 280 365" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <path d="M 280 365 A 130 130 0 0 1 166 300" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <path d="M 166 300 A 130 130 0 0 1 166 170" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <path d="M 166 170 A 130 130 0 0 1 280 105" fill="none" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+
+            <text x="235" y="148" font-size="14" font-weight="700">乐观</text>
+            <text x="340" y="210" font-size="14" font-weight="700">兴奋</text>
+            <text x="330" y="302" font-size="14" font-weight="700">狂热</text>
+            <text x="250" y="342" font-size="14" font-weight="700">失望</text>
+            <text x="168" y="302" font-size="14" font-weight="700">恐慌</text>
+            <text x="175" y="210" font-size="14" font-weight="700">怀疑</text>
+            <text x="235" y="248" font-size="12">（循环）</text>
+
+            <!-- thermometer -->
+            <rect x="500" y="132" width="420" height="46" rx="12" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.14)"/>
+            <rect x="500" y="132" width="140" height="46" rx="12" fill="rgba(26,174,57,.18)"/>
+            <rect x="640" y="132" width="140" height="46" fill="rgba(0,117,222,.18)"/>
+            <rect x="780" y="132" width="140" height="46" rx="12" fill="rgba(221,91,0,.18)"/>
+            <text x="514" y="160" font-size="13" font-weight="700">低温：恐惧</text>
+            <text x="662" y="160" font-size="13" font-weight="700">常态：中性</text>
+            <text x="808" y="160" font-size="13" font-weight="700">高温：兴奋</text>
+
+            <rect x="500" y="198" width="420" height="156" rx="18" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)"/>
+            <text x="520" y="228" font-size="13" font-weight="700">把“温度”接到系统的三条线</text>
+            <text x="520" y="256" font-size="12">1) 过滤：高温/低温时哪些情况一律不做</text>
+            <text x="520" y="278" font-size="12">2) 预算：每笔/每天最大允许亏损（用1R表达）</text>
+            <text x="520" y="300" font-size="12">3) 上限：仓位、相关性、交易频率上限</text>
+            <text x="520" y="328" font-size="12">目标：让“情绪冲动”没有权限修改系统。</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（2/3）｜周期阶段 × 常见错误 × 系统约束</h2><div class="hint">把抽象的“情绪”变成可复用的表格</div></div>
+      <div class="bd">
+        <div class="tbl-wrap">
+          <table aria-label="周期阶段、风险特征与系统约束（学习用）">
+            <thead>
+              <tr>
+                <th style="width:130px">周期/情绪阶段</th>
+                <th style="width:210px">可观察线索（例）</th>
+                <th style="width:190px">常见交易者错误</th>
+                <th>系统化应对（学习框架）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>怀疑 → 乐观</b><div class="small">“慢慢好起来”</div></td>
+                <td>利空钝化；坏消息不再砸穿；叙事从“活下去”变成“有希望”。</td>
+                <td>不敢执行系统；错把“谨慎”当成“永远不做”。</td>
+                <td>用 Tharp 的方式：只允许在满足规则时参与；用小预算练执行；记录“执行偏差”。</td>
+              </tr>
+              <tr>
+                <td><b>乐观 → 兴奋</b><div class="small">“故事变强”</div></td>
+                <td>收益归因变简单；更少讨论风险；回撤被迅速买回。</td>
+                <td>放大仓位/频率；把近期盈利当能力提升。</td>
+                <td>用 Marks 的方式：上调风险敏感度；用 Tharp 的方式：设置交易频率上限、单日最大R、相关性上限。</td>
+              </tr>
+              <tr>
+                <td><b>兴奋 → 狂热</b><div class="small">“确定性幻觉”</div></td>
+                <td>“这次不一样”；高杠杆叙事流行；拥挤交易与极端波动增多。</td>
+                <td>FOMO；忽视退出计划；过度集中；“为了不踏空”改规则。</td>
+                <td>触发“收缩模式”：降低风险预算/上限；只做最标准形态；必要时暂停，先保系统完整性。</td>
+              </tr>
+              <tr>
+                <td><b>失望 → 恐慌</b><div class="small">“风险显性化”</div></td>
+                <td>好消息也反弹乏力；流动性变差；波动跳跃，止损难执行。</td>
+                <td>情绪化止损/报复性交易；把“变冷”当成“必须抄底/必须做空”。</td>
+                <td>优先“可执行性”：只做能清晰定义最大亏损的计划；减频率；用复盘替代冲动交易。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="small" style="margin-top:10px">注：表格用于“风险管理与系统适配”的学习，不用于预测具体市场或指导交易。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（3/3）｜情绪偏差对照表</h2><div class="hint">把“我当时为什么这么做”变得可解释</div></div>
+      <div class="bd">
+        <div class="tbl-wrap">
+          <table aria-label="情绪与认知偏差对照（学习用）">
+            <thead>
+              <tr>
+                <th style="width:160px">偏差/情绪</th>
+                <th style="width:260px">典型句式（自我对话）</th>
+                <th style="width:190px">风险后果</th>
+                <th>替代脚本（Tharp × Marks）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>近期偏差</b></td>
+                <td>“最近一直顺/一直不顺，所以接下来也会这样。”</td>
+                <td>过度扩张或过度退缩，偏离系统。</td>
+                <td>用 R 统计：看 <b>N=20</b> 的R分布；只允许按预设阈值切换风险模式。</td>
+              </tr>
+              <tr>
+                <td><b>群体认同 / FOMO</b></td>
+                <td>“大家都在做，我不做就错过。”</td>
+                <td>追涨杀跌；被情绪驱动改变规则。</td>
+                <td>用 Marks：问“大家忽略了什么风险？”；用 Tharp：任何新增交易都必须通过过滤与预算。</td>
+              </tr>
+              <tr>
+                <td><b>确定性幻觉</b></td>
+                <td>“这次很确定，仓位可以大一点。”</td>
+                <td>单次错误导致系统性毁伤（回撤/失控）。</td>
+                <td>把“确定性”当成噪声：仓位只由风险预算决定；不允许凭感觉突破上限。</td>
+              </tr>
+              <tr>
+                <td><b>损失厌恶</b></td>
+                <td>“再等等就回来了；现在砍太亏。”</td>
+                <td>止损失效；小亏拖成大亏。</td>
+                <td>提前写好退出条件；只执行“计划内亏损”；复盘“为什么没执行”。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>交易场景案例</h2><div class="hint">虚构学习案例</div></div>
+      <div class="bd">
+        <div class="callout">
+          <div class="small"><b>背景（虚构）</b></div>
+          <p>某市场在数月上涨后，媒体与社交平台不断出现“新范式”叙事。价格波动变大但回撤很快被买回。你过去两周连续盈利，开始觉得“我终于掌握了节奏”。</p>
+          <div class="divider"></div>
+          <div class="two-col">
+            <div>
+              <div class="small"><b>常见错误</b></div>
+              <ul>
+                <li>把“赚钱速度变快”当成“风险下降”。</li>
+                <li>临时放宽系统过滤条件，增加交易次数。</li>
+                <li>忽视相关性：多笔交易其实押在同一情绪与同一叙事上。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="small"><b>系统化的改写目标</b></div>
+              <ul>
+                <li>让“兴奋期”触发收缩：预算更小、频率更低、只做标准形态。</li>
+                <li>把“叙事强度”当作风险变量：越一致、越拥挤，越需要上限约束。</li>
+                <li>用数据说话：用最近20笔的R分布检查是否只是波动带来的好运气。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Tharp 会怎么看</div>
+            <ul>
+              <li>先问：你的系统是否允许“因为感觉很好”而改变过滤/频率/仓位？如果允许，系统就是脆弱的。</li>
+              <li>检查：是否有明确的<b>单日最大R</b>与<b>连续亏损暂停</b>规则，防止从兴奋滑向报复交易。</li>
+              <li>把“周期判断”变成<b>参数</b>：例如兴奋期将仓位上限下调、只做A类机会。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Marks 会怎么看</div>
+            <ul>
+              <li>观察温度：当“风险被嘲笑/被忽略”，风险往往在积累；这不是预测反转，而是提醒“别以为确定”。</li>
+              <li>问二阶问题：如果叙事错了，谁会被迫卖出？流动性会怎样？</li>
+              <li>把“大家都同意”当作风险：共识越强，潜在脆弱性越大。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout" style="margin-top:12px">
+          <div class="small"><b>整合后的更稳健判断</b></div>
+          <p>你不需要押注“顶在哪里”，但你需要承认“温度很高”会提高失控概率：因此用 Tharp 的纪律把 Marks 的周期感受“锁”在系统里——降低暴露上限、减少频率、只做可定义最大亏损的计划，并把“兴奋期的执行偏差”作为复盘重点。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>今日反思练习</h2><div class="hint">为你的系统写一份“风险模式表”</div></div>
+      <div class="bd">
+        <p>目标：用 20 分钟写出一个“当温度变化时，我的系统只允许怎么变”的小表格。<b>这不是交易建议</b>，而是训练你把情绪判断变成规则。</p>
+        <div class="tbl-wrap" style="margin-top:10px">
+          <table aria-label="风险模式练习模板">
+            <thead>
+              <tr>
+                <th style="width:120px">风险模式</th>
+                <th style="width:230px">触发线索（写你能观察到的）</th>
+                <th style="width:200px">系统允许的变化（最多3条）</th>
+                <th>不允许的变化（防止冲动）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>防守</b></td>
+                <td class="mono">例：波动跳跃；消息密集；执行止损困难；出现断层。</td>
+                <td class="mono">例：频率上限↓；单日最大R↓；只做最标准形态。</td>
+                <td class="mono">例：不允许加码摊平；不允许凭感觉放宽过滤。</td>
+              </tr>
+              <tr>
+                <td><b>常态</b></td>
+                <td class="mono">例：波动有序；风险讨论正常；趋势/震荡结构清晰。</td>
+                <td class="mono">例：按系统默认；按既定预算；严格执行退出。</td>
+                <td class="mono">例：不因一两次盈利/亏损改变规则。</td>
+              </tr>
+              <tr>
+                <td><b>机会</b></td>
+                <td class="mono">例：恐慌后出现理性回归；风险溢价明显；但可执行性仍在。</td>
+                <td class="mono">例：只在满足过滤时参与；仍遵守上限；更重视定义风险。</td>
+                <td class="mono">例：不把“机会”当成“必须押注”；不允许集中/高杠杆。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="divider"></div>
+        <div class="codebox" role="region" aria-label="写作提示：三问法">
+三问法（写在你的交易日志首页）：
+  1) 我现在处在什么“温度”？（低/中/高 —— 只判断温度，不预测方向）
+  2) 当前温度下，系统应该进入什么风险模式？（防守/常态/机会）
+  3) 模式切换后，我只允许改哪三件事？（过滤、预算、上限/频率）
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>今日检查清单</h2><div class="hint">最多5项</div></div>
+      <div class="bd">
+        <ol>
+          <li>我能用一句话说明：今天的“温度”影响的是<b>风险</b>而不是<b>方向</b>。</li>
+          <li>我写出了至少 3 条“高温期不允许做的事”（例如突破上限、增频、改规则）。</li>
+          <li>我为系统设定了一个明确的<b>单日最大R</b>或<b>连续亏损暂停</b>触发条件（学习用）。</li>
+          <li>我能列出 2 个会让我失控的情绪信号（FOMO、报复、想证明自己等）。</li>
+          <li>我把一次过去的冲动行为改写成“如果…就…”的系统规则。</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>明日预告</h2><div class="hint">Day 06：二阶思维与非共识判断</div></div>
+      <div class="bd">
+        <p>今天你把“周期温度”变成了系统约束；明天我们进一步学习 Marks 的<b>二阶思维</b>：不仅问“如果我对了会怎样”，更要问“如果我错了会怎样、谁会被迫行动”。同时用 Tharp 的系统语言把二阶思维落地为：<b>情景—触发—行动</b>的决策表，帮助你在不确定性里保持一致性。</p>
+        <div class="divider"></div>
+        <div class="small footer">生成日期：2026-05-19｜学习用途页面（无投资建议）</div>
+      </div>
+    </section>
+
+    <div class="footer">© 15天交易系统阅读学习｜Day 05（教育用途，不构成投资建议）</div>
+  </div>
+</body>
+</html>

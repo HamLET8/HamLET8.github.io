@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 1：模块边界先于函数实现</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--stone: #888888;
+			--mint: #00d4a4;
+			--mint-deep: #00b48a;
+			--mint-soft: #e8fff8;
+			--tag-blue: #3772cf;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html {
+			scroll-behavior: smooth;
+		}
+
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+
+		a {
+			color: var(--ink);
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+
+		.top-actions {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+
+		.pill.primary {
+			border-color: var(--canvas-dark);
+			background: var(--canvas-dark);
+			color: #ffffff;
+		}
+
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+
+		.sidebar,
+		.toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+
+		.toc {
+			display: none;
+		}
+
+		.sidebar-section {
+			margin-bottom: 24px;
+		}
+
+		.sidebar-title,
+		.toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+
+		.nav-list,
+		.toc-list {
+			display: grid;
+			gap: 2px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.nav-list a,
+		.toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+
+		.nav-list a.active {
+			background: var(--surface);
+			color: var(--ink);
+			font-weight: 600;
+		}
+
+		.toc-list a {
+			padding: 5px 0;
+			border-radius: 0;
+			font-size: 13px;
+		}
+
+		main {
+			min-width: 0;
+		}
+
+		.hero {
+			padding: 42px 0 28px;
+		}
+
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+
+		h1,
+		h2,
+		h3 {
+			margin: 0;
+			color: var(--ink);
+			font-weight: 600;
+			letter-spacing: 0;
+			line-height: 1.2;
+		}
+
+		h1 {
+			max-width: 760px;
+			font-size: 46px;
+			letter-spacing: -1px;
+		}
+
+		h2 {
+			margin-top: 48px;
+			padding-top: 34px;
+			border-top: 1px solid var(--hairline);
+			font-size: 28px;
+		}
+
+		h3 {
+			margin-top: 26px;
+			font-size: 20px;
+		}
+
+		p {
+			margin: 12px 0;
+			color: var(--charcoal);
+		}
+
+		.lead {
+			max-width: 720px;
+			margin-top: 18px;
+			color: var(--slate);
+			font-size: 18px;
+			line-height: 1.5;
+		}
+
+		.meta-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 24px;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.badge.mint {
+			border-color: rgba(0, 212, 164, 0.32);
+			background: var(--mint-soft);
+			color: #006b55;
+		}
+
+		.summary-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+			margin-top: 28px;
+		}
+
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+
+		.card.soft {
+			background: var(--surface-soft);
+		}
+
+		.card h3 {
+			margin-top: 0;
+			font-size: 18px;
+		}
+
+		.card p:last-child {
+			margin-bottom: 0;
+		}
+
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+
+		.callout.warning {
+			border-left-color: var(--warn);
+			background: #fffaf0;
+		}
+
+		.callout.bad {
+			border-left-color: var(--error);
+			background: #fff7f7;
+		}
+
+		.callout strong {
+			color: var(--ink);
+		}
+
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+
+		.diagram svg {
+			display: block;
+			width: 100%;
+			min-width: 700px;
+			height: auto;
+		}
+
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+
+		table {
+			width: 100%;
+			min-width: 0;
+			border-collapse: collapse;
+			table-layout: fixed;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+
+		tr:last-child td {
+			border-bottom: 0;
+		}
+
+		.code-panel {
+			margin: 20px 0;
+			overflow: hidden;
+			border-radius: var(--radius-md);
+			background: var(--surface-code);
+		}
+
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+
+		code {
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+		}
+
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+
+		.scenario-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 12px;
+			margin-top: 18px;
+		}
+
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+
+		.scenario-card h3 {
+			margin-top: 0;
+			font-size: 16px;
+		}
+
+		.scenario-card p {
+			font-size: 14px;
+		}
+
+		.note-list {
+			display: grid;
+			gap: 10px;
+			margin: 16px 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.note-list li {
+			padding: 14px 16px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+			color: var(--charcoal);
+		}
+
+		@media (min-width: 1500px) {
+			.docs-shell {
+				grid-template-columns: 220px minmax(0, 1fr) 180px;
+				gap: 28px;
+			}
+
+			.toc {
+				display: block;
+			}
+		}
+
+		@media (max-width: 1080px) {
+			.docs-shell {
+				grid-template-columns: minmax(0, 1fr);
+				padding: 24px 20px 56px;
+			}
+
+			.sidebar,
+			.toc {
+				position: static;
+				max-height: none;
+			}
+
+			.sidebar {
+				border-bottom: 1px solid var(--hairline);
+				padding-bottom: 18px;
+			}
+		}
+
+		@media (max-width: 760px) {
+			.topbar {
+				align-items: flex-start;
+				flex-direction: column;
+				padding: 12px 18px;
+			}
+
+			.docs-shell {
+				padding: 18px 16px 44px;
+			}
+
+			.hero {
+				padding-top: 24px;
+			}
+
+			h1 {
+				font-size: 34px;
+				letter-spacing: -0.5px;
+			}
+
+			h2 {
+				margin-top: 38px;
+				padding-top: 26px;
+				font-size: 24px;
+			}
+
+			.summary-grid,
+			.scenario-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.card,
+			.scenario-card {
+				padding: 18px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 1 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a class="active" href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">责任与状态表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 1 · SSD / FTL 代码设计判断</p>
+				<h1>模块边界先于函数实现：把 FTL Core 从 NAND 细节中切开</h1>
+				<p class="lead">
+					今天的核心不是“怎么写一个可运行的 <span class="inline-code">ftl_write()</span>”，
+					而是先判断哪些知识应该留在 FTL Core，哪些知识必须被 Block Manager、NAND、Mapping、
+					Journal、WriteBooster 吸收。这个判断会决定后续接口、错误路径、状态机和恢复机制是否能长期演进。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">FTL Core 只编排领域动作</span>
+					<span class="badge">涉及：Block / NAND / Mapping / Journal / WriteBooster</span>
+					<span class="badge">关键词：深模块 · 正交性 · 概念完整性 · 限界上下文</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							FTL Core 应该编排“写入、分配、program、journal、mapping commit、旧页失效、恢复标记”，
+							不应该直接读取 NAND 状态位、改 block table、遍历 mapping 数组或塞入 SLC cache 私有状态。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>知识充分性判断</h3>
+						<p>
+							只知道“深模块、DRY、DDD 名词”不够。Day 1 需要理解四个最小概念：
+							复杂度如何泄漏、正交性如何被破坏、概念完整性如何约束取舍、领域语言如何进入接口。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：够用但不空泛的四本书概念</h2>
+				<p>
+					Day 1 不需要把四本书读成四份摘要，但必须读到足以支撑一个工程判断：
+					<strong>FTL Core 不拥有介质细节和空间生命周期细节。</strong>
+					下面这些概念，是今天做边界判断的最低知识量。
+				</p>
+
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>如果理解不足，会在 FTL 中变成什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>
+									复杂度主要来自依赖、晦涩、变更放大。深模块不是函数长短，而是简单接口背后隐藏足够多的设计知识。
+								</td>
+								<td>
+									<span class="inline-code">ftl_write()</span> 需要理解 NAND status、open block cursor、valid bitmap、journal record 格式，调用者被迫吸收所有复杂度。
+								</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>
+									DRY 指“知识不要重复”，不是“代码行不要重复”；正交性要求一个设计决策变化时，影响范围可预测。
+								</td>
+								<td>
+									GC、Recovery、WriteBooster、Host Write 各自维护 free block 低水位和坏块判断，最后同一规则出现多个版本。
+								</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>
+									设计是在约束下维护概念完整性。好设计不等于一次覆盖所有情况，而是先选出稳定主概念。
+								</td>
+								<td>
+									今天为 SLC cache 加一个 flag，明天为 GC relocation 加一个 flag，后天为 metadata write 再加一个 flag，主路径失去统一概念。
+								</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>
+									限界上下文决定模型在哪里有效；通用语言必须进入接口、结构体和错误语义，而不是停在文档里。
+								</td>
+								<td>
+									代码里只有 <span class="inline-code">type</span>、<span class="inline-code">mode</span>、<span class="inline-code">flag</span>，
+									设计讨论中的 host write、mapping commit、victim block、relocation 无法被代码审查。
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="callout warning">
+					<strong>对上一版内容的判断：</strong>
+					只有少量概念性描述是不够的。读者需要知道这些概念如何变成“谁拥有知识、谁暴露接口、谁处理错误、谁承担恢复语义”的代码判断。
+					因此本版把书本概念压缩成可操作的设计约束，并在后面的图、表和 C 代码里反复落地。
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：边界是知识所有权，不是目录名</h2>
+				<p>
+					四本书在这里汇成一个判断：模块边界的本质是知识所有权。FTL Core 拥有流程编排知识；
+					Block Manager 拥有空间和生命周期知识；NAND 层拥有介质操作知识；Mapping 拥有地址关系知识；
+					Journal 拥有可恢复提交知识；WriteBooster 拥有 SLC cache 吸收和 flush 策略知识。
+				</p>
+
+				<div class="diagram" aria-label="FTL 模块边界关系图">
+					<svg viewBox="0 0 920 430" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.4; }
+								.core { fill: #0a0a0a; stroke: #0a0a0a; }
+								.soft { fill: #f7f7f7; stroke: #e5e5e5; }
+								.mint { fill: #e8fff8; stroke: #00d4a4; }
+								.title { font: 600 17px Inter, sans-serif; fill: #0a0a0a; }
+								.core-title { font: 600 18px Inter, sans-serif; fill: #ffffff; }
+								.text { font: 13px Inter, sans-serif; fill: #5a5a5c; }
+								.core-text { font: 13px Inter, sans-serif; fill: #d8d8d8; }
+								.line { stroke: #5a5a5c; stroke-width: 1.3; fill: none; marker-end: url(#arrow); }
+								.guard { stroke: #00d4a4; stroke-width: 2; stroke-dasharray: 6 6; fill: none; }
+							</style>
+						</defs>
+						<rect class="core" x="342" y="150" width="236" height="118" rx="12"></rect>
+						<text class="core-title" x="460" y="190" text-anchor="middle">FTL Core</text>
+						<text class="core-text" x="460" y="218" text-anchor="middle">编排写入事务</text>
+						<text class="core-text" x="460" y="240" text-anchor="middle">不拥有低层细节</text>
+
+						<rect class="box" x="48" y="48" width="220" height="94" rx="12"></rect>
+						<text class="title" x="158" y="82" text-anchor="middle">WriteBooster</text>
+						<text class="text" x="158" y="108" text-anchor="middle">SLC cache 吸收 / flush</text>
+
+						<rect class="box" x="350" y="36" width="220" height="94" rx="12"></rect>
+						<text class="title" x="460" y="70" text-anchor="middle">Mapping Table</text>
+						<text class="text" x="460" y="96" text-anchor="middle">LBA ↔ PPA 当前关系</text>
+
+						<rect class="box" x="650" y="48" width="220" height="94" rx="12"></rect>
+						<text class="title" x="760" y="82" text-anchor="middle">Metadata Journal</text>
+						<text class="text" x="760" y="108" text-anchor="middle">可重放提交记录</text>
+
+						<rect class="box" x="48" y="292" width="220" height="94" rx="12"></rect>
+						<text class="title" x="158" y="326" text-anchor="middle">Block Manager</text>
+						<text class="text" x="158" y="352" text-anchor="middle">block/page 生命周期</text>
+
+						<rect class="box" x="350" y="304" width="220" height="94" rx="12"></rect>
+						<text class="title" x="460" y="338" text-anchor="middle">NAND Layer</text>
+						<text class="text" x="460" y="364" text-anchor="middle">program / read / erase</text>
+
+						<rect class="box" x="650" y="292" width="220" height="94" rx="12"></rect>
+						<text class="title" x="760" y="326" text-anchor="middle">GC / Recovery</text>
+						<text class="text" x="760" y="352" text-anchor="middle">通过领域接口协作</text>
+
+						<path class="line" d="M268 104 C310 116, 330 136, 356 158"></path>
+						<path class="line" d="M460 130 L460 150"></path>
+						<path class="line" d="M650 106 C612 118, 590 136, 564 158"></path>
+						<path class="line" d="M268 340 C312 320, 332 292, 358 262"></path>
+						<path class="line" d="M460 304 L460 268"></path>
+						<path class="line" d="M650 340 C610 318, 588 292, 562 262"></path>
+						<rect class="guard" x="320" y="134" width="280" height="150" rx="18"></rect>
+						<text class="text" x="460" y="294" text-anchor="middle">边界守卫：FTL Core 只能消费领域接口</text>
+					</svg>
+				</div>
+
+				<p>
+					这个边界图同时体现四种约束：深模块要求每个模块隐藏自己的复杂度；正交性要求改动不会横向扩散；
+					概念完整性要求主路径始终是“写入事务编排”，不是“到处补介质特判”；DDD 要求每条边上的接口用 FTL 领域语言命名。
+				</p>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>SLC Cache manager / WriteBooster</h3>
+						<p>
+							FTL Core 不直接判断 SLC cache 是否满，也不维护 flush 游标。它提交写入意图；
+							WriteBooster 返回“吸收到 SLC”“需要 flush”“降级到 TLC”的领域结果。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Free Block Pool 低水位</h3>
+						<p>
+							写路径不遍历 block table 找空闲块。Block Manager 返回 <span class="inline-code">-ENOSPC</span>
+							或低水位原因，FTL Core 再请求 foreground GC。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>NAND Program / Erase / Read Flow</h3>
+						<p>
+							NAND 层保留寄存器、retry、timing 等细节；向上返回 program result、read reliability、erase outcome，
+							由 FTL 决定补偿动作。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC 有效页搬移</h3>
+						<p>
+							GC 不直接相信 victim block 中的旧 PPA。它通过 Mapping 条件接口确认 old PPA 仍是当前映射，
+							再提交 relocation journal。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Management</h3>
+						<p>
+							program fail 不是在写路径里直接 <span class="inline-code">is_bad = 1</span>。
+							坏块隔离、退役、替换和统计应由 Bad Block Management 或 Block Manager 的坏块子域处理。
+						</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>
+							Recovery 不依赖 FTL Core 的临时变量，而依赖 Metadata Journal 中可重放、可校验、可幂等的领域记录。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：FTL Core 吸收了所有知识</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这个函数把 NAND 状态、SLC cache、free block、mapping、journal、GC、bad block 处理都塞进一个写路径。
+					它不是“快”，而是把未来所有变化都抵押给同一个函数。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：边界混乱的 ftl_write()</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_write(struct ftl_dev *ftl, u64 lba, const void *buf, int len,
+	      int use_slc, int sync)
+{
+	int blk;
+	int page;
+	int old_ppn;
+	int new_ppn;
+	int ret;
+
+	if (!ftl || !buf || len &amp; 511)
+		return -1;
+
+	if (ftl-&gt;nand-&gt;status &amp; NAND_STATUS_BUSY)
+		return -2;
+
+	if (use_slc) {
+		if (ftl-&gt;slc_cache.full)
+			ftl-&gt;slc_cache.flush_needed = 1;
+
+		blk = ftl-&gt;slc_cache.open_blk;
+	} else {
+		blk = ftl-&gt;cur_open_blk;
+	}
+
+	if (ftl-&gt;free_blk_cnt &lt; 2)
+		gc_run(ftl, 1, 0, 0);
+
+	if (ftl-&gt;blk_tbl[blk].is_bad) {
+		ftl-&gt;blk_tbl[blk].state = 9;
+		ftl-&gt;cur_open_blk++;
+		blk = ftl-&gt;cur_open_blk;
+	}
+
+	page = ftl-&gt;blk_tbl[blk].write_ptr++;
+	new_ppn = blk * ftl-&gt;pages_per_blk + page;
+
+	ret = nand_program(ftl-&gt;nand, blk, page, buf, len);
+	if (ret) {
+		if (ret == NAND_PROG_FAIL) {
+			ftl-&gt;blk_tbl[blk].is_bad = 1;
+			ftl-&gt;bad_blk_cnt++;
+		}
+		return ret;
+	}
+
+	old_ppn = ftl-&gt;l2p[lba];
+	ftl-&gt;l2p[lba] = new_ppn;
+
+	if (old_ppn &gt;= 0) {
+		int old_blk = old_ppn / ftl-&gt;pages_per_blk;
+
+		ftl-&gt;blk_tbl[old_blk].valid_cnt--;
+		ftl-&gt;blk_tbl[old_blk].invalid_cnt++;
+	}
+
+	if (sync)
+		journal_append_raw(ftl-&gt;journal, lba, old_ppn, new_ppn,
+				   ftl-&gt;blk_tbl[blk].erase_cnt);
+
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>真实工程坏味道</th>
+								<th>代码表现</th>
+								<th>后续代价</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>模块边界混乱</td>
+								<td>FTL Core 读写 <span class="inline-code">nand-&gt;status</span>、<span class="inline-code">blk_tbl</span>、<span class="inline-code">slc_cache</span>。</td>
+								<td>低层结构变化会强迫主路径改动，变更放大。</td>
+							</tr>
+							<tr>
+								<td>领域语言不清</td>
+								<td><span class="inline-code">use_slc</span>、<span class="inline-code">sync</span>、<span class="inline-code">state = 9</span> 缺少领域含义。</td>
+								<td>新增 GC relocation、metadata write、flush policy 时继续堆 flag。</td>
+							</tr>
+							<tr>
+								<td>错误路径散落</td>
+								<td>program fail 在主路径里直接标坏块。</td>
+								<td>Bad Block、Recovery、Block 生命周期无法形成统一不变量。</td>
+							</tr>
+							<tr>
+								<td>提交顺序不可靠</td>
+								<td>先更新 L2P，再写 journal。</td>
+								<td>掉电后可能出现内存映射已变但 journal 不可重放的窗口。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：让接口表达领域边界</h2>
+				<p>
+					改进版不试图“一步完成产品级写路径”。它只确立 Day 1 的边界原则：
+					FTL Core 编排事务，其他模块通过领域接口承接自己的知识。错误码使用接近 Linux kernel 的负 errno，
+					错误路径通过 <span class="inline-code">goto</span> 收敛到可演进的补偿点。
+				</p>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_write.h：头文件暴露领域意图，而不是内部结构</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_WRITE_H
+#define FTL_WRITE_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum ftl_write_origin {
+	FTL_WRITE_HOST = 0,
+	FTL_WRITE_SLC_FLUSH,
+	FTL_WRITE_GC_RELOCATE,
+	FTL_WRITE_METADATA,
+};
+
+enum ftl_media_class {
+	FTL_MEDIA_ANY = 0,
+	FTL_MEDIA_SLC,
+	FTL_MEDIA_TLC,
+};
+
+struct ppa {
+	u32 ch;
+	u32 lun;
+	u32 blk;
+	u32 page;
+};
+
+struct ftl_write_req {
+	u64 lba;
+	const void *buf;
+	u32 len;
+	enum ftl_write_origin origin;
+	enum ftl_media_class preferred_media;
+};
+
+struct ftl_mapping_commit {
+	u64 lba;
+	struct ppa old_ppa;
+	struct ppa new_ppa;
+	enum ftl_write_origin origin;
+};
+
+int ftl_submit_write(struct ftl_dev *ftl, const struct ftl_write_req *req);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_write.c：FTL Core 只编排领域动作</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int ftl_validate_write_req(const struct ftl_write_req *req)
+{
+	if (!req || !req-&gt;buf)
+		return -EINVAL;
+
+	if (!req-&gt;len || req-&gt;len &amp; 511)
+		return -EINVAL;
+
+	return 0;
+}
+
+int ftl_submit_write(struct ftl_dev *ftl, const struct ftl_write_req *req)
+{
+	struct block_alloc_req alloc_req;
+	struct ftl_mapping_commit commit;
+	struct nand_program_result prog;
+	int ret;
+
+	ret = ftl_validate_write_req(req);
+	if (ret)
+		return ret;
+
+	ret = map_lookup_l2p(ftl-&gt;map, req-&gt;lba, &amp;commit.old_ppa);
+	if (ret &amp;&amp; ret != -ENOENT)
+		return ret;
+
+	alloc_req.origin = req-&gt;origin;
+	alloc_req.preferred_media = req-&gt;preferred_media;
+	alloc_req.lba = req-&gt;lba;
+
+	ret = block_alloc_page_for_write(ftl-&gt;bm, &amp;alloc_req, &amp;commit.new_ppa);
+	if (ret == -ENOSPC) {
+		ret = gc_request_foreground(ftl-&gt;gc, GC_CAUSE_FREE_POOL_LOW);
+		if (ret)
+			return ret;
+
+		ret = block_alloc_page_for_write(ftl-&gt;bm, &amp;alloc_req,
+						 &amp;commit.new_ppa);
+	}
+	if (ret)
+		return ret;
+
+	ret = nand_program_page(ftl-&gt;nand, &amp;commit.new_ppa, req-&gt;buf,
+				req-&gt;len, &amp;prog);
+	if (ret)
+		goto err_program;
+
+	commit.lba = req-&gt;lba;
+	commit.origin = req-&gt;origin;
+
+	ret = journal_append_mapping_commit(ftl-&gt;journal, &amp;commit);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_l2p(ftl-&gt;map, req-&gt;lba, &amp;commit.old_ppa,
+			     &amp;commit.new_ppa);
+	if (ret)
+		goto err_mapping;
+
+	ret = block_commit_programmed_page(ftl-&gt;bm, &amp;commit.new_ppa);
+	if (ret)
+		goto err_block_commit;
+
+	if (ppa_is_valid(&amp;commit.old_ppa))
+		block_invalidate_page(ftl-&gt;bm, &amp;commit.old_ppa);
+
+	return 0;
+
+err_block_commit:
+	ftl_mark_recovery_required(ftl, FTL_RECOVERY_MAPPING_COMMITTED);
+	return ret;
+
+err_mapping:
+	ftl_mark_recovery_required(ftl, FTL_RECOVERY_JOURNAL_REPLAY);
+	return ret;
+
+err_journal:
+	block_discard_uncommitted_page(ftl-&gt;bm, &amp;commit.new_ppa);
+	return ret;
+
+err_program:
+	block_handle_program_result(ftl-&gt;bm, &amp;commit.new_ppa, &amp;prog);
+	return ret;
+}</code></pre>
+				</div>
+
+				<div class="diagram" aria-label="写入提交顺序图">
+					<svg viewBox="0 0 920 250" role="img">
+						<defs>
+							<marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.step { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.4; }
+								.commit { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.4; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.a { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow2); }
+							</style>
+						</defs>
+						<rect class="step" x="24" y="64" width="132" height="72" rx="12"></rect>
+						<text class="t" x="90" y="92" text-anchor="middle">Validate</text>
+						<text class="s" x="90" y="116" text-anchor="middle">请求合法性</text>
+						<path class="a" d="M156 100 L194 100"></path>
+
+						<rect class="step" x="194" y="64" width="132" height="72" rx="12"></rect>
+						<text class="t" x="260" y="92" text-anchor="middle">Allocate</text>
+						<text class="s" x="260" y="116" text-anchor="middle">Block Manager</text>
+						<path class="a" d="M326 100 L364 100"></path>
+
+						<rect class="step" x="364" y="64" width="132" height="72" rx="12"></rect>
+						<text class="t" x="430" y="92" text-anchor="middle">Program</text>
+						<text class="s" x="430" y="116" text-anchor="middle">NAND Layer</text>
+						<path class="a" d="M496 100 L534 100"></path>
+
+						<rect class="commit" x="534" y="64" width="132" height="72" rx="12"></rect>
+						<text class="t" x="600" y="92" text-anchor="middle">Journal</text>
+						<text class="s" x="600" y="116" text-anchor="middle">先记录可恢复意图</text>
+						<path class="a" d="M666 100 L704 100"></path>
+
+						<rect class="commit" x="704" y="64" width="132" height="72" rx="12"></rect>
+						<text class="t" x="770" y="92" text-anchor="middle">Mapping</text>
+						<text class="s" x="770" y="116" text-anchor="middle">后提交 L2P</text>
+
+						<path class="a" d="M430 136 C430 184, 314 184, 274 158"></path>
+						<rect class="err" x="198" y="166" width="154" height="52" rx="12"></rect>
+						<text class="t" x="275" y="188" text-anchor="middle">Program fail</text>
+						<text class="s" x="275" y="208" text-anchor="middle">交给 Block/BadBlock</text>
+
+						<path class="a" d="M600 136 C600 184, 508 184, 468 158"></path>
+						<rect class="err" x="392" y="166" width="154" height="52" rx="12"></rect>
+						<text class="t" x="469" y="188" text-anchor="middle">Journal fail</text>
+						<text class="s" x="469" y="208" text-anchor="middle">丢弃未提交 page</text>
+
+						<path class="a" d="M770 136 C770 184, 686 184, 646 158"></path>
+						<rect class="err" x="588" y="166" width="154" height="52" rx="12"></rect>
+						<text class="t" x="665" y="188" text-anchor="middle">Mapping fail</text>
+						<text class="s" x="665" y="208" text-anchor="middle">标记需要 recovery</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>状态表与责任表</h2>
+				<h3>模块责任矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>模块</th>
+								<th>拥有的知识</th>
+								<th>对外接口应该表达</th>
+								<th>不应该泄漏给谁</th>
+								<th>典型错误返回</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>FTL Core</td>
+								<td>写入事务顺序、模块编排、主路径语义。</td>
+								<td>submit write、request GC、mark recovery required。</td>
+								<td>NAND status bit、block table 布局、journal 编码。</td>
+								<td><span class="inline-code">-EINVAL</span>、上游透传的负 errno。</td>
+							</tr>
+							<tr>
+								<td>Block Manager</td>
+								<td>free block pool、open block、page/block 生命周期、valid/invalid 计数。</td>
+								<td>按写入意图分配、提交 programmed page、失效旧页。</td>
+								<td>Mapping、GC、WriteBooster 的内部策略。</td>
+								<td><span class="inline-code">-ENOSPC</span>、<span class="inline-code">-EUCLEAN</span>、<span class="inline-code">-EIO</span>。</td>
+							</tr>
+							<tr>
+								<td>NAND Layer</td>
+								<td>program/read/erase 时序、介质状态、retry 原始结果。</td>
+								<td>介质操作结果和可执行建议。</td>
+								<td>FTL Core、Mapping、Journal。</td>
+								<td><span class="inline-code">-EIO</span>、<span class="inline-code">-ETIMEDOUT</span>、<span class="inline-code">-EAGAIN</span>。</td>
+							</tr>
+							<tr>
+								<td>Mapping Table</td>
+								<td>LBA 到 PPA 的当前关系、条件提交、反查能力。</td>
+								<td>lookup、commit、compare-and-swap style update。</td>
+								<td>GC victim 策略、NAND 读写细节。</td>
+								<td><span class="inline-code">-ENOENT</span>、<span class="inline-code">-ESTALE</span>。</td>
+							</tr>
+							<tr>
+								<td>Metadata Journal</td>
+								<td>可恢复记录、顺序、校验、重放幂等性。</td>
+								<td>append mapping commit、append relocation、replay。</td>
+								<td>FTL Core 的临时变量、Block Manager 内存布局。</td>
+								<td><span class="inline-code">-ENOSPC</span>、<span class="inline-code">-EIO</span>。</td>
+							</tr>
+							<tr>
+								<td>WriteBooster</td>
+								<td>SLC cache 吸收策略、flush 边界、降级条件。</td>
+								<td>选择写入介质、触发 flush、返回降级理由。</td>
+								<td>Host Write 主路径和 GC 内部流程。</td>
+								<td><span class="inline-code">-EAGAIN</span>、<span class="inline-code">-ENOSPC</span>。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>NAND 操作结果到 FTL 决策的映射</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>NAND 层结果</th>
+								<th>FTL 看到的领域结果</th>
+								<th>负责模块</th>
+								<th>后续动作</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Program success</td>
+								<td>new PPA 可进入 mapping commit</td>
+								<td>FTL Core + Journal + Mapping</td>
+								<td>先写 journal，再提交 L2P，再提交 page 状态。</td>
+							</tr>
+							<tr>
+								<td>Program fail</td>
+								<td>候选 PPA 不可提交</td>
+								<td>Block Manager / Bad Block Management</td>
+								<td>退役或隔离 block，重新分配 page，必要时返回 <span class="inline-code">-EIO</span>。</td>
+							</tr>
+							<tr>
+								<td>Read correctable ECC</td>
+								<td>数据可信但需要健康反馈</td>
+								<td>Read Path / ECC / Wear Leveling</td>
+								<td>记录介质健康，必要时触发 read reclaim。</td>
+							</tr>
+							<tr>
+								<td>Read uncorrectable</td>
+								<td>当前副本不可用</td>
+								<td>Read Retry / Recovery</td>
+								<td>尝试 retry、镜像、日志恢复或上报不可恢复错误。</td>
+							</tr>
+							<tr>
+								<td>Erase fail</td>
+								<td>block 不可回到 free pool</td>
+								<td>Block Manager / Bad Block Management</td>
+								<td>隔离 block，更新 free pool 与坏块统计。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>约束了什么</th>
+								<th>帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>复杂度应被深模块吸收，而不是由调用方理解。</td>
+								<td>FTL Core 与 Block / NAND / Mapping / Journal 的接口。</td>
+								<td>禁止高层直接读写低层内部结构。</td>
+								<td>避免主路径变成跨模块细节仓库。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性与 DRY 要保护知识的单一归属。</td>
+								<td>free pool、valid count、journal commit、bad block 标记。</td>
+								<td>同一规则只能由一个模块拥有。</td>
+								<td>避免 GC、Recovery、WriteBooster 重复实现空间规则。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性比临时功能拼接更重要。</td>
+								<td>写入主路径的提交顺序与模块协作概念。</td>
+								<td>接口必须服务于稳定主概念，而不是临时 flag。</td>
+								<td>避免每个新需求都破坏原有设计语言。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域语言应该进入代码边界。</td>
+								<td>LBA、PPA、mapping commit、relocation、victim block、program result。</td>
+								<td>接口命名必须表达业务意图。</td>
+								<td>避免 type/mode/flag 代码让领域判断不可审查。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">责任表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

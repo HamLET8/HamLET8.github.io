@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 06/15｜二阶思维与非共识判断</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}.topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}.title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}.title .sub{color:var(--muted);font-size:13px}.badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}.badge{padding:8px 10px;font-size:12px}.pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}.dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}.kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}@media(max-width:920px){.grid{grid-template-columns:1fr}}
+    section{margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}.card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}.card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}.card .hd .hint{color:var(--muted);font-size:12px}.card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}.small{font-size:12px;color:var(--muted)}.tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}.divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}@media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}table{border-collapse:collapse;min-width:760px;width:100%}th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}td{font-size:13px}.mono{font-family:var(--mono);font-size:12px}.codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}@media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}@media(max-width:520px){.kv{grid-template-columns:1fr}}.kv .k{color:var(--muted);font-size:12px}.kv .v{font-size:13px}.warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}.footer{margin-top:16px;color:var(--faint);font-size:12px;text-align:center}
+
+    /* Linear.app-inspired dark theme override (picked from local popular-web-designs library). */
+    :root {
+      color-scheme: dark;
+      --bg: #08090a;
+      --panel: #0f1011;
+      --ink: #f7f8f8;
+      --card: rgba(255,255,255,.035);
+      --card2: rgba(255,255,255,.055);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --faint: #8a8f98;
+      --line: rgba(255,255,255,.08);
+      --blue: #7170ff;
+      --green: #10b981;
+      --amber: #ffcc66;
+      --red: #ff6b6b;
+      --accent: #7170ff;
+      --accent2: #a78bfa;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --good: #10b981;
+      --shadow: 0 20px 60px rgba(0,0,0,.60);
+      --radius: 14px;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    body{
+      background:
+        radial-gradient(1200px 620px at 10% -10%, rgba(113,112,255,.25), transparent 60%),
+        radial-gradient(900px 640px at 85% 0%, rgba(16,185,129,.16), transparent 55%),
+        radial-gradient(900px 700px at 40% 120%, rgba(255,204,102,.08), transparent 55%),
+        #08090a !important;
+    }
+    .topbar{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 18px !important;
+      box-shadow: 0 28px 90px rgba(0,0,0,.70) !important;
+    }
+    .card{
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55) !important;
+    }
+    .card .hd{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)) !important;
+      border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    }
+    .card .hd h2, h1, h2, h3, strong, b { color: #f7f8f8 !important; }
+    p, li, td, .v { color: #d0d6e0 !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color: #8a8f98 !important; }
+    .badge, .pill, .tag, .meta-card, .callout, .warnline {
+      background: rgba(255,255,255,.035) !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      color: #d0d6e0 !important;
+    }
+    .pill, .badge { border-radius: 999px !important; }
+    .tbl-wrap, .svg-wrap, .codebox {
+      background: #0f1011 !important;
+      border: 1px solid rgba(255,255,255,.08) !important;
+      border-radius: 8px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+    }
+    table { background: #0f1011 !important; }
+    th {
+      background: #191a1b !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    td {
+      background: transparent !important;
+      color: #d0d6e0 !important;
+      border-color: rgba(255,255,255,.08) !important;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,.018) !important; }
+    .codebox, .mono {
+      color: #f7f8f8 !important;
+      font-family: var(--mono) !important;
+    }
+    .dot { background: #7170ff !important; }
+    .dot.good { background: #10b981 !important; }
+    .dot.warn { background: #ffcc66 !important; }
+    .dot.bad { background: #ff6b6b !important; }
+    .svg-wrap svg { background: #0f1011 !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] {
+      fill: rgba(255,255,255,.04) !important;
+      stroke: rgba(255,255,255,.10) !important;
+    }
+    .svg-wrap svg text { fill: #f7f8f8 !important; }
+    .svg-wrap svg text[font-size="12"] { fill: #8a8f98 !important; }
+    .svg-wrap svg path { stroke: rgba(208,214,224,.55) !important; }
+    .divider { background: rgba(255,255,255,.08) !important; }
+    a { color: #828fff !important; }
+
+    /* Notion-inspired warm reading theme override (requested by user). */
+    :root { color-scheme: light; --bg:#f6f5f4; --panel:#ffffff; --ink:rgba(0,0,0,.95); --card:#ffffff; --card2:#f6f5f4; --text:rgba(0,0,0,.95); --muted:#615d59; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .hero, .topbar, section, .card, .meta-card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .hero, .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2, .meta-card strong { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer, .kicker, .day-label, .note, .meta-card span { color:#615d59 !important; }
+    .badge, .pill, .tag { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect[fill^="rgba(255,255,255"], .svg-wrap svg rect[fill="rgba(255,255,255,.03)"], .svg-wrap svg rect[fill="rgba(255,255,255,.06)"] { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 06 / 15｜二阶思维与非共识判断</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws" aria-label="今日关键词">
+          <span class="pill"><span class="dot"></span>二阶思维</span>
+          <span class="pill"><span class="dot"></span>非共识</span>
+          <span class="pill"><span class="dot good"></span>期望值</span>
+          <span class="pill"><span class="dot"></span>定价的预期</span>
+          <span class="pill"><span class="dot warn"></span>反向不是鲁莽</span>
+          <span class="pill"><span class="dot bad"></span>自我证明</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>核心判断</b>：二阶思维不是“反着做”，而是问清楚<b>市场已经相信了什么</b>，并把你的“不同看法”转译成可验证的<b>优势与期望值</b>。</div>
+        <div class="badge"><span class="dot warn"></span><b>风险提醒</b>：非共识判断最常见的失败不是“观点错”，而是<b>没把观点变成系统约束</b>（风控、仓位、退出、复盘），最后输给情绪和时间。</div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">把“非共识”变成“可执行系统”</div></div>
+        <div class="bd">
+          <ul>
+            <li>能用一句话区分：<b>一阶思维</b>（事情本身）与 <b>二阶思维</b>（大家怎么想、价格反映了什么、下一步会怎样）。</li>
+            <li>掌握 Marks 的核心三问：<b>共识是什么？价格隐含了什么预期？如果我不同意，我凭什么更可能对？</b></li>
+            <li>把“不同意”写成 Tharp 的系统要素：<b>入场过滤 + 无效化条件 + R 风险定义 + 仓位上限 + 退出与复盘规则</b>。</li>
+            <li>识别两类常见自毁：<b>为反对而反对</b>（contrarianism）与 <b>为证明而死扛</b>（ego trade）。</li>
+            <li>练会一个可重复的“<b>非共识 → 期望值</b>”框架：观点必须落在<b>胜率/赔率/相关性</b>上（不需要预测精确方向）。</li>
+          </ul>
+          <div class="divider"></div>
+          <div class="warnline"><span class="dot warn"></span><div><b>学习边界</b>：今天只讲“如何形成与检验非共识判断、并用系统保护自己”。不提供任何实时行情判断、买卖点、标的建议或杠杆鼓励。</div></div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <div class="hd"><h2>顶部摘要卡</h2><div class="hint">快速复习</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">今日主题</div><div class="v">二阶思维与非共识判断</div>
+            <div class="k">一句话核心判断</div><div class="v">“非共识”要么是系统优势的来源，要么只是情绪化叙事；区分它们的办法是：把观点写成<b>可验证规则</b>与<b>可承受风险</b>。</div>
+            <div class="k">今日关键词</div><div class="v">二阶思维、定价的预期、非共识、优势/期望值、无效化条件、纪律退出</div>
+            <div class="k">今日风险提醒</div><div class="v">不要把“与众不同”当作能力；真正的能力是：即使你错了，系统也能让你<b>小亏、可复盘、不中断</b>。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="callout">
+            <div class="small"><b>今日小结句</b></div>
+            <div>二阶思维的落地版本：先写“市场预期 → 我的不同点 → 哪些证据会推翻我 → 我最多愿意承担 1R 的代价”，然后才谈参与。</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>两本书的核心思想</h2><div class="hint">Tharp × Marks</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Van K. Tharp：系统与优势</div>
+            <ul>
+              <li>优势不是口号，而是能在长期兑现的<b>期望值结构</b>：胜率、赔率、频率与执行质量共同决定结果。</li>
+              <li>系统应当把“主观观点”转成<b>可重复流程</b>：入场过滤、退出、风险定义（R）、仓位管理、复盘与改进。</li>
+              <li>系统的目标不是预测完美，而是把不可控变成可控：<b>让单次损失可承受，让错误可以被修正</b>。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Howard Marks：二阶思维与非共识</div>
+            <ul>
+              <li>“正确”不够，重要的是<b>比市场更正确</b>：市场的共识已经体现在价格里，你必须理解价格背后的预期。</li>
+              <li>二阶思维强调“<b>他人怎么想</b>”与“<b>下一步会怎样</b>”：当每个人都相信同一件事时，风险常隐藏在“大家都忽略的地方”。</li>
+              <li>非共识成功的条件更苛刻：你不仅要不同意，还要<b>更可能对</b>，并且最好在风险/回报上有<b>安全余地</b>。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>融合解释</h2><div class="hint">把“二阶判断”装进“系统风控壳”</div></div>
+      <div class="bd">
+        <ol>
+          <li><b>先把“共识”写出来</b>：用一句话描述市场叙事（大家相信什么、为什么相信、什么数据/故事在支撑）。</li>
+          <li><b>再把“定价的预期”写出来</b>：你不需要知道真实价值，但要知道“价格需要什么样的未来才能合理”。</li>
+          <li><b>把“非共识”改写为系统假设</b>：不是“我觉得会涨/会跌”，而是“如果 X 发生，市场预期会被修正，于是赔率结构对我有利”。</li>
+          <li><b>用 Tharp 的 R 把自尊心切断</b>：观点再强，也只能值<b>1R</b>；每次参与都要有<b>无效化条件</b>和<b>退出规则</b>。</li>
+          <li><b>用 Marks 的安全边际限制“非共识冲动”</b>：当你无法获得赔率优势/安全余地时，最好的非共识可能是<b>不参与</b>（等待更好的结构）。</li>
+        </ol>
+        <div class="divider"></div>
+        <div class="codebox" aria-label="可复用的二阶思维模板">
+【二阶思维模板（学习版）】
+1) 共识：_____________________________
+2) 价格隐含的预期：____________________
+3) 我不同意的点：______________________
+4) 我凭什么更可能对（证据/机制/基准率）：____
+5) 推翻我的条件（无效化）：_____________
+6) 风险定义（1R=____）与仓位上限：________
+7) 退出与复盘：_______________________
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（1/3）｜一阶 vs 二阶：把“观点”变成“优势”</h2><div class="hint">概念对照表</div></div>
+      <div class="bd">
+        <div class="tbl-wrap" role="region" aria-label="一阶与二阶思维对照表">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:160px">维度</th>
+                <th>一阶思维（常见）</th>
+                <th>二阶思维（Marks 风格）</th>
+                <th>系统落地（Tharp 风格）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>问题形态</b></td>
+                <td>“这件事会发生吗？”</td>
+                <td>“大家认为会发生什么？如果不发生会怎样？”</td>
+                <td>写成<b>触发条件</b>与<b>无效化条件</b></td>
+              </tr>
+              <tr>
+                <td><b>信息处理</b></td>
+                <td>只看利好/利空本身</td>
+                <td>看信息的<b>意外程度</b>与<b>已被定价的部分</b></td>
+                <td>把“意外”映射成<b>赔率/波动/滑点</b>假设</td>
+              </tr>
+              <tr>
+                <td><b>胜利条件</b></td>
+                <td>观点正确</td>
+                <td>观点比市场预期更正确</td>
+                <td>期望值为正且能执行：<b>E &gt; 0</b></td>
+              </tr>
+              <tr>
+                <td><b>常见陷阱</b></td>
+                <td>“我看对了却没赚到”</td>
+                <td>“我不同意所以我更高级”（反向优越感）</td>
+                <td>违反风控/加码/死扛：<b>把观点当身份</b></td>
+              </tr>
+              <tr>
+                <td><b>自我校验</b></td>
+                <td>用结果证明自己</td>
+                <td>用过程与概率语言校验：基准率、情景、赔率</td>
+                <td>以日志验证：<b>是否按规则执行？R 是否一致？</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（2/3）｜“非共识”要同时满足两条：不同 + 更可能对</h2><div class="hint">情景矩阵</div></div>
+      <div class="bd">
+        <div class="tbl-wrap" role="region" aria-label="非共识判断情景矩阵">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:160px">情景</th>
+                <th>你与共识的关系</th>
+                <th>你更可能对的来源</th>
+                <th>赔率/风控要求（Tharp）</th>
+                <th>Marks 提醒</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>A. 跟共识</b></td>
+                <td>你同意共识</td>
+                <td>无（最多是更快/更勤奋）</td>
+                <td>若没有赔率优势，系统应<b>降低频率</b></td>
+                <td>共识已在价格里，风险在“大家都忽略的尾部”</td>
+              </tr>
+              <tr>
+                <td><b>B. 反共识但无证据</b></td>
+                <td>你不同意，但只是直觉</td>
+                <td>无（情绪/偏好）</td>
+                <td><b>禁止</b>：无法定义优势时不应下注</td>
+                <td>“逆向”≠“聪明”；可能是自我证明</td>
+              </tr>
+              <tr>
+                <td><b>C. 反共识且有机制</b></td>
+                <td>你不同意，并有机制/证据链</td>
+                <td>基准率、结构性约束、行为偏差、情景推演</td>
+                <td>仍需：明确 1R、无效化、仓位上限与退出</td>
+                <td>正确也可能“太早”；需要安全边际与耐心</td>
+              </tr>
+              <tr>
+                <td><b>D. 你以为是非共识</b></td>
+                <td>实际上很多人也这么想</td>
+                <td>错把“圈层共识”当“市场共识”</td>
+                <td>用日志校验：你是否真的获得了赔率？</td>
+                <td>信息不是优势，<b>价格</b>才是反馈</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="divider"></div>
+        <div class="callout">
+          <div class="small"><b>如何判断“价格隐含预期”（学习版）</b></div>
+          <ul>
+            <li>问：<b>如果未来只是“正常不错”，现在的价格还合理吗？</b>如果不合理，说明市场隐含了更高预期。</li>
+            <li>看：同类资产/指数在过去高情绪期的估值与回撤特征（只用于理解周期，不做实时建议）。</li>
+            <li>写：至少三种情景（好/中/坏），并把每种情景对应的“系统行为”写出来（参与/减频/暂停）。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>图表化理解（3/3）｜二阶思维的系统流程图：从观点到规则</h2><div class="hint">可复用流程</div></div>
+      <div class="bd">
+        <div class="svg-wrap" role="region" aria-label="二阶思维到系统执行流程图">
+          <svg viewBox="0 0 980 360" width="980" height="360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="非共识判断的系统化流程">
+            <defs>
+              <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="rgba(255,255,255,.08)"/>
+                <stop offset="1" stop-color="rgba(255,255,255,.03)"/>
+              </linearGradient>
+            </defs>
+            <rect x="18" y="18" width="944" height="324" rx="18" fill="url(#g1)" stroke="rgba(255,255,255,.10)"/>
+
+            <rect x="54" y="60" width="250" height="72" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="78" y="88" font-size="14" font-weight="700">1) 写出共识与定价预期</text>
+            <text x="78" y="110" font-size="12" opacity=".85">“市场相信什么？价格需要什么？”</text>
+
+            <rect x="340" y="60" width="250" height="72" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="364" y="88" font-size="14" font-weight="700">2) 形成非共识机制</text>
+            <text x="364" y="110" font-size="12" opacity=".85">基准率 / 结构约束 / 行为偏差</text>
+
+            <rect x="626" y="60" width="250" height="72" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="650" y="88" font-size="14" font-weight="700">3) 写无效化条件</text>
+            <text x="650" y="110" font-size="12" opacity=".85">“什么发生了就承认我错？”</text>
+
+            <rect x="54" y="170" width="250" height="78" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="78" y="198" font-size="14" font-weight="700">4) 定义 1R 与仓位上限</text>
+            <text x="78" y="220" font-size="12" opacity=".85">风险先行：错了也能活下去</text>
+
+            <rect x="340" y="170" width="250" height="78" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="364" y="198" font-size="14" font-weight="700">5) 只按规则执行</text>
+            <text x="364" y="220" font-size="12" opacity=".85">过滤 / 触发 / 退出 / 频率上限</text>
+
+            <rect x="626" y="170" width="250" height="78" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)"/>
+            <text x="650" y="198" font-size="14" font-weight="700">6) 复盘：过程胜过结果</text>
+            <text x="650" y="220" font-size="12" opacity=".85">是否遵守 R？是否被情绪劫持？</text>
+
+            <path d="M304 96 L340 96" stroke="rgba(208,214,224,.55)" stroke-width="2"/>
+            <path d="M590 96 L626 96" stroke="rgba(208,214,224,.55)" stroke-width="2"/>
+            <path d="M751 132 L751 170" stroke="rgba(208,214,224,.55)" stroke-width="2"/>
+            <path d="M465 132 L465 170" stroke="rgba(208,214,224,.55)" stroke-width="2"/>
+            <path d="M179 132 L179 170" stroke="rgba(208,214,224,.55)" stroke-width="2"/>
+
+            <rect x="54" y="270" width="822" height="54" rx="14" fill="rgba(255,204,102,.10)" stroke="rgba(255,204,102,.28)"/>
+            <text x="78" y="302" font-size="14" font-weight="700">守则：观点只能值 1R；非共识不等于一定要做；安全边际不足时“不参与”也是系统输出</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>交易场景案例</h2><div class="hint">虚构学习情景（非真实市场建议）</div></div>
+      <div class="bd">
+        <div class="callout">
+          <div class="tag">市场背景（虚构）</div>
+          <ul>
+            <li>某热门赛道在短期内被大量媒体与社交平台讨论，叙事集中在“颠覆性创新、增长确定”。价格上涨后，参与者情绪明显升温。</li>
+            <li>你看到周围人都在谈论“错过就来不及”，于是你产生一个想法：要么跟随，要么反向做点“更聪明”的事。</li>
+          </ul>
+        </div>
+        <div class="divider"></div>
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">常见交易者错误</div>
+            <ul>
+              <li>把“讨论度高”当作“确定性高”，忽视价格已经包含的预期。</li>
+              <li>把“我要与众不同”当作优势来源，却没有无效化条件与风控（结果变成情绪对抗）。</li>
+              <li>在不确定时加快频率、加大仓位，用行动缓解焦虑。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">更稳健的综合判断</div>
+            <ul>
+              <li><b>Marks</b>：先写清共识与定价预期——如果未来必须“非常完美”才合理，那风险温度可能偏高，非共识不应是冲动下注。</li>
+              <li><b>Tharp</b>：把任何观点降维成系统规则：定义 1R、写无效化条件、设置仓位上限与退出规则；若无法得到赔率/执行优势，系统输出应是“等待”。</li>
+              <li><b>整合</b>：允许你“不同意”，但要求你把不同意变成“可验证 + 可承受”的结构：宁可错过，也不让一次情绪化决定伤到长期生存。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>今日反思练习</h2><div class="hint">可执行：15–25 分钟</div></div>
+      <div class="bd">
+        <ol>
+          <li>从你过去的三次“强烈观点”决策中任选一次（可以是交易、也可以是工作/学习决策）：把它写进下面模板。</li>
+          <li>给出两个版本：<b>版本 A（原始冲动版）</b> vs <b>版本 B（二阶系统版）</b>。对比它们的差异：有没有无效化？有没有 1R？有没有退出？</li>
+          <li>最后写一句：<b>如果下一次再遇到同类情绪，我的系统要自动做什么？</b>（例如：降低频率、缩小暴露、只允许小样本试错、或直接暂停）。</li>
+        </ol>
+        <div class="divider"></div>
+        <div class="codebox" aria-label="练习模板：原始冲动版 vs 二阶系统版">
+【版本 A：原始冲动版（回忆你当时怎么想）】
+共识/叙事：__________________________
+我当时的想法：_______________________
+我当时的行动：_______________________
+最大错误：___________________________
+
+【版本 B：二阶系统版（现在重写）】
+1) 共识：_____________________________
+2) 价格隐含预期：____________________
+3) 我不同意的点：______________________
+4) 我更可能对的依据：_________________
+5) 无效化条件：_______________________
+6) 1R=____；仓位上限=____；退出规则=____
+7) 复盘指标（过程）：___________________
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>今日检查清单</h2><div class="hint">最多 5 条</div></div>
+      <div class="bd">
+        <ul>
+          <li>我是否把“非共识”写成了<b>可被推翻</b>的假设（而不是立场）？</li>
+          <li>我是否明确写了<b>无效化条件</b>与<b>退出规则</b>？</li>
+          <li>我是否把观点的价值限制在<b>1R</b>（不加码、不死扛）？</li>
+          <li>这次参与是否真的有<b>赔率/安全余地</b>，还是只是“我想证明我对”？</li>
+          <li>如果今天什么都不做，我是否仍能接受（能否把“不参与”当作系统输出）？</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd"><h2>明日预告</h2><div class="hint">Day 07：胜率、赔率和错误认知</div></div>
+      <div class="bd">
+        <p>今天你把“观点”变成“系统假设”，但一个假设是否值得参与，最终要回到 Tharp 的核心：<b>期望值</b>。明天我们会把“胜率/赔率/误差”讲清楚：</p>
+        <ul>
+          <li>为什么“看对很多次”也可能亏（赔率结构不对、亏损放大、执行走样）。</li>
+          <li>如何用简单表格把一个想法转成：<b>大概胜率</b>、<b>典型盈亏比</b>、<b>最坏情景</b>与<b>可承受回撤</b>。</li>
+          <li>如何识别你最容易犯的认知错误：把偶然当必然、把样本当规律、把噪声当信号。</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="footer">本页为读书学习笔记与系统化训练材料；不构成投资建议，不提供任何品种推荐、买卖点或实时交易信号。</div>
+  </div>
+</body>
+</html>
+

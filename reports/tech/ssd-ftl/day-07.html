@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 7：Block 与 Page 生命周期状态机</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 7 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a class="active" href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">状态表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 7 · SSD / FTL 代码设计判断</p>
+				<h1>Block 与 Page 生命周期状态机：不要让 valid/free/bad/open 变成散落的判断</h1>
+				<p class="lead">
+					今天的核心判断是：block/page 状态必须由状态机驱动，禁止 GC、Mapping、Recovery、Write Path
+					各自重复判断 <span class="inline-code">valid</span>、<span class="inline-code">free</span>、
+					<span class="inline-code">bad</span>、<span class="inline-code">open</span>。状态不是一组 bool，
+					而是 FTL 对介质生命周期、写入事务和恢复边界的统一语言。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">状态只能通过 Block Manager 的领域事件转换</span>
+					<span class="badge">涉及：Block Manager / Free Block Pool / GC / Bad Block / Recovery</span>
+					<span class="badge">关键词：状态机 · 不变量 · DRY · 聚合边界 · 恢复语义</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							不要让调用者读写 <span class="inline-code">is_free</span>、
+							<span class="inline-code">is_open</span>、<span class="inline-code">valid_pages</span>
+							这类内部事实。调用者应该提交领域事件：open block、allocate page、commit page、
+							invalidate page、select victim、finish erase。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Block Manager、Free Block Pool、Victim Block Selection、Wear Leveling、
+							Bad Block Management、NAND Program / Erase / Read Flow、Metadata Journal、Power Loss Recovery。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：状态机是复杂度压缩器</h2>
+				<p>
+					Block/Page 生命周期看起来只是“几个标志位”，但在 FTL 中它承载了空间管理、写入提交、GC 搬迁、
+					坏块隔离和掉电恢复的共同事实。今天需要掌握的不是状态机语法，而是为什么状态机能把散落知识收回到一个模块里。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>如果理解不足，会在 FTL 中变成什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>复杂度来自依赖和晦涩。状态判断如果散在调用点，就会把内部不变量暴露给每个模块。</td>
+								<td>GC、Recovery、Write Path 都要理解 block 是否 open、page 是否 committed、valid count 是否可信，修改一个状态含义会放大到全系统。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>DRY 不是不重复代码，而是不重复知识。valid/free/bad/open 的合法组合是一种关键知识。</td>
+								<td>多个模块各自写 <span class="inline-code">if (!bad &amp;&amp; free)</span>，最终出现“看起来 free 但不允许分配”的幽灵状态。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍要保持概念完整性。少量清晰状态比大量局部标志更能表达设计意图。</td>
+								<td>为了快速修 bug 增加 <span class="inline-code">need_gc</span>、<span class="inline-code">was_open</span>、<span class="inline-code">half_bad</span>，系统逐渐失去统一模型。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>状态变化应是领域事件。Block Manager 是 block/page 生命周期的聚合边界。</td>
+								<td>高层 FTL 直接改 NAND metadata 字段，Recovery 只能猜“这个 page 到底是写入中、已提交还是孤儿页”。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：状态是领域事实，不是字段快照</h2>
+				<p>
+					四本书在这里形成一个共同判断：状态机不是为了形式化而形式化，而是为了让不变量有唯一归属。
+					《软件设计哲学》要求把复杂状态隐藏在深模块内部；《程序员修炼之道》要求不要重复状态知识；
+					《设计的设计》提醒我们用少量一致概念抵抗补丁式标志；《领域驱动设计》则把状态变化命名为领域事件，
+					让接口说出真实业务含义。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Block Manager 不只是“存 block 信息的结构体集合”。它应该是生命周期状态机的所有者。
+					GC、Mapping、Recovery、WriteBooster 不能直接设置状态字段，只能提交事件并接收明确结果。
+					这样才能让模块边界、接口语义、错误路径和恢复机制共享同一个事实来源。
+				</div>
+				<div class="diagram" aria-label="Block 与 Page 生命周期状态机">
+					<svg viewBox="0 0 1180 470" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.lane { fill: #fafafa; stroke: #e5e5e5; stroke-width: 1.2; }
+								.node { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.5; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="lane" x="24" y="34" width="1132" height="184" rx="14"></rect>
+						<text class="t" x="56" y="66">Block lifecycle</text>
+						<rect class="key" x="56" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="115" y="123" text-anchor="middle">FREE</text>
+						<text class="s" x="115" y="145" text-anchor="middle">free pool</text>
+						<path class="line" d="M174 130 L218 130"></path>
+						<rect class="node" x="218" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="277" y="123" text-anchor="middle">OPEN</text>
+						<text class="s" x="277" y="145" text-anchor="middle">接受 program</text>
+						<path class="line" d="M336 130 L380 130"></path>
+						<rect class="node" x="380" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="439" y="123" text-anchor="middle">CLOSED</text>
+						<text class="s" x="439" y="145" text-anchor="middle">可被 GC 选择</text>
+						<path class="line" d="M498 130 L542 130"></path>
+						<rect class="warn" x="542" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="601" y="123" text-anchor="middle">VICTIM</text>
+						<text class="s" x="601" y="145" text-anchor="middle">搬迁中</text>
+						<path class="line" d="M660 130 L704 130"></path>
+						<rect class="node" x="704" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="763" y="123" text-anchor="middle">ERASING</text>
+						<text class="s" x="763" y="145" text-anchor="middle">不可分配</text>
+						<path class="line" d="M822 130 C876 130, 888 68, 174 68 C112 68, 86 76, 80 98"></path>
+						<path class="dash" d="M277 162 C277 196, 894 196, 928 162"></path>
+						<rect class="err" x="928" y="98" width="118" height="64" rx="12"></rect>
+						<text class="t" x="987" y="123" text-anchor="middle">RETIRED</text>
+						<text class="s" x="987" y="145" text-anchor="middle">bad / worn out</text>
+
+						<rect class="lane" x="24" y="252" width="1132" height="184" rx="14"></rect>
+						<text class="t" x="56" y="284">Page lifecycle inside one open block</text>
+						<rect class="key" x="56" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="120" y="341" text-anchor="middle">PAGE_FREE</text>
+						<text class="s" x="120" y="363" text-anchor="middle">未分配</text>
+						<path class="line" d="M184 348 L228 348"></path>
+						<rect class="node" x="228" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="292" y="341" text-anchor="middle">ALLOCATED</text>
+						<text class="s" x="292" y="363" text-anchor="middle">已占位未写</text>
+						<path class="line" d="M356 348 L400 348"></path>
+						<rect class="node" x="400" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="464" y="341" text-anchor="middle">PROGRAMMED</text>
+						<text class="s" x="464" y="363" text-anchor="middle">介质写入成功</text>
+						<path class="line" d="M528 348 L572 348"></path>
+						<rect class="key" x="572" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="636" y="341" text-anchor="middle">COMMITTED</text>
+						<text class="s" x="636" y="363" text-anchor="middle">mapping 可见</text>
+						<path class="line" d="M700 348 L744 348"></path>
+						<rect class="node" x="744" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="808" y="341" text-anchor="middle">INVALID</text>
+						<text class="s" x="808" y="363" text-anchor="middle">等待回收</text>
+						<path class="dash" d="M464 380 C464 416, 894 416, 928 380"></path>
+						<rect class="warn" x="928" y="316" width="128" height="64" rx="12"></rect>
+						<text class="t" x="992" y="341" text-anchor="middle">ORPHAN</text>
+						<text class="s" x="992" y="363" text-anchor="middle">已写未提交</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Host Write</h3>
+						<p>写路径只请求 <span class="inline-code">block_alloc_page()</span> 和 <span class="inline-code">block_commit_page()</span>，不判断 page 是否 free，也不直接增加 valid count。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC Relocation</h3>
+						<p>GC 只能把 CLOSED block 请求转为 VICTIM，并通过 relocation delta 提交新旧 PPA 关系，不能自己把 page 改成 invalid。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Management</h3>
+						<p>Program/erase fail 不是局部标志。Block Manager 根据错误决策把 OPEN 或 ERASING block 转到 RETIRED，并从 free pool 中移除。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Metadata Journal</h3>
+						<p>Journal 失败后，PROGRAMMED page 不能直接回到 FREE，而应进入 ORPHAN，保证 Recovery 能解释“写了但没有提交”。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>恢复逻辑读取状态和 journal，不重跑写路径。状态机提供合法收敛方向：COMMITTED 保留，ORPHAN 回收，ERASING 重新校验。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Free Block Pool</h3>
+						<p>Free pool 只接受 FREE block。CLOSED、VICTIM、ERASING、RETIRED 不能因为计数看似可用而被重新分配。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：状态判断散落，合法组合没人负责</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把 block/page 状态拆成多个 bool 和计数器。Write Path、GC、Recovery 都直接修改字段，
+					导致状态组合没有唯一解释，错误路径和恢复路径只能靠猜。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：多个模块直接读写状态字段</span>
+						<span>C</span>
+					</div>
+					<pre><code>struct ftl_page_bad {
+	bool free;
+	bool valid;
+	bool programmed;
+	bool journaled;
+	u64 lba;
+};
+
+struct ftl_block_bad {
+	bool free;
+	bool open;
+	bool victim;
+	bool bad;
+	int valid_pages;
+	int free_pages;
+	struct ftl_page_bad pages[256];
+};
+
+int ftl_write_page_bad(struct ftl_dev *ftl, u64 lba, const void *buf)
+{
+	struct ftl_block_bad *blk = ftl-&gt;open_blk;
+	struct ftl_page_bad *page;
+	int ret;
+
+	if (!blk || blk-&gt;bad || !blk-&gt;open || blk-&gt;victim)
+		return -ENOSPC;
+
+	if (blk-&gt;free_pages == 0) {
+		blk-&gt;open = false;
+		blk-&gt;free = false;
+		return -ENOSPC;
+	}
+
+	page = find_first_free_page(blk);
+	page-&gt;free = false;
+	page-&gt;lba = lba;
+
+	ret = nand_program_page(ftl-&gt;nand, blk, page, buf);
+	if (ret) {
+		blk-&gt;bad = true;
+		page-&gt;free = false;
+		page-&gt;valid = false;
+		return ret;
+	}
+
+	page-&gt;programmed = true;
+
+	ret = journal_append_mapping(ftl-&gt;journal, lba, blk, page);
+	if (ret)
+		return ret;
+
+	page-&gt;journaled = true;
+	page-&gt;valid = true;
+	blk-&gt;valid_pages++;
+	blk-&gt;free_pages--;
+	return map_update_l2p(ftl-&gt;map, lba, blk, page);
+}
+
+void gc_mark_victim_bad(struct ftl_block_bad *blk)
+{
+	if (!blk-&gt;bad &amp;&amp; !blk-&gt;open &amp;&amp; !blk-&gt;free)
+		blk-&gt;victim = true;
+}
+
+void recovery_fix_page_bad(struct ftl_page_bad *page)
+{
+	if (page-&gt;programmed &amp;&amp; !page-&gt;journaled) {
+		page-&gt;free = true;
+		page-&gt;valid = false;
+	}
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>真实后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>状态组合无约束</td>
+								<td><span class="inline-code">free</span>、<span class="inline-code">open</span>、<span class="inline-code">victim</span>、<span class="inline-code">bad</span> 可被任意组合。</td>
+								<td>可能出现 open 且 victim、bad 仍在 free pool、programmed 但 free 的非法状态。</td>
+							</tr>
+							<tr>
+								<td>模块边界泄漏</td>
+								<td>Write Path、GC、Recovery 都直接改 block/page 字段。</td>
+								<td>Block Manager 不再拥有生命周期事实，状态修复需要跨模块搜索。</td>
+							</tr>
+							<tr>
+								<td>错误路径不可恢复</td>
+								<td>journal 失败后直接返回，没有把 page 标为 ORPHAN。</td>
+								<td>掉电后 Recovery 不知道该 page 是旧数据、新数据还是未提交垃圾。</td>
+							</tr>
+							<tr>
+								<td>计数漂移</td>
+								<td>valid/free count 在多个路径手动调整。</td>
+								<td>GC victim selection、free block pressure、wear leveling 的输入不可信。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：Block Manager 拥有状态机</h2>
+				<p>
+					改进版把状态字段收回到 Block Manager 内部。外部模块不能写状态，只能提交领域事件。
+					接口返回负 errno，同时保留可恢复语义：非法转换是 <span class="inline-code">-EINVAL</span>，
+					并发或陈旧请求是 <span class="inline-code">-ESTALE</span>，介质失败进入退役路径。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>block_state.h：对外暴露状态事件，而不是状态字段</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_BLOCK_STATE_H
+#define FTL_BLOCK_STATE_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum ftl_block_state {
+	FTL_BLOCK_FREE = 0,
+	FTL_BLOCK_OPEN,
+	FTL_BLOCK_CLOSED,
+	FTL_BLOCK_VICTIM,
+	FTL_BLOCK_ERASING,
+	FTL_BLOCK_RETIRED,
+};
+
+enum ftl_page_state {
+	FTL_PAGE_FREE = 0,
+	FTL_PAGE_ALLOCATED,
+	FTL_PAGE_PROGRAMMED,
+	FTL_PAGE_COMMITTED,
+	FTL_PAGE_INVALID,
+	FTL_PAGE_ORPHAN,
+};
+
+enum ftl_block_event {
+	FTL_BLOCK_EV_OPEN = 0,
+	FTL_BLOCK_EV_CLOSE,
+	FTL_BLOCK_EV_SELECT_VICTIM,
+	FTL_BLOCK_EV_BEGIN_ERASE,
+	FTL_BLOCK_EV_FINISH_ERASE,
+	FTL_BLOCK_EV_RETIRE,
+};
+
+struct ftl_ppa {
+	u32 ch;
+	u32 lun;
+	u32 block;
+	u32 page;
+};
+
+struct ftl_page_commit {
+	struct ftl_ppa ppa;
+	u64 lba;
+	u64 mapping_seq;
+};
+
+struct ftl_block_manager;
+
+int block_open_free_block(struct ftl_block_manager *bm,
+			  struct ftl_ppa *first_page);
+int block_alloc_page(struct ftl_block_manager *bm, struct ftl_ppa *ppa);
+int block_mark_programmed(struct ftl_block_manager *bm,
+			  const struct ftl_ppa *ppa);
+int block_commit_page(struct ftl_block_manager *bm,
+		      const struct ftl_page_commit *commit);
+int block_mark_orphan(struct ftl_block_manager *bm, const struct ftl_ppa *ppa);
+int block_invalidate_page(struct ftl_block_manager *bm,
+			  const struct ftl_ppa *ppa);
+int block_apply_event(struct ftl_block_manager *bm,
+		      const struct ftl_ppa *ppa,
+		      enum ftl_block_event event);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>block_state.c：转换函数集中维护不变量</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int block_next_state(enum ftl_block_state from,
+			    enum ftl_block_event event,
+			    enum ftl_block_state *to)
+{
+	switch (from) {
+	case FTL_BLOCK_FREE:
+		if (event == FTL_BLOCK_EV_OPEN) {
+			*to = FTL_BLOCK_OPEN;
+			return 0;
+		}
+		break;
+	case FTL_BLOCK_OPEN:
+		if (event == FTL_BLOCK_EV_CLOSE) {
+			*to = FTL_BLOCK_CLOSED;
+			return 0;
+		}
+		if (event == FTL_BLOCK_EV_RETIRE) {
+			*to = FTL_BLOCK_RETIRED;
+			return 0;
+		}
+		break;
+	case FTL_BLOCK_CLOSED:
+		if (event == FTL_BLOCK_EV_SELECT_VICTIM) {
+			*to = FTL_BLOCK_VICTIM;
+			return 0;
+		}
+		break;
+	case FTL_BLOCK_VICTIM:
+		if (event == FTL_BLOCK_EV_BEGIN_ERASE) {
+			*to = FTL_BLOCK_ERASING;
+			return 0;
+		}
+		break;
+	case FTL_BLOCK_ERASING:
+		if (event == FTL_BLOCK_EV_FINISH_ERASE) {
+			*to = FTL_BLOCK_FREE;
+			return 0;
+		}
+		if (event == FTL_BLOCK_EV_RETIRE) {
+			*to = FTL_BLOCK_RETIRED;
+			return 0;
+		}
+		break;
+	case FTL_BLOCK_RETIRED:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+int block_apply_event(struct ftl_block_manager *bm,
+		      const struct ftl_ppa *ppa,
+		      enum ftl_block_event event)
+{
+	struct ftl_block *blk;
+	enum ftl_block_state next;
+	int ret;
+
+	blk = block_lookup_mutable(bm, ppa);
+	if (!blk)
+		return -ENOENT;
+
+	ret = block_next_state(blk-&gt;state, event, &amp;next);
+	if (ret)
+		return ret;
+
+	blk-&gt;state = next;
+	block_refresh_pool_membership(bm, blk);
+	return 0;
+}
+
+int block_mark_programmed(struct ftl_block_manager *bm,
+			  const struct ftl_ppa *ppa)
+{
+	struct ftl_page *page;
+
+	page = block_lookup_page_mutable(bm, ppa);
+	if (!page)
+		return -ENOENT;
+	if (page-&gt;state != FTL_PAGE_ALLOCATED)
+		return -EINVAL;
+
+	page-&gt;state = FTL_PAGE_PROGRAMMED;
+	return 0;
+}
+
+int block_commit_page(struct ftl_block_manager *bm,
+		      const struct ftl_page_commit *commit)
+{
+	struct ftl_block *blk;
+	struct ftl_page *page;
+
+	blk = block_lookup_mutable(bm, &amp;commit-&gt;ppa);
+	if (!blk)
+		return -ENOENT;
+	if (blk-&gt;state != FTL_BLOCK_OPEN)
+		return -ESTALE;
+
+	page = block_page_at(blk, commit-&gt;ppa.page);
+	if (page-&gt;state != FTL_PAGE_PROGRAMMED)
+		return -EINVAL;
+
+	page-&gt;state = FTL_PAGE_COMMITTED;
+	page-&gt;lba = commit-&gt;lba;
+	page-&gt;mapping_seq = commit-&gt;mapping_seq;
+	blk-&gt;valid_pages++;
+	return 0;
+}
+
+int block_mark_orphan(struct ftl_block_manager *bm, const struct ftl_ppa *ppa)
+{
+	struct ftl_page *page;
+
+	page = block_lookup_page_mutable(bm, ppa);
+	if (!page)
+		return -ENOENT;
+	if (page-&gt;state != FTL_PAGE_PROGRAMMED)
+		return -EINVAL;
+
+	page-&gt;state = FTL_PAGE_ORPHAN;
+	return 0;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>状态表与思想落点表</h2>
+				<h3>Block 生命周期状态转换表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>当前状态</th>
+								<th>允许事件</th>
+								<th>下一个状态</th>
+								<th>触发者</th>
+								<th>不变量</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>FREE</td>
+								<td>OPEN</td>
+								<td>OPEN</td>
+								<td>Write Path / Free Block Pool</td>
+								<td>只允许 free pool 中的 block 被打开；打开后立即从 free pool 移除。</td>
+							</tr>
+							<tr>
+								<td>OPEN</td>
+								<td>CLOSE</td>
+								<td>CLOSED</td>
+								<td>Block Manager</td>
+								<td>不能再分配新 page；valid/free/page cursor 必须一致。</td>
+							</tr>
+							<tr>
+								<td>OPEN</td>
+								<td>RETIRE</td>
+								<td>RETIRED</td>
+								<td>Error Handling / Bad Block</td>
+								<td>program failure 后禁止继续写入；后续由恢复或搬迁处理可读页。</td>
+							</tr>
+							<tr>
+								<td>CLOSED</td>
+								<td>SELECT_VICTIM</td>
+								<td>VICTIM</td>
+								<td>GC</td>
+								<td>victim 不能被写路径重新打开；只允许 relocation 读取有效页。</td>
+							</tr>
+							<tr>
+								<td>VICTIM</td>
+								<td>BEGIN_ERASE</td>
+								<td>ERASING</td>
+								<td>GC / Block Manager</td>
+								<td>所有有效页必须已搬迁或被确认无效；不能进入 free pool。</td>
+							</tr>
+							<tr>
+								<td>ERASING</td>
+								<td>FINISH_ERASE</td>
+								<td>FREE</td>
+								<td>NAND Erase Flow</td>
+								<td>erase 成功且 metadata 重置后才可回到 free pool。</td>
+							</tr>
+							<tr>
+								<td>ERASING</td>
+								<td>RETIRE</td>
+								<td>RETIRED</td>
+								<td>Bad Block Management</td>
+								<td>erase failure 永远不能回到 free pool。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>Page 生命周期状态转换表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>当前状态</th>
+								<th>事件</th>
+								<th>下一个状态</th>
+								<th>设计含义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>PAGE_FREE</td>
+								<td>ALLOCATE</td>
+								<td>PAGE_ALLOCATED</td>
+								<td>只表示已预留物理位置，不代表 NAND 写入成功。</td>
+							</tr>
+							<tr>
+								<td>PAGE_ALLOCATED</td>
+								<td>PROGRAM_OK</td>
+								<td>PAGE_PROGRAMMED</td>
+								<td>NAND 已写入，但 mapping 还不可见，journal 仍是关键边界。</td>
+							</tr>
+							<tr>
+								<td>PAGE_PROGRAMMED</td>
+								<td>MAPPING_COMMIT</td>
+								<td>PAGE_COMMITTED</td>
+								<td>该 PPA 成为 LBA 当前版本，valid count 可以增加。</td>
+							</tr>
+							<tr>
+								<td>PAGE_PROGRAMMED</td>
+								<td>JOURNAL_FAIL</td>
+								<td>PAGE_ORPHAN</td>
+								<td>介质上存在数据，但没有可恢复提交记录，不能对外可见。</td>
+							</tr>
+							<tr>
+								<td>PAGE_COMMITTED</td>
+								<td>SUPERSEDE</td>
+								<td>PAGE_INVALID</td>
+								<td>新映射提交后旧页失效，GC 可在 victim 阶段回收。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>用深模块隐藏复杂状态和不变量。</td>
+								<td>Block Manager 状态转换接口。</td>
+								<td>外部模块不能直接读写 block/page 内部字段。</td>
+								<td>避免状态知识散落导致变更放大和调试困难。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>DRY 表示知识唯一化，契约要可执行。</td>
+								<td>状态表、负 errno、非法转换检查。</td>
+								<td>所有合法状态组合只定义一次。</td>
+								<td>避免重复 if 判断产生互相矛盾的状态解释。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性优先于局部补丁。</td>
+								<td>FREE、OPEN、CLOSED、VICTIM、ERASING、RETIRED 的有限状态集合。</td>
+								<td>新增状态必须能解释生命周期，不是为某个 bug 增加临时 flag。</td>
+								<td>避免系统被 <span class="inline-code">need_fix</span>、<span class="inline-code">half_valid</span> 这类旗标污染。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域状态变化应由聚合边界维护，并使用业务语言命名事件。</td>
+								<td>open block、commit page、mark orphan、select victim、finish erase。</td>
+								<td>GC、Recovery、Mapping 只能提交领域事件，不能跨边界改状态。</td>
+								<td>避免恢复逻辑无法解释写入事务停在哪个阶段。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">状态表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>
