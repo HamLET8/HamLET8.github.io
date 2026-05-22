@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F2FS 三条线技术报告：空间回收、Writeback、并发等待</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --panel-2: #f1f3f7;
+      --ink: #19191d;
+      --muted: #575b69;
+      --subtle: #7a8194;
+      --line: #dce1ea;
+      --accent: #5e6ad2;
+      --accent-2: #0e9f7f;
+      --danger: #c43c3c;
+      --warn: #b7791f;
+      --code: #111318;
+      --code-ink: #e7e9f5;
+      --shadow: 0 20px 60px rgba(24, 29, 44, 0.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101116;
+        --panel: #171820;
+        --panel-2: #20222c;
+        --ink: #f3f4f8;
+        --muted: #c1c5d3;
+        --subtle: #9499ad;
+        --line: #2b2e3a;
+        --accent: #8f98ff;
+        --accent-2: #46d3b5;
+        --danger: #ff7676;
+        --warn: #f3bd58;
+        --code: #08090d;
+        --code-ink: #f1f3ff;
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font-family: var(--sans); line-height: 1.72; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: .92em; padding: .1em .35em; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); }
+    .shell { display: grid; grid-template-columns: 292px minmax(0, 1fr); min-height: 100vh; }
+    .toc { position: sticky; top: 0; height: 100vh; padding: 22px; border-right: 1px solid var(--line); background: rgba(255,255,255,.52); backdrop-filter: blur(18px); overflow: auto; }
+    @media (prefers-color-scheme: dark) { .toc { background: rgba(16,17,22,.68); } }
+    .toc h1 { margin: 0 0 8px; font-size: 18px; line-height: 1.2; }
+    .toc p { margin: 0 0 18px; color: var(--subtle); font-size: 12px; line-height: 1.5; }
+    .toc nav { display: grid; gap: 4px; }
+    .toc a { display: block; padding: 8px 10px; color: var(--muted); border-radius: 8px; font-size: 13px; line-height: 1.35; }
+    .toc a:hover { color: var(--ink); background: var(--panel-2); text-decoration: none; }
+    .content { min-width: 0; padding: 42px clamp(22px, 5vw, 74px) 88px; }
+    .hero { max-width: 1160px; margin: 0 auto 26px; padding: 34px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+    .hero h2 { margin: 0; max-width: 1020px; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: -.02em; }
+    .hero .lead { max-width: 980px; margin: 20px 0 0; color: var(--muted); font-size: 18px; line-height: 1.75; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+    .meta { padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+    .meta strong { display: block; font-size: 12px; color: var(--subtle); text-transform: uppercase; }
+    .meta span { display: block; margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+    section { max-width: 1160px; margin: 18px auto; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+    section h2 { margin: 0 0 14px; font-size: 28px; line-height: 1.22; letter-spacing: -.01em; }
+    section h3 { margin: 24px 0 8px; font-size: 20px; line-height: 1.3; }
+    section h4 { margin: 18px 0 6px; font-size: 16px; }
+    p { margin: 12px 0; color: var(--muted); }
+    ul, ol { color: var(--muted); padding-left: 1.25em; }
+    li { margin: 8px 0; }
+    .callout { margin: 18px 0; padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; background: var(--panel-2); }
+    .callout strong { color: var(--ink); }
+    .danger { border-left-color: var(--danger); }
+    .warn { border-left-color: var(--warn); }
+    .ok { border-left-color: var(--accent-2); }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+    .card h3, .card h4 { margin-top: 0; }
+    .card p { font-size: 14px; }
+    .diagram { margin: 20px 0; padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+    .diagram-title { margin-bottom: 12px; color: var(--subtle); font-size: 12px; font-weight: 760; text-transform: uppercase; }
+    .flow { display: grid; gap: 10px; min-width: 780px; }
+    .flow-row { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; align-items: stretch; }
+    .flow-row.three { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+    .flow-row.four { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+    .flow-row.six { grid-template-columns: repeat(6, minmax(120px, 1fr)); }
+    .box { min-height: 84px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+    .box b { display: block; color: var(--ink); font-size: 13px; line-height: 1.35; }
+    .box span { display: block; margin-top: 5px; color: var(--subtle); font-size: 12px; line-height: 1.45; }
+    .arrow { display: grid; place-items: center; color: var(--accent); font-weight: 800; }
+    .table { width: 100%; border-collapse: collapse; margin: 18px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .table th, .table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    .table th { color: var(--subtle); background: var(--panel-2); font-size: 12px; text-transform: uppercase; }
+    .table td { color: var(--muted); }
+    pre { overflow: auto; padding: 16px; color: var(--code-ink); background: var(--code); border-radius: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+    .source-list { display: grid; gap: 10px; }
+    .source-list a { display: block; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+    .matrix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .matrix .card { min-height: 150px; }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .toc { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .toc nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .meta-grid, .grid-2, .grid-3, .matrix { grid-template-columns: 1fr; }
+      .content { padding: 20px 14px 64px; }
+      section, .hero { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="toc">
+    <h1>F2FS 三条线</h1>
+    <p>独立技术报告 · 2026-05-22 · 空间回收、writeback、并发等待。</p>
+    <nav>
+      <a href="#summary">0. 总览</a>
+      <a href="#map">1. 三线地图</a>
+      <a href="#reclaim">2. 空间回收线</a>
+      <a href="#victim">3. Victim Selection</a>
+      <a href="#sit-nat-ssa">4. SIT / NAT / SSA</a>
+      <a href="#fg-bg">5. FG/BG GC</a>
+      <a href="#zoned">6. Zoned 设备</a>
+      <a href="#writeback">7. Writeback 线</a>
+      <a href="#bio-boundary">8. Bio 提交边界</a>
+      <a href="#fsync-cp">9. Fsync / Checkpoint</a>
+      <a href="#concurrency">10. 并发等待线</a>
+      <a href="#locks">11. 锁与等待点</a>
+      <a href="#diagnosis">12. 诊断框架</a>
+      <a href="#function-walk">13. 逐函数导读</a>
+      <a href="#three-cases">14. 三个交汇案例</a>
+      <a href="#ufs-mapping">15. UFS 分析映射</a>
+      <a href="#study-plan">16. 后续阅读路线</a>
+      <a href="#sources">资料来源</a>
+    </nav>
+  </aside>
+  <main class="content">
+    <header class="hero">
+      <p class="eyebrow">Technical Report</p>
+      <h2>F2FS 三条线：空间回收、Writeback、并发等待如何组成“文件系统卡住”的完整解释</h2>
+      <p class="lead">上一篇报告解释了 <code>gc_merge</code> 死锁 patch：问题发生在 writeback、truncate 和 GC thread 的等待顺序上。这一篇继续深入，把剩下三条线单独拆开：F2FS 怎样选择 victim 并回收空间，writeback 怎样从 dirty folio 走到 bio completion，truncate / invalidate / GC / checkpoint 的锁与等待点怎样组合成真实移动设备上的长尾卡顿。</p>
+      <div class="meta-grid">
+        <div class="meta"><strong>主题</strong><span>F2FS GC / writeback / locking</span></div>
+        <div class="meta"><strong>日期</strong><span>2026-05-22</span></div>
+        <div class="meta"><strong>形式</strong><span>独立本地 HTML</span></div>
+        <div class="meta"><strong>目标</strong><span>建立可迁移分析框架</span></div>
+      </div>
+    </header>
+
+    <section id="summary">
+      <p class="eyebrow">0. Executive Summary</p>
+      <h2>先给结论：F2FS 卡顿通常不是单条路径的问题</h2>
+      <p>如果你只看 F2FS 的 GC，就会把卡顿理解成“空间回收慢”；如果只看 writeback，就会把卡顿理解成“脏页写回慢”；如果只看锁，就会把卡顿理解成“某个锁竞争”。这些解释都可能局部正确，但不够完整。真实系统里，空间压力会触发 GC，GC 会读取 SIT/NAT/SSA 并锁 data folio 迁移有效块，writeback 会把 dirty folio 转成 merged bio，checkpoint 会要求数据、节点、元数据达到一致边界，truncate/invalidate 会锁 page cache 并等待 writeback。卡顿发生时，往往是这三条线交汇，而不是某一条线单独失效。</p>
+      <p>这份报告的核心判断是：F2FS 的“进展性”来自三个边界同时成立。第一，空间回收边界：文件系统必须能从 dirty segment 中找出可回收 victim，并把有效数据迁走，最终释放 section。第二，writeback 边界：已经进入 writeback 的 folio 必须有可达的 bio submit 和 end_io 完成路径。第三，并发等待边界：持有 folio lock、<code>gc_lock</code>、<code>i_gc_rwsem</code>、<code>cp_rwsem</code> 的路径不能形成互相等待的闭环。任何一个边界断掉，用户看到的都是“存储卡住”。</p>
+      <div class="callout ok"><strong>阅读目标：</strong>这不是 F2FS 函数百科，而是一套定位框架。读完后你应该能把一个移动端存储卡顿拆成：是否空间不足、是否 GC 正在迁移、是否 bio 已提交、是否 checkpoint 等待、是否 truncate/invalidate 持锁、是否 UFS 设备真的收到请求。</div>
+    </section>
+
+    <section id="map">
+      <p class="eyebrow">1. Three-line Map</p>
+      <h2>三条线先放在一张图里</h2>
+      <p>三条线不是并列孤岛，而是互相调用、互相等待。空间回收线负责制造 free section；writeback 线负责把 page cache 的脏数据变成设备 I/O；并发等待线负责保证 page cache、inode、checkpoint 和 GC 迁移的一致性。理解 F2FS 卡顿时，要同时标记每条线上的“对象”和“等待点”。</p>
+      <div class="diagram">
+        <div class="diagram-title">F2FS stall map</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>空间回收线</b><span>dirty segment、victim、SIT/NAT/SSA、foreground/background GC、zoned constraints</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>迁移有效块</b><span>GC 读取 summary，确认 block alive，锁 data folio，写到新位置</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>释放 section</b><span>checkpoint 后 prefree 变 free，写入重新获得空间</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>writeback 线</b><span>dirty folio、writeback_control、folio_start_writeback、merged bio</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>提交边界</b><span>f2fs_submit_merged_write / IPU submit / blk_crypto_submit_bio</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>end_io</b><span>f2fs_write_end_io 清理错误、唤醒 checkpoint、folio_end_writeback</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>并发等待线</b><span>truncate、invalidate、page cache lock、gc_lock、i_gc_rwsem、cp_rwsem</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>等待组合</b><span>folio_wait_writeback、GC folio lock、checkpoint wait、dirty throttling</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>卡顿表现</b><span>写入慢、删除慢、fsync 慢、D state、设备侧无请求或请求长尾</span></div>
+          </div>
+        </div>
+      </div>
+      <p>上一篇报告中的 <code>gc_merge</code> 死锁，可以放进这张图的交汇点：writeback 线已经发布 folio writeback 状态，但 DATA bio 还没提交；并发等待线中 truncate 持有 folio lock 并等待 writeback；空间回收线中 GC thread 需要锁同一 folio 才能迁移 data block。这个例子说明，三条线必须合起来看。</p>
+    </section>
+
+    <section id="reclaim">
+      <p class="eyebrow">2. Space Reclaim Line</p>
+      <h2>空间回收线：F2FS 为什么必须 GC</h2>
+      <p>F2FS 是面向闪存的 log-structured 文件系统。它倾向于把新数据写到新位置，而不是频繁原地覆盖。这样有利于顺序写，也更符合 NAND flash 和 FTL 的写入特点；代价是旧位置会积累 invalid blocks。F2FS 需要周期性选择包含较多 invalid blocks 的 segment 或 section，把其中仍然有效的数据迁走，然后把整段空间回收出来。</p>
+      <p>官方 F2FS 文档给出的磁盘布局是理解 GC 的入口：整个卷被划分成 segment，多个 segment 组成 section，多个 section 组成 zone；主要区域包括 CP、SIT、NAT、SSA 和 Main Area。对 GC 来说，Main Area 是被回收的对象，SIT 告诉它每个 segment 有多少有效块和哪些块有效，NAT 帮它从 node id 找到 node block 地址，SSA 帮它从物理块反查所属对象。</p>
+      <div class="diagram">
+        <div class="diagram-title">Space reclaim object model</div>
+        <div class="flow-row six">
+          <div class="box"><b>Main Area</b><span>data/node block 所在区域，也是 GC victim 来源。</span></div>
+          <div class="box"><b>SIT</b><span>segment 的 valid block count 和 validity bitmap。</span></div>
+          <div class="box"><b>SSA</b><span>summary entry，记录 block owner 信息。</span></div>
+          <div class="box"><b>NAT</b><span>node id 到 node block 地址的映射。</span></div>
+          <div class="box"><b>CP</b><span>一致性边界，决定哪些 NAT/SIT 副本有效。</span></div>
+          <div class="box"><b>Free Section</b><span>写路径真正需要的可分配空间。</span></div>
+        </div>
+      </div>
+      <p>空间回收线最容易被误解成“后台整理”。实际上 foreground GC 直接进入写路径的关键路径。当 <code>f2fs_balance_fs()</code> 发现 free section 不足时，写入路径就被迫进入空间回收语境。此时 GC 不再是可有可无的后台工作，而是当前写入能否继续前进的前置条件。</p>
+      <p>源码中 <code>f2fs_gc()</code> 会先判断是否已经没有足够 free sections，如果空间不足，会提升为 foreground GC，并且在有 prefree segments 时先尝试 checkpoint，让 prefree 变成真正可用的 free segments。这个细节很重要：GC 和 checkpoint 不是完全分离的两个世界。GC 迁移可以制造 prefree，checkpoint 才能把某些状态固化，让空间真正释放。</p>
+    </section>
+
+    <section id="victim">
+      <p class="eyebrow">3. Victim Selection</p>
+      <h2>Victim selection：不是随便找一段搬走</h2>
+      <p>F2FS 的 victim selection 是空间回收线的第一关。它要在 dirty segment 或 dirty section 中选择一个最值得回收的对象。这里有几个维度：GC 类型是 foreground 还是 background，分配模式是 LFS 还是 SSR/AT_SSR，GC 策略是 greedy、cost-benefit 还是 age-threshold，搜索范围是否受 <code>max_victim_search</code> 限制，是否是 large section，是否存在 background GC 预选的 victim。</p>
+      <p>主线源码里的 <code>select_policy()</code> 会根据分配模式和 GC 类型设置搜索 bitmap、搜索范围和 cost 模式。foreground GC 和 urgent GC 会扩大候选范围，因为它们的目标是保证当前系统前进；background GC 更倾向于限制搜索，避免频繁打扰系统。这个差异解释了为什么同样是 GC，前台卡顿和后台整理的行为完全不同。</p>
+      <div class="diagram">
+        <div class="diagram-title">Victim selection flow</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>GC request</b><span>BG_GC / FG_GC / urgent / one_time</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>select_policy</b><span>决定 greedy / cost-benefit / age threshold / SSR</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>dirty bitmap</b><span>dirty segment 或 dirty section 位图</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>skip filters</b><span>current section、pinned section、CP disabled 限制、busy section</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>cost function</b><span>valid blocks、mtime、age、usable blocks</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>victim segment</b><span>输出给 do_garbage_collect()</span></div>
+          </div>
+        </div>
+      </div>
+      <p>一个关键点是：victim selection 的目标不是找“最脏”的 segment，而是找“搬迁成本和释放收益最合适”的 section。greedy 更直接看有效块数量，cost-benefit 会考虑 age 与有效块比例，age-threshold 模式还会把时间因素引入选择。对于移动设备，age 很重要，因为刚写入的数据很可能很快又被更新或删除；过早 GC 它们会增加写放大。</p>
+      <p>foreground GC 还有一个特殊逻辑：它可以复用 background GC 之前标记过的 victim section，因为这些 section 通常已经被认为有效块较少。这个机制说明 BG_GC 不只是独立后台任务，它还会为 FG_GC 留下候选信息。但 foreground GC 也要跳过 pinned section，否则可能在不可迁移数据上浪费时间。</p>
+      <table class="table">
+        <thead><tr><th>策略/条件</th><th>目的</th><th>卡顿分析意义</th></tr></thead>
+        <tbody>
+          <tr><td>FG_GC</td><td>保证当前写路径能继续前进。</td><td>用户可感知延迟；如果 victim 难找，写入直接卡。</td></tr>
+          <tr><td>BG_GC</td><td>空闲时提前整理 dirty segments。</td><td>可能减少未来 FG_GC，但也可能与业务 I/O 竞争。</td></tr>
+          <tr><td>Greedy</td><td>倾向选择有效块少的 segment。</td><td>释放空间快，但不一定最优写放大。</td></tr>
+          <tr><td>Cost-benefit / age</td><td>考虑有效块比例与冷热时间。</td><td>更接近长期效率，但选择过程更复杂。</td></tr>
+          <tr><td>Pinned / busy / CP disabled filter</td><td>跳过不能安全回收的 section。</td><td>空间足够少时，这些过滤会放大 foreground GC 长尾。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="sit-nat-ssa">
+      <p class="eyebrow">4. SIT / NAT / SSA</p>
+      <h2>SIT、NAT、SSA 如何参与 GC</h2>
+      <p>要理解 GC 数据迁移，必须把 SIT、NAT、SSA 的角色分清。SIT 是 segment 级的状态表，记录有效块数量和有效位图；SSA 是 summary area，记录每个物理 block 的 owner 信息，例如 nid 和 ofs_in_node；NAT 是 node address table，用来把 node id 映射到 node block 的物理地址。GC 要从物理 victim block 反推出逻辑对象，必须靠这些元数据协作。</p>
+      <p>在 <code>do_garbage_collect()</code> 中，F2FS 会读取 victim segment 对应的 summary page。对于 data segment，<code>gc_data_segment()</code> 会分阶段处理：先根据 summary 中的 nid 预读 NAT，再预读 node page，再确认 inode，再预读 data folio，最后迁移 data page。这个多阶段流程不是为了复杂而复杂，而是为了减少随机读和锁持有时间，同时保证迁移的数据仍然有效。</p>
+      <div class="diagram">
+        <div class="diagram-title">SIT / SSA / NAT data migration</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>Victim block</b><span>物理位置：segno + offset</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>SIT check</b><span>valid map 判断这个 block 是否仍有效</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>SSA summary</b><span>读取 nid、ofs_in_node、owner 信息</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>NAT lookup</b><span>根据 nid 找 node block，验证父节点仍有效</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>inode / bidx</b><span>得到 inode 和文件逻辑块号</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>move_data_page</b><span>锁 data folio，写到新位置，更新映射</span></div>
+          </div>
+        </div>
+      </div>
+      <p>这条线对并发分析非常关键：GC 不是直接搬物理块，它会回到 inode/page cache 层确认数据。也就是说，GC 会碰到普通写入、truncate、direct I/O、page cache lock、<code>i_gc_rwsem</code>。上一篇 <code>gc_merge</code> 死锁中，GC thread 卡在锁 data folio 上，根本原因就是 data GC 必须回到 page cache 语境。</p>
+      <p>另一个关键点是有效性检查。GC 扫描到一个 summary entry 时，不能盲目信任它，因为普通写入可能已经让这个 block 失效。源码中 <code>check_valid_map()</code>、<code>is_alive()</code>、NAT/node 验证共同保证“要搬的数据确实还是当前有效数据”。这就是为什么 GC 可能花很多时间做元数据读取与验证，而设备侧未必立即看到大量连续写请求。</p>
+      <p>对 UFS 性能分析来说，这解释了一个常见现象：应用层卡在删除或写入，F2FS 处于 foreground GC，但 UFS 侧 queue depth 不高。原因可能不是设备不忙，而是文件系统还在 victim 验证、NAT/SSA 读取、folio lock、inode 锁、checkpoint 等上层阶段，尚未形成设备请求。</p>
+    </section>
+
+    <section id="fg-bg">
+      <p class="eyebrow">5. Foreground / Background GC</p>
+      <h2>foreground GC 和 background GC 的切换</h2>
+      <p>background GC 是系统试图在空闲时提前整理空间；foreground GC 是写路径已经没有足够 free section，必须同步回收空间才能继续。两者的区别不是“一个在后台，一个在前台”这么简单，而是目标函数不同：BG_GC 尽量低干扰、低优先级、可跳过；FG_GC 追求进展性，必要时牺牲延迟。</p>
+      <p><code>gc_thread_func()</code> 中的逻辑体现了这个差异。后台线程会根据 sleep time、IO idle、dirty segments、urgent mode、zoned 设备空间百分比等条件决定是否运行。启用 <code>GC_MERGE</code> 且 foreground waitqueue 有等待者时，它会把本轮工作视为 foreground 相关，并设置 <code>no_bg_gc</code> 和 <code>nr_free_secs</code>，让 <code>f2fs_gc()</code> 为当前等待者释放至少需要的空间。</p>
+      <div class="diagram">
+        <div class="diagram-title">FG/BG GC switching</div>
+        <div class="flow-row four">
+          <div class="box"><b>BG_GC</b><span>空闲检测、trylock gc_lock、可跳过、受 max search 限制。</span></div>
+          <div class="box"><b>FG_GC</b><span>空间不足时强制进入，目标是释放当前写路径所需 section。</span></div>
+          <div class="box"><b>GC_MERGE</b><span>foreground 请求交给 GC thread，调用者等待 fggc_wq。</span></div>
+          <div class="box"><b>Urgent GC</b><span>更短 sleep、更激进，用于高压力或特殊模式。</span></div>
+        </div>
+      </div>
+      <p>这解释了为什么 <code>gc_merge</code> 既有价值又有风险。价值在于它把 foreground GC 的执行集中到 GC thread，可以避免多个前台调用者重复执行 GC，也能统一调度。风险在于它把“当前线程自己执行 GC”变成“当前线程等待另一个线程”。一旦当前线程进入等待前还保留着完成条件，例如未提交的 DATA bio，就会形成上一篇报告中的死锁结构。</p>
+      <p>foreground GC 还可能触发 checkpoint。源码中当 free section 不足且存在 prefree segments 时，<code>f2fs_gc()</code> 会先尝试 <code>f2fs_write_checkpoint()</code>，因为 checkpoint 可以让 prefree segments 真正变成可用空间。这意味着卡顿分析中，GC 和 checkpoint 不是两个独立阶段：foreground GC 可能先卡在 checkpoint，checkpoint 又可能卡在 dirty node、dirty dentry、dirty meta 或 CP data writeback 上。</p>
+    </section>
+
+    <section id="zoned">
+      <p class="eyebrow">6. Zoned Devices</p>
+      <h2>zoned 设备为什么会改变 GC 行为</h2>
+      <p>zoned 设备给 F2FS 增加了额外约束。普通块设备可以把 segment/section 看成比较均匀的可写区域；zoned 设备存在 zone size、zone capacity、写指针和顺序写约束。源码中针对 zoned 设备设置了不同的 GC sleep time、no-zoned-GC percent、boost-zoned-GC percent，并且在 large section 场景下根据 zone capacity 调整可回收 segment 范围。</p>
+      <p>在 <code>do_garbage_collect()</code> 中，注释明确说明 zone capacity 可能小于 zone size，因此可 GC 的 end segno 要扣掉不可用 segment。这个细节对性能分析很重要：你以为一个 zone/section 有完整可回收空间，但 F2FS 实际可用部分更小；GC 的迁移窗口、boost 策略和 one-time GC 都会因此变化。</p>
+      <div class="diagram">
+        <div class="diagram-title">Zoned GC constraints</div>
+        <div class="flow-row four">
+          <div class="box"><b>Zone size</b><span>设备公布的 zone 范围。</span></div>
+          <div class="box"><b>Zone capacity</b><span>真正可写容量，可能小于 zone size。</span></div>
+          <div class="box"><b>Migration window</b><span>BG_GC / one_time 可能限制一次迁移窗口。</span></div>
+          <div class="box"><b>Boost</b><span>空间不足时放大迁移粒度，减少未来 FG_GC。</span></div>
+        </div>
+      </div>
+      <p>对移动设备来说，zoned 不是每台设备都会遇到，但这个分支能训练你看 F2FS 的“设备形态敏感性”。同样的文件系统路径，在不同块设备约束下可能选择不同的 victim、迁移窗口和提交节奏。UFS 设备通常不是 host-managed SMR 那样的 zoned block device，但 UFS 固件内部也有 zone-like erase block、SLC cache、FTL GC、thermal throttling 等隐藏结构。F2FS 的 zoned 分支提醒你：上层文件系统策略经常会被设备几何或顺序写约束改变。</p>
+    </section>
+
+    <section id="writeback">
+      <p class="eyebrow">7. Writeback Line</p>
+      <h2>writeback 线：从 dirty throttling 到 folio_end_writeback</h2>
+      <p>writeback 线从用户或内核把 page cache 弄脏开始。普通写入会产生 dirty folio；dirty 页面数量增长后，MM 层的 dirty throttling 会限制继续弄脏页面的速度，并唤醒 background writeback。随后 VFS/MM 通过 <code>writeback_control</code> 把写回要求传给文件系统，F2FS 的 <code>f2fs_write_cache_pages()</code> 扫描 dirty folio，锁 folio，清 dirty 标志，调用 <code>f2fs_write_single_data_page()</code> 形成 DATA write。</p>
+      <p>dirty throttling 的关键不是“写入变慢”，而是“脏页生产速度必须和后端写回能力平衡”。<code>balance_dirty_pages()</code> 会根据全局和 memcg 的 dirty limits、writeback 带宽、pos_ratio 等计算当前任务是否需要暂停。如果系统脏页太多，会启动 background writeback，并让 dirtier 线程 sleep。移动端上，这个阶段可能被误判成设备慢，但实际上还没进入 F2FS 或 UFS 的具体 I/O 路径。</p>
+      <div class="diagram">
+        <div class="diagram-title">Writeback lifecycle</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>Dirty folio</b><span>用户写入或 mmap 修改 page cache。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>Dirty throttling</b><span>balance_dirty_pages 控制脏页生产速度。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>writeback_control</b><span>WB_SYNC_NONE / WB_SYNC_ALL、range、nr_to_write。</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>F2FS writepages</b><span>扫描 PAGECACHE_TAG_DIRTY，锁 folio，清 dirty。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>merged bio</b><span>OPU/IPU DATA bio 被合并缓存。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>end_io</b><span>设备完成后 f2fs_write_end_io 清理并 folio_end_writeback。</span></div>
+          </div>
+        </div>
+      </div>
+      <p><code>writeback_control</code> 是这条线的控制面。<code>WB_SYNC_NONE</code> 更像后台写回，遇到正在 writeback 的 folio 可以跳过；<code>WB_SYNC_ALL</code> 则是同步语义，常见于 fsync 或 checkpoint，需要等待或重试。F2FS 还会用 <code>wb_sync_req</code> 区分同步写回和普通后台写回，避免混合 IO 拆分或潜在死锁。</p>
+      <p>F2FS 的 writeback 还有合并策略。<code>f2fs_write_cache_pages()</code> 写完一批 folio 后，会提交和当前 inode 相关的 merged DATA write；如果存在 IPU bio，也会提交 merged IPU write。这个逻辑解释了上一篇 patch 为什么要在 <code>f2fs_balance_fs()</code> 的 GC 等待前提交 cached DATA/IPU bios：正常写回函数尾部会提交，但如果中途进入等待，尾部提交就到不了。</p>
+    </section>
+
+    <section id="bio-boundary">
+      <p class="eyebrow">8. Bio Submit Boundary</p>
+      <h2>bio 提交边界：构造请求不等于设备收到请求</h2>
+      <p>writeback 线最关键的工程边界是 bio submit。F2FS 会先构造 bio，并可能把它放在 <code>sbi->write_io[type][temp]</code> 对应的 merge slot 中。真正进入 block layer 的动作发生在 <code>__submit_merged_bio()</code>，最终调用 <code>blk_crypto_submit_bio()</code>。只有跨过这个边界，UFS host、SCSI、block queue、设备固件才有机会看到请求。</p>
+      <p>这条边界非常容易在分析中被忽略。应用层说“写卡住”，文件系统说“folio writeback”，设备侧却没有请求，这三件事可以同时成立：folio 已经被标记为 writeback，但 bio 还在 F2FS 内部 merge cache。上一篇报告的死锁就是这个边界放错位置：进入 GC thread wait 之前，没有先跨过 DATA bio submit 边界。</p>
+      <table class="table">
+        <thead><tr><th>阶段</th><th>状态</th><th>谁能观察到</th><th>诊断含义</th></tr></thead>
+        <tbody>
+          <tr><td>Dirty</td><td>folio dirty，尚未 writeback。</td><td>MM、F2FS dirty inode/page counters。</td><td>设备还没有理由看到请求。</td></tr>
+          <tr><td>Writeback started</td><td>folio writeback 标志已置位。</td><td>truncate、fsync、filemap_fdatawait、checkpoint。</td><td>等待者可能出现，但 bio 未必提交。</td></tr>
+          <tr><td>Merged bio cached</td><td>bio 存在于 F2FS merge slot。</td><td>F2FS 内部 <code>write_io</code>。</td><td>设备侧仍可能没有 outstanding request。</td></tr>
+          <tr><td>Bio submitted</td><td>进入 block layer。</td><td>block trace、SCSI/UFS trace。</td><td>从这里开始才是设备和 host 延迟。</td></tr>
+          <tr><td>End I/O</td><td><code>f2fs_write_end_io()</code> 执行。</td><td>F2FS completion、folio waiters。</td><td>清 writeback，唤醒 cp_wait 等等待者。</td></tr>
+        </tbody>
+      </table>
+      <p><code>f2fs_write_end_io()</code> 是 writeback 线的收口。它会处理 I/O error、checkpoint data write failure、node footer sanity、fsync node entry，然后减少 page count，必要时唤醒 <code>cp_wait</code>，最后调用 <code>folio_end_writeback()</code>。MM 层的 <code>folio_end_writeback()</code> 会唤醒等待 <code>PG_writeback</code> 清除的线程。也就是说，truncate 和 fsync 等待的完成事件，最终落在 end_io 路径上。</p>
+      <p>因此，在移动端排查时要把 writeback 延迟拆成两个部分：submit 前延迟和 submit 后延迟。submit 前延迟通常是 F2FS/MM/锁/GC/checkpoint 问题；submit 后延迟才是 block/SCSI/UFS/设备问题。如果不区分这两个阶段，就会把大量文件系统等待误判成 UFS 固件长尾。</p>
+    </section>
+
+    <section id="fsync-cp">
+      <p class="eyebrow">9. Fsync / Checkpoint</p>
+      <h2>fsync 和 checkpoint 如何要求一致性</h2>
+      <p>F2FS 的一致性不是只靠 data writeback。它采用 checkpoint 机制维护文件系统一致边界。checkpoint 会阻塞或冻结部分 FS operations，刷新 dirty dentry、dirty inode meta、dirty node，提交 merged writes，刷新 NAT/SIT，写 checkpoint pack，等待 meta 和 CP data writeback，必要时 flush device cache，并通过 barrier/FUA 让关键元数据达到设备。</p>
+      <p>这条路径解释了为什么 fsync 或 checkpoint 卡顿经常比普通写入复杂。普通 writeback 可能只关心 data folio；checkpoint 关心 data、node、meta、summary、NAT、SIT、orphan、checkpoint version 和 device cache。任何一个环节等待，都可能让用户感知到 “fsync 慢” 或 “系统卡”。</p>
+      <div class="diagram">
+        <div class="diagram-title">Checkpoint consistency pipeline</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>block_operations</b><span>锁住关键 FS 操作，刷新 quota、dentry、inode meta、node。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>flush merged writes</b><span>提交 data/node/meta merged bios，避免悬挂状态。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>NAT / SIT flush</b><span>把地址映射和 segment 状态写入对应区域。</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>do_checkpoint</b><span>更新 checkpoint pack、summary、orphan、bitmap。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>wait writeback</b><span>等待 dirty meta 和 CP data writeback。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>device flush / barrier</b><span>确保一致性边界真正落到设备。</span></div>
+          </div>
+        </div>
+      </div>
+      <p><code>f2fs_wait_on_all_pages()</code> 展示了 checkpoint 与 writeback 的直接关系：如果等待的是 <code>F2FS_WB_CP_DATA</code>，它会提交 DATA merged write，然后睡在 <code>cp_wait</code> 上。<code>f2fs_write_end_io()</code> 在 CP data writeback 完成时会唤醒 <code>cp_wait</code>。这和上一篇死锁报告中的原则一致：等待前必须确保完成路径已启动。</p>
+      <p>Fsync 不是本报告逐函数展开的重点，但它与 checkpoint 共享核心语义：数据和元数据必须达到可恢复的一致状态。F2FS 的 fsync 可能通过 fsync node、roll-forward recovery、checkpointed data 判断、node writeback 等机制减少全量 checkpoint，但当条件不满足时，仍可能把压力传导到 checkpoint 或 data/node writeback。排查 fsync 慢时，要先判断它是 data writeback 慢、node/meta 慢、checkpoint 慢，还是 device flush 慢。</p>
+    </section>
+
+    <section id="concurrency">
+      <p class="eyebrow">10. Concurrency Line</p>
+      <h2>并发等待线：truncate / invalidate / GC / checkpoint 怎样互相影响</h2>
+      <p>并发等待线是最容易导致“看起来每个函数都没错，但系统卡住”的部分。truncate 要移除 page cache，需要锁 folio 并等待 writeback；invalidate 也可能锁 folio、等待 writeback、调用 filesystem 的 release/invalidate 钩子；GC 迁移 data block 需要锁 data folio 和 inode 的 <code>i_gc_rwsem</code>；checkpoint 要通过 <code>cp_rwsem</code> 或全局 checkpoint 锁阻塞部分 FS 操作；GC thread 还要拿 <code>gc_lock</code>。这些等待点组合起来，才是 F2FS 长尾卡顿的主要来源。</p>
+      <p>MM 层的 <code>truncate_inode_pages_range()</code> 明确分两轮：第一轮非阻塞，尽量移除容易处理的 folio；第二轮会等待。对部分 folio，truncate 会通过 <code>__filemap_get_folio(..., FGP_LOCK)</code> 拿锁，然后调用 <code>truncate_inode_partial_folio()</code>，其中会等待 writeback。对整页范围，第二轮也会锁 folio、等待 writeback、再从 page cache 移除。</p>
+      <div class="diagram">
+        <div class="diagram-title">Concurrency wait objects</div>
+        <div class="flow-row four">
+          <div class="box"><b>folio lock</b><span>truncate、invalidate、GC data migration 都可能争用。</span></div>
+          <div class="box"><b>PG_writeback</b><span>fsync、truncate、checkpoint、filemap_fdatawait 等待清除。</span></div>
+          <div class="box"><b>i_gc_rwsem</b><span>GC 与普通读写/迁移保护 inode 级数据路径。</span></div>
+          <div class="box"><b>cp_rwsem / gc_lock</b><span>checkpoint 和 GC 的全局协调点。</span></div>
+        </div>
+      </div>
+      <p>GC 的 data migration 也有多重等待。<code>gc_data_segment()</code> 在 phase 3 会尝试拿 <code>i_gc_rwsem[WRITE]</code> 做预读和收集 inode，在 phase 4 对 regular file 同时尝试拿 <code>i_gc_rwsem[WRITE]</code> 和 <code>i_gc_rwsem[READ]</code>，并等待 inflight DIO。之后 <code>move_data_page()</code> 会锁 data folio；foreground GC 还会等待该 folio 原有 writeback 完成，再把数据写到新位置。</p>
+      <p>这些等待都是为了正确性，不是多余开销。问题发生在等待顺序组合错误时。一个通用判断标准是：如果某线程持有 A 并等待 B，而另一个线程持有或负责 B 的完成事件但等待 C，第三个线程又等待 A，就要立刻画等待图。F2FS 的复杂点在于 A/B/C 可能不是同一种对象：A 可能是 folio lock，B 可能是 writeback completion，C 可能是 GC waitqueue。</p>
+    </section>
+
+    <section id="locks">
+      <p class="eyebrow">11. Locks and Wait Points</p>
+      <h2>关键锁和等待点逐一解释</h2>
+      <table class="table">
+        <thead><tr><th>对象</th><th>保护什么</th><th>常见等待者</th><th>风险</th></tr></thead>
+        <tbody>
+          <tr><td>folio lock</td><td>page cache 中单个 folio 的状态、截断、invalidate、GC 迁移。</td><td>truncate、invalidate、GC data path、writeback。</td><td>持锁等待 writeback 时，会阻塞 GC 锁同一 folio。</td></tr>
+          <tr><td>PG_writeback</td><td>folio 正在写回，完成由 end_io 清除。</td><td>filemap_fdatawait、truncate、checkpoint、foreground GC。</td><td>如果 bio 未提交，等待 completion 不可达。</td></tr>
+          <tr><td>gc_lock</td><td>全局 GC 执行串行化。</td><td>GC thread、foreground GC、gc_merge。</td><td>FG/BG GC 切换时影响前台写入延迟。</td></tr>
+          <tr><td>i_gc_rwsem</td><td>GC 与 inode 数据路径之间的协调。</td><td>GC phase 3/4、普通读写、DIO。</td><td>trylock 失败会 skipped，FG_GC 可能多轮重试。</td></tr>
+          <tr><td>cp_rwsem / cp_global_sem</td><td>checkpoint 与文件系统操作的一致性边界。</td><td>checkpoint、block_operations、写入/元数据更新。</td><td>checkpoint 长时间持锁会放大所有同步路径延迟。</td></tr>
+          <tr><td>cp_wait</td><td>等待 CP data/meta writeback 完成。</td><td>checkpoint path。</td><td>必须由 write_end_io 唤醒；DATA bio submit 边界很关键。</td></tr>
+        </tbody>
+      </table>
+      <p>一个细节值得单独强调：MM 层的 <code>folio_end_writeback()</code> 注释指出 writeback 不持有自己的 folio 引用，而依赖 truncation 等待 <code>PG_writeback</code> 清除。这说明 truncate 等 writeback 不是偶然实现，而是核心语义。文件系统不能让 <code>PG_writeback</code> 长时间没有完成路径，否则会把 MM 的合理等待变成系统级卡顿。</p>
+      <p>另一个细节是 <code>invalidate_mapping_pages()</code> 与 <code>truncate_inode_pages_range()</code> 的差异。invalidate 更像“尽量丢弃 clean/unlocked cache”，不会像 truncate 那样强制等待所有状态；如果需要移除所有 page cache，文档和源码都指向 truncate。排查卡顿时，要区分调用方使用的是轻量 invalidate 还是强语义 truncate/hole punch。</p>
+    </section>
+
+    <section id="diagnosis">
+      <p class="eyebrow">12. Diagnosis Framework</p>
+      <h2>三线合并：移动端“文件系统卡住”的诊断框架</h2>
+      <p>当你遇到移动设备上的存储卡顿，建议按三线框架逐层排除，而不是直接从 UFS 设备侧开始。第一问：空间回收线是否激活？看 free sections、foreground GC、victim selection、pinned section、zoned/usable capacity、prefree/checkpoint。第二问：writeback 线是否跨过 bio submit 边界？看 dirty folio、writeback_control、merged bio、block trace、end_io。第三问：并发等待线是否形成闭环？看 truncate/invalidate、folio lock、PG_writeback、GC thread、checkpoint wait、i_gc_rwsem。</p>
+      <div class="matrix">
+        <div class="card"><h3>设备侧无请求</h3><p>优先怀疑 submit 前阶段：dirty throttling、F2FS merged bio 未提交、GC 元数据验证、folio lock、checkpoint block_operations。不要先调 UFS firmware。</p></div>
+        <div class="card"><h3>设备侧有请求且长尾</h3><p>进入 block/SCSI/UFS 分析：queue depth、request type、flush/discard、runtime PM、MCQ、error handling、device thermal 或 firmware GC。</p></div>
+        <div class="card"><h3>设备完成但上层仍卡</h3><p>看 completion 后处理：f2fs_write_end_io、folio_end_writeback、cp_wait、mapping error、node/meta writeback、fsync node entry。</p></div>
+      </div>
+      <h3>推荐 trace 视角</h3>
+      <p>一次高质量抓取至少要包含四类事件。第一，F2FS GC：<code>trace_f2fs_gc_begin/end</code>、victim selection、foreground/background、skipped_gc_rwsem。第二，F2FS writeback：writepages、submit_merged_write、write_end_io、folio writeback start/end。第三，MM/page cache：truncate/invalidate、folio lock wait、filemap_fdatawait。第四，block/UFS：bio submit、request issue、completion、flush/discard、UFS command latency。</p>
+      <pre>// 分层时间线模板
+T0 dirty folio created
+T1 dirty throttling / background writeback starts
+T2 f2fs_write_cache_pages locks folio and starts writeback
+T3 DATA bio cached or submitted?
+T4 foreground GC / checkpoint / truncate starts
+T5 block request issued to UFS?
+T6 device completion
+T7 f2fs_write_end_io -> folio_end_writeback -> waiters wake
+</pre>
+      <p>这个模板能把“卡住”拆成可验证的阶段。如果 T2 到 T3 很长，问题在 F2FS/MM；如果 T3 到 T6 很长，问题才进入 block/UFS/设备；如果 T6 到 T7 很长，问题在 completion 之后的文件系统清理或等待唤醒。这样的分层能避免把所有延迟都归因于设备。</p>
+      <h3>和上一篇 patch 的连接</h3>
+      <p>上一篇 <code>gc_merge</code> patch 正好是三线框架的一个例子：空间回收线进入 foreground GC；writeback 线已经设置 writeback 但没有提交 DATA bio；并发等待线中 truncate 持有 folio lock，GC thread 等 folio lock，Kworker 等 GC thread。修复是把 DATA bio submit 提升到进入 GC_MERGE 等待之前。也就是说，它修复的是三线交汇处的进展性边界。</p>
+      <p>读完这篇之后，你应该能把类似问题转化成一句话：哪个状态已经发布，哪个完成事件还没启动，哪个线程已经进入等待，哪个锁或 waitqueue 把它们连成环。只要这句话能写出来，修复点通常就不会太远。</p>
+    </section>
+
+    <section id="function-walk">
+      <p class="eyebrow">13. Function Walkthrough</p>
+      <h2>逐函数导读：把三条线放回源码执行路径</h2>
+      <p>这一节不是列函数名，而是帮你建立“从现象回到源码”的路线。以后你看到 F2FS 卡顿，不能只打开一个函数。正确做法是先判断卡顿落在哪条线，再沿着那条线找边界点。如果是空间压力，先看 GC 入口和 victim；如果是写回，先看 writeback_control、merged bio 和 end_io；如果是等待，先看 folio lock、PG_writeback、gc_lock、i_gc_rwsem 和 checkpoint 锁。</p>
+
+      <h3>空间回收线的函数顺序</h3>
+      <p>空间回收线可以按这个顺序读：<code>f2fs_balance_fs()</code> 判断 free sections 是否足够；如果不够，可能通过 <code>GC_MERGE</code> 唤醒 GC thread，也可能直接构造 <code>f2fs_gc_control</code> 调用 <code>f2fs_gc()</code>。进入 <code>f2fs_gc()</code> 后，代码会再次判断空间是否不足；如果存在 prefree segments，可能先调用 checkpoint，把这些预释放段变成可用空间。然后 <code>__get_victim()</code> 调用 <code>f2fs_get_victim()</code>，后者根据策略从 dirty bitmap 中选择 victim。最后 <code>do_garbage_collect()</code> 读取 summary page，根据 segment 类型走 node GC 或 data GC。</p>
+      <p>这条顺序的关键是：<code>f2fs_balance_fs()</code> 不是单纯后台维护函数，它可能从写路径进入，并且决定当前写入是否必须等待空间回收。<code>f2fs_gc()</code> 不是单纯搬数据，它还可能触发 checkpoint。<code>f2fs_get_victim()</code> 不是简单找最脏 segment，它要考虑搜索范围、dirty bitmap、pinned section、CP disabled、age、valid block cost。<code>do_garbage_collect()</code> 不是只写新块，它要先读 SSA，然后用 SIT/NAT 验证数据是否仍然有效。</p>
+      <div class="diagram">
+        <div class="diagram-title">Space reclaim function chain</div>
+        <div class="flow-row six">
+          <div class="box"><b>balance_fs</b><span>写路径触发空间平衡。</span></div>
+          <div class="box"><b>gc_thread_func</b><span>BG/FG/GC_MERGE 切换。</span></div>
+          <div class="box"><b>f2fs_gc</b><span>必要时升级 FG_GC 或 checkpoint。</span></div>
+          <div class="box"><b>get_victim</b><span>从 dirty bitmap 中选 section。</span></div>
+          <div class="box"><b>do_gc</b><span>读 SSA，区分 data/node。</span></div>
+          <div class="box"><b>move data</b><span>锁 folio，迁移有效块。</span></div>
+        </div>
+      </div>
+
+      <h3>writeback 线的函数顺序</h3>
+      <p>writeback 线可以按这个顺序读：用户写入产生 dirty folio；MM 的 <code>balance_dirty_pages_ratelimited()</code> 周期性检查 dirty 状态，必要时启动 background writeback 或让当前任务睡眠；VFS 使用 <code>writeback_control</code> 调用 <code>do_writepages()</code>；F2FS 进入 <code>__f2fs_write_data_pages()</code>，再进入 <code>f2fs_write_cache_pages()</code>；该函数按 dirty tag 找 folio，锁 folio，等待旧 writeback，清 dirty，调用 <code>f2fs_write_single_data_page()</code>；最后提交 merged DATA/IPU bio。设备完成后，<code>f2fs_write_end_io()</code> 清理状态并调用 <code>folio_end_writeback()</code>。</p>
+      <p>这条线最重要的是不要把“写回开始”和“设备开始写”混为一谈。<code>folio_start_writeback()</code> 或 writeback 标志说明 folio 进入写回生命周期；<code>f2fs_submit_merged_write()</code> 才说明 F2FS 准备把对应 bio 推给 block layer；<code>blk_crypto_submit_bio()</code> 之后，block/SCSI/UFS 才有机会看到请求；<code>f2fs_write_end_io()</code> 和 <code>folio_end_writeback()</code> 才是等待者真正被唤醒的收口。</p>
+      <p>上一篇 patch 的关键就在这里：正常情况下 <code>f2fs_write_cache_pages()</code> 尾部会提交 merged writes，但如果 writeback 中途进入 <code>f2fs_balance_fs()</code> 并在 <code>GC_MERGE</code> 路径睡眠，函数尾部就到不了。于是 folio 已经 writeback，bio 还没 submit。这个窗口不是性能细节，而是进展性边界。</p>
+
+      <h3>并发等待线的函数顺序</h3>
+      <p>并发等待线可以按这个顺序读：truncate 或 hole punch 进入 <code>truncate_inode_pages_range()</code>；第一轮尽量非阻塞移除 page cache；第二轮会锁 folio 并调用 <code>folio_wait_writeback()</code>；invalidate 路径也可能锁 folio、等待 writeback、调用 filesystem 的 release/invalidate 钩子。GC data path 在 <code>gc_data_segment()</code> 的后期阶段会尝试拿 inode 的 <code>i_gc_rwsem</code>，等待 DIO，之后调用 <code>move_data_page()</code> 锁 data folio。checkpoint 则通过 <code>block_operations()</code>、<code>cp_global_sem</code>、<code>cp_rwsem</code>、<code>cp_wait</code> 把一致性边界和 writeback 绑定起来。</p>
+      <p>这里最容易误判的是“等待对象类型不一致”。一个死锁环不一定都是 mutex。它可能是 folio lock、PG_writeback、waitqueue、bio completion、gc_lock 的混合。例如 Kworker 等 fggc_wq，GC thread 等 folio lock，Truncator 等 PG_writeback，PG_writeback 又等 Kworker 提交 bio。这种环不会总是被传统 lockdep 直接表达出来，所以你必须手工把等待条件画成图。</p>
+    </section>
+
+    <section id="three-cases">
+      <p class="eyebrow">14. Three Intersection Cases</p>
+      <h2>三个交汇案例：如何判断卡顿来自哪条线</h2>
+
+      <h3>案例一：删除大文件时系统卡住</h3>
+      <p>用户删除大文件或应用清理缓存时，表面动作是 unlink/truncate，但实际可能同时触发三条线。truncate 需要移除 page cache，可能锁 folio 并等待 writeback；文件删除会让旧 data blocks 变 invalid，空间回收线未来可以受益；如果空间已经紧张，foreground GC 可能正在迁移同一 inode 的 data block；writeback 线可能还在提交或等待同一文件的 DATA bio。这个场景下，设备侧不一定立刻有大量请求，因为系统可能卡在 folio lock 或 writeback wait 上。</p>
+      <p>诊断时先看线程栈：是否有 truncate 线程在 <code>folio_wait_writeback()</code>，是否有 GC thread 在 <code>f2fs_get_lock_data_folio()</code> 或 <code>move_data_page()</code>，是否有 kworker 在 F2FS writeback 或 <code>f2fs_balance_fs()</code>。然后看 block trace：对应 DATA bio 是否已经提交。如果没有请求，问题在 submit 前；如果请求已提交但 completion 慢，再进入 UFS 侧分析。</p>
+
+      <h3>案例二：fsync 长尾很高</h3>
+      <p>fsync 慢不等于单个 data write 慢。F2FS 可能需要写 data、写 node、记录 fsync node、等待 filemap writeback，某些条件下还可能触发 checkpoint。checkpoint 会 flush dirty dentry、dirty inode meta、dirty node、NAT、SIT、summary、checkpoint pack，并等待 device cache flush。任何一环慢，用户看到的都是 fsync 慢。</p>
+      <p>诊断时要拆出 fsync 的阶段。如果 data writeback 未提交，先看 merged bio 边界；如果 data 已完成但 node/meta 未完成，看 dirty node 与 checkpoint；如果 checkpoint 到了 device flush，看 flush/FUA 在 UFS 上的 latency；如果设备完成后仍卡，看 <code>cp_wait</code>、mapping error、folio_end_writeback 和唤醒路径。不要用一个总 fsync latency 去推断设备固件慢。</p>
+
+      <h3>案例三：写入吞吐突然下降但 UFS queue depth 不高</h3>
+      <p>这类现象很常见：应用写入变慢，UFS 侧 queue depth 却不高。可能原因是 dirty throttling 已经让 dirtier 线程睡眠；也可能是 F2FS 在 foreground GC 中做 victim selection、NAT/SSA 读取或 folio lock 等待；还可能是 checkpoint 正在 block operations 中刷新元数据；也可能是 merged bio 没到 submit 边界。设备侧 queue depth 不高，只能说明请求没有大量进入设备，不能说明上层没有压力。</p>
+      <p>这种场景要看三个计数：dirty pages 是否高，foreground GC 是否高，checkpoint 或 CP data writeback 是否高。再看 block trace 中普通 write、flush、discard 的比例。如果普通 write 少但 flush/discard 多，可能是 checkpoint 或清理路径影响；如果 block trace 也少，优先看 F2FS 和 MM 的 submit 前等待。</p>
+
+      <div class="diagram">
+        <div class="diagram-title">Intersection diagnosis</div>
+        <div class="flow-row three">
+          <div class="box"><b>卡在 submit 前</b><span>dirty throttling、GC metadata、folio lock、checkpoint locks、merged bio 未提交。</span></div>
+          <div class="box"><b>卡在设备中</b><span>block request 已 issue，UFS command latency、flush、discard、error recovery 长尾。</span></div>
+          <div class="box"><b>卡在 completion 后</b><span>end_io、folio_end_writeback、cp_wait、mapping error、fsync node 清理。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ufs-mapping">
+      <p class="eyebrow">15. UFS Mapping</p>
+      <h2>映射到 UFS 工作：哪些现象不能直接归因于设备</h2>
+      <p>你做 UFS 固件开发时，最容易被误导的是“用户说存储卡，所以下意识看设备”。但 F2FS 三条线告诉我们，用户态卡顿可以发生在设备请求产生之前。dirty throttling 会让用户线程主动睡眠；foreground GC 会在文件系统里读 NAT/SSA、锁 folio、等待 DIO；checkpoint 会等待 dirty node/meta/CP data；truncate 会持有 folio lock 等 writeback。所有这些阶段都可能让用户感觉存储慢，但 UFS 侧没有对应 command。</p>
+      <p>因此，做 UFS 性能调优时，trace 必须分层。第一层记录应用或 VFS 事件：write、fsync、truncate、unlink 的开始结束。第二层记录 MM/F2FS：dirty throttling、writepages、GC begin/end、checkpoint begin/end、submit_merged_write、write_end_io。第三层记录 block/SCSI/UFS：bio submit、request issue、UFS command send、completion、timeout、flush/discard。只有这样才能判断延迟在哪一层产生。</p>
+      <table class="table">
+        <thead><tr><th>用户现象</th><th>先检查 F2FS/MM</th><th>再检查 UFS</th></tr></thead>
+        <tbody>
+          <tr><td>删除文件卡</td><td>truncate 是否等 writeback；GC 是否等 folio lock；checkpoint 是否进行。</td><td>如果已有 discard/flush/write request，再看命令延迟。</td></tr>
+          <tr><td>fsync 慢</td><td>data/node/meta writeback、checkpoint、cp_wait、device flush 前后。</td><td>flush/FUA latency、cache flush 语义、UFS power state。</td></tr>
+          <tr><td>吞吐掉速</td><td>dirty throttling、foreground GC、writeback_control、merged bio submit。</td><td>queue depth、MCQ、thermal、firmware GC、SLC cache。</td></tr>
+          <tr><td>周期性长尾</td><td>checkpoint 周期、background GC、discard、segment cleaner。</td><td>flush/discard 长尾、background operations、error recovery。</td></tr>
+        </tbody>
+      </table>
+      <p>一个实用规则是：如果 UFS command trace 中没有对应请求，就不要先讨论设备延迟；如果 block request 已经 issue 但 UFS completion 慢，再进入固件和 host 分析；如果 UFS completion 已经返回但上层仍然卡，回头看 end_io、folio writeback 清除和等待者唤醒。这个三段式能减少大量无效排查。</p>
+    </section>
+
+    <section id="study-plan">
+      <p class="eyebrow">16. Study Plan</p>
+      <h2>后续阅读路线：按三条线逐步深入</h2>
+      <p>后续建议按“先对象、再路径、再等待”的顺序读。第一周读空间回收线：重点看 F2FS layout、SIT/NAT/SSA、victim selection、<code>gc_data_segment()</code> 的 phase 机制、foreground/background GC 切换。目标是能解释一个物理 victim block 如何被验证为有效数据，并被迁移到新位置。</p>
+      <p>第二周读 writeback 线：重点看 MM dirty throttling、<code>writeback_control</code>、<code>f2fs_write_cache_pages()</code>、merged bio、IPU/OPU、<code>f2fs_write_end_io()</code>、<code>folio_end_writeback()</code>。目标是能把一次写入拆成 dirty、writeback start、bio cached、bio submitted、device completion、writeback cleared 六个阶段。</p>
+      <p>第三周读并发等待线：重点看 <code>truncate_inode_pages_range()</code>、<code>invalidate_inode_pages2_range()</code>、folio lock、PG_writeback、<code>i_gc_rwsem</code>、<code>gc_lock</code>、checkpoint 的 block_operations 和 <code>cp_wait</code>。目标是看到任意卡顿栈时，能快速写出等待图。</p>
+      <p>最后把三条线合并到一个真实 workload：空间接近满时，一边写数据库，一边删除文件，一边触发 fsync。你需要记录每层事件，并判断延迟是在 submit 前、设备中还是 completion 后。这个练习比单独读任何一个函数都更接近真实工作。</p>
+    </section>
+
+    <section id="sources">
+      <p class="eyebrow">Sources</p>
+      <h2>资料来源与引用边界</h2>
+      <p>报告基于 Linux F2FS 官方文档和 2026-05-22 拉取的 Linux mainline 源码进行解释性整理。正文使用伪代码和结构化解释，没有长篇复制源码。</p>
+      <div class="source-list">
+        <a href="https://docs.kernel.org/filesystems/f2fs.html" target="_blank" rel="noreferrer">Linux Kernel Documentation: Flash-Friendly File System (F2FS)</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/gc.c" target="_blank" rel="noreferrer">Linux mainline source: fs/f2fs/gc.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/data.c" target="_blank" rel="noreferrer">Linux mainline source: fs/f2fs/data.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/segment.c" target="_blank" rel="noreferrer">Linux mainline source: fs/f2fs/segment.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/checkpoint.c" target="_blank" rel="noreferrer">Linux mainline source: fs/f2fs/checkpoint.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/mm/page-writeback.c" target="_blank" rel="noreferrer">Linux mainline source: mm/page-writeback.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/mm/filemap.c" target="_blank" rel="noreferrer">Linux mainline source: mm/filemap.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/mm/truncate.c" target="_blank" rel="noreferrer">Linux mainline source: mm/truncate.c</a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

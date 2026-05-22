@@ -2,7 +2,7 @@
   "siteTitle": "报告阅读入口",
   "siteSubtitle": "把本地生成的交易系统与技术报告发布到 GitHub Pages，方便在工作场景远程阅读。",
   "baseUrl": "https://hamlet8.github.io/reports/",
-  "generatedAt": "2026-05-21T16:12:05.003Z",
+  "generatedAt": "2026-05-22T00:28:48.661Z",
   "sections": [
     {
       "id": "trading",
@@ -171,7 +171,7 @@
           "destination": "reports/tech/storage-radar",
           "entry": "reports/index.html",
           "entryUrl": "tech/storage-radar/reports/index.html",
-          "reportCount": 7,
+          "reportCount": 8,
           "documents": [
             {
               "title": "Storage Radar",
@@ -190,6 +190,12 @@
               "path": "reports/f2fs-gc-merge-deadlock-technical-report-2026-05-21.html",
               "href": "reports/f2fs-gc-merge-deadlock-technical-report-2026-05-21.html",
               "updatedAt": "2026-05-20T16:25:07.618Z"
+            },
+            {
+              "title": "F2FS 三条线技术报告：空间回收、Writeback、并发等待",
+              "path": "reports/f2fs-three-lines-technical-report-2026-05-22.html",
+              "href": "reports/f2fs-three-lines-technical-report-2026-05-22.html",
+              "updatedAt": "2026-05-22T00:18:46.090Z"
             },
             {
               "title": "Storage Reading Report · 2026-05-20 · GPT",
