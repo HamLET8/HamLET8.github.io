@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 08/15｜安全边际与交易系统边界</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}
+    .badge{padding:8px 10px;font-size:12px}
+    .pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}
+    .dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}
+    .kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}
+    @media(max-width:920px){.grid{grid-template-columns:1fr}}
+    section{margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}
+    .card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .card .hd .hint{color:var(--muted);font-size:12px}
+    .card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}
+    .small{font-size:12px;color:var(--muted)}
+    .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    @media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
+    table{border-collapse:collapse;min-width:760px;width:100%}
+    th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}
+    th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}
+    td{font-size:13px}
+    .mono{font-family:var(--mono);font-size:12px}
+    .codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}
+    @media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}
+    @media(max-width:520px){.kv{grid-template-columns:1fr}}
+    .kv .k{color:var(--muted);font-size:12px}
+    .kv .v{font-size:13px}
+    .warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}
+    .warnline b{color:var(--text)}
+    .footer{margin-top:16px;color:var(--muted);font-size:12px}
+    .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}
+    .chip b{color:var(--text)}
+    .ok{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+
+    /* Notion-inspired warm reading override (kept consistent with prior days) */
+    :root{ --bg:#f6f5f4; --card:#ffffff; --text:#2f2e2b; --muted:#6b6763; --faint:#8f8983; --line:rgba(0,0,0,.10); --blue:#0075de; --green:#1aae39; --amber:#dd5b00; --red:#c7352f; --soft-blue:#f2f9ff; --soft-green:#edf8ef; --soft-amber:#fff3e7; --soft-red:#fff0ee; --accent:#0075de; --accent2:#005bab; --warn:#dd5b00; --bad:#c7352f; --good:#1aae39; --shadow:rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 8px, rgba(0,0,0,.02) 0 .8px 3px; --radius:12px; --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    html, body { background:#f6f5f4 !important; color:rgba(0,0,0,.95) !important; }
+    body { font-family:var(--sans) !important; }
+    .topbar, section, .card, .callout { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; color:rgba(0,0,0,.95) !important; }
+    .topbar { border-radius:16px !important; }
+    .card .hd, thead th { background:#f6f5f4 !important; border-color:rgba(0,0,0,.10) !important; }
+    h1, h2, h3, strong, b, .card .hd h2 { color:rgba(0,0,0,.95) !important; }
+    p, li, td, .v { color:#31302e !important; }
+    .muted, .small, .hint, .sub, .k, .footer { color:#615d59 !important; }
+    .badge, .pill, .tag, .chip { background:#f2f9ff !important; border:1px solid rgba(0,117,222,.18) !important; color:#097fe8 !important; }
+    .warnline { background:#fff3e7 !important; border:1px solid rgba(221,91,0,.22) !important; color:#31302e !important; }
+    .tbl-wrap, .svg-wrap, .codebox { background:#ffffff !important; border:1px solid rgba(0,0,0,.10) !important; border-radius:12px !important; box-shadow:var(--shadow) !important; }
+    table, th, td { border-color:rgba(0,0,0,.10) !important; }
+    table { background:#ffffff !important; }
+    th { background:#f6f5f4 !important; color:#615d59 !important; }
+    td { background:transparent !important; color:#31302e !important; }
+    tr:nth-child(even) td { background:#fbfaf9 !important; }
+    .codebox, .mono { color:#31302e !important; }
+    .svg-wrap svg { background:#ffffff !important; }
+    .svg-wrap svg rect { fill:#f6f5f4 !important; stroke:rgba(0,0,0,.12) !important; }
+    .svg-wrap svg text { fill:rgba(0,0,0,.95) !important; }
+    .svg-wrap svg text[font-size="12"] { fill:#615d59 !important; }
+    .svg-wrap svg path, .svg-wrap svg line { stroke:rgba(49,48,46,.55) !important; }
+    .divider { background:rgba(0,0,0,.10) !important; }
+    a { color:#0075de !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 08 / 15｜安全边际与交易系统边界</h1>
+        <div class="sub">15天交易系统阅读学习（仅用于学习与复盘，不构成任何投资建议/交易指令/品种推荐）</div>
+        <div class="kws" aria-label="今日关键词">
+          <span class="pill"><span class="dot good"></span>安全边际</span>
+          <span class="pill"><span class="dot"></span>系统边界</span>
+          <span class="pill"><span class="dot"></span>允许/禁止清单</span>
+          <span class="pill"><span class="dot warn"></span>尾部风险</span>
+          <span class="pill"><span class="dot"></span>流动性</span>
+          <span class="pill"><span class="dot bad"></span>系统外交易</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge"><span class="dot good"></span><b>一句话核心判断</b>：<b>安全边际</b>不是“便宜就买”，而是把不确定性留出缓冲；<b>系统边界</b>不是“限制自由”，而是把风险与行为锁在可控范围内。</div>
+        <div class="badge"><span class="dot warn"></span><b>今日风险提醒</b>：把“安全边际”当成借口去<b>扩大仓位/忽视流动性/低质量机会硬上</b>，往往会把缓冲做成杠杆，把边界做成漏洞。</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="今日学习目标">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">3–5 项可验证目标</div></div>
+        <div class="bd">
+          <ol>
+            <li>能用一句话区分：<b>安全边际（对抗不确定性）</b> vs <b>优势（期望值为正）</b>；并说明二者缺一不可。</li>
+            <li>把“安全边际”落到交易系统的三个层级：<b>入场质量缓冲</b>、<b>风险预算缓冲</b>、<b>行为边界缓冲</b>（暂停/不交易规则）。</li>
+            <li>写出你的“系统边界”最小清单：允许市场/周期/流动性条件、允许策略族、禁止情形（低质量、事件风险、无法定义风险）。</li>
+            <li>能解释：为什么 Marks 的风险观会要求你在系统中显式加入 <b>尾部场景</b> 与 <b>流动性/相关性</b> 约束；以及 Tharp 会如何把它们变成可执行的规则。</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="card" aria-label="顶部摘要区补充信息">
+        <div class="hd"><h2>今日速览</h2><div class="hint">读完即可用来复盘</div></div>
+        <div class="bd">
+          <div class="kv" role="list">
+            <div class="k" role="listitem">今日主题</div>
+            <div class="v">把“安全边际”翻译成<b>可执行的系统缓冲</b>，并用“系统边界”防止自己在压力下越界。</div>
+            <div class="k" role="listitem">你今天要形成的能力</div>
+            <div class="v">在出现“看起来很诱人”的机会时，能先过一遍<b>边界闸门</b>：是否可定义风险？是否满足最低质量？是否在允许环境？是否会破坏组合/心理稳定？</div>
+            <div class="k" role="listitem">一句提醒（学习用途）</div>
+            <div class="v">安全边际来自<b>缓冲</b>而非<b>自信</b>；系统边界来自<b>先写好</b>而非<b>当场辩论</b>。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="warnline" role="note" aria-label="风险提醒">
+            <span class="dot warn"></span>
+            <div>
+              <b>把“边界”写成“允许你在情绪下继续交易”的例外条款，是最危险的设计。</b>
+              <div class="small">边界要保护你在“最想下单的那一刻”也不越界：不确定性上升时要更保守，而不是更激进。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" aria-label="两本书的核心思想">
+      <div class="hd"><h2>两本书的核心思想</h2><div class="hint">用自己的话复述（非机械摘抄）</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Van K. Tharp｜系统与边界</div>
+            <ul>
+              <li><b>系统的本质是可重复的决策流程</b>：在限定的市场与条件下，用明确的进出场与仓位规则，把不确定性转成可管理的风险。</li>
+              <li><b>边界是一部分系统</b>：不是“你不做什么”的道德宣言，而是“你这样做会让风险无法定义/统计不可比/执行不可控”的工程约束。</li>
+              <li><b>风险缓冲来自风险预算与仓位</b>：你不需要在观点上“更对”，而需要在亏损时“不会出局”。</li>
+              <li><b>纪律不是意志力</b>：纪律依赖于把规则写到足够清晰，清晰到你只需执行而非争论。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Howard Marks｜安全边际与风险现实</div>
+            <ul>
+              <li><b>风险不是日常波动</b>，而是你在坏情形下“承受不起”的那部分：永久损失、流动性枯竭、相关性上升、融资条件变化、心理崩盘。</li>
+              <li><b>安全边际是为不确定性付的“保险费”</b>：你承认自己并不确定，于是要求更好的价格/更稳定的结构/更小的风险暴露来换取余地。</li>
+              <li><b>周期与情绪会改变风险形态</b>：在“人人自信”的时候，真正的风险往往被低估；此时更需要边界与缓冲。</li>
+              <li><b>聪明不等于安全</b>：最危险的是“看起来逻辑闭环”的判断，尤其当它让你忽略尾部与流动性。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="融合解释">
+      <div class="hd"><h2>融合解释：把安全边际做进系统边界</h2><div class="hint">互补 + 约束（防自嗨设计）</div></div>
+      <div class="bd">
+        <div class="chiprow" aria-label="融合要点">
+          <div class="chip"><b>Marks 提问：</b>坏情况下会怎样？你承受得起吗？</div>
+          <div class="chip"><b>Tharp 回答：</b>把“承受得起”写成 R 风险预算与仓位上限。</div>
+          <div class="chip"><b>Marks 追问：</b>流动性/相关性/尾部呢？</div>
+          <div class="chip"><b>Tharp 落地：</b>写成“允许环境 + 禁止情形 + 暂停规则”。</div>
+        </div>
+
+        <div class="divider"></div>
+        <p class="small">一个实用的融合定义（学习用）：</p>
+        <div class="codebox" aria-label="融合定义（学习用）">
+安全边际（Trading version）= 入场质量缓冲 + 风险预算缓冲 + 行为边界缓冲
+
+入场质量缓冲：即使你判断错了，最坏情况下也不会把系统拖进不可承受的回撤/心理崩坏。
+风险预算缓冲：单笔/单日/单周的最大亏损与仓位上限，保证“连续不顺也能继续玩下去”。
+行为边界缓冲：当环境恶化或你状态变差时，自动触发降风险/暂停，避免系统外交易。
+        </div>
+
+        <div class="divider"></div>
+        <p>把两本书放在一起，你会发现：</p>
+        <ul>
+          <li><b>安全边际回答“承受得起”</b>，而 Tharp 的系统回答“怎么做才承受得起”。</li>
+          <li>Marks 会逼你承认：<b>优势并不等于安全</b>；而 Tharp 会逼你承认：<b>安全也不等于优势</b>（只有缓冲、没有期望值为正，最终仍会慢性死亡）。</li>
+          <li>最关键的落地动作是把“哲学”变成<b>闸门</b>：在你最兴奋/最焦虑的时候，闸门仍然能拦住你。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-label="图表化理解">
+      <div class="hd"><h2>图表化理解</h2><div class="hint">至少 2 个图表/表格（移动端不溢出）</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div>
+            <div class="tag">表 1｜安全边际如何映射到系统规则</div>
+            <div class="tbl-wrap" role="region" aria-label="安全边际映射表（可横向滚动）" tabindex="0">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:170px">安全边际维度</th>
+                    <th>Marks 的风险直觉</th>
+                    <th>Tharp 的系统化表达</th>
+                    <th style="width:210px">可执行规则（示例模板）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>结构缓冲</b></td>
+                    <td>坏情形下会被“结构性伤害”（如流动性、跳空、相关性）放大。</td>
+                    <td>把“结构风险”加入系统边界：不做无法定义风险/无法成交的情况。</td>
+                    <td class="mono">若无法明确最大损失（或流动性不足）→ 禁止交易</td>
+                  </tr>
+                  <tr>
+                    <td><b>价格/质量缓冲</b></td>
+                    <td>你对价值/未来的判断会错，价格/质量要留余地。</td>
+                    <td>定义最低入场质量与失效条件；不满足不交易。</td>
+                    <td class="mono">QualityScore &lt; Qmin → No Trade</td>
+                  </tr>
+                  <tr>
+                    <td><b>仓位缓冲</b></td>
+                    <td>即使判断正确，也可能遇到“路径风险”与回撤。</td>
+                    <td>用 R 风险预算控制单笔与序列风险，保证不出局。</td>
+                    <td class="mono">PerTradeRisk ≤ 1R；DailyLossCap ≤ 2R</td>
+                  </tr>
+                  <tr>
+                    <td><b>情绪/行为缓冲</b></td>
+                    <td>最危险的是在极端情绪里“越做越大”。</td>
+                    <td>设定暂停与降风险：当状态不好就减少自由度。</td>
+                    <td class="mono">连续亏损≥N 或 睡眠不足 → 降 50% 风险或暂停</td>
+                  </tr>
+                  <tr>
+                    <td><b>组合/相关性缓冲</b></td>
+                    <td>相关性在坏时刻会上升，分散可能失效。</td>
+                    <td>加入组合风险预算：同因子暴露上限、同方向上限。</td>
+                    <td class="mono">SameFactorExposure ≤ X；NetRisk ≤ YR</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="small" style="margin-top:8px">注：示例是模板，不是交易指令；数值由你在学习与回测/复盘中自行设定。</div>
+          </div>
+
+          <div>
+            <div class="tag">表 2｜系统边界：允许/禁止/需要确认</div>
+            <div class="tbl-wrap" role="region" aria-label="系统边界表（可横向滚动）" tabindex="0">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:170px">边界项</th>
+                    <th style="width:180px">允许（YES）</th>
+                    <th style="width:180px">禁止（NO）</th>
+                    <th>需要确认（HOLD）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>风险可定义性</b></td>
+                    <td>最大损失可估（有明确失效/退出逻辑）</td>
+                    <td>最大损失不可控/无法估计/依赖“运气”</td>
+                    <td>能估，但只在极端波动下失真 → 降风险或跳过</td>
+                  </tr>
+                  <tr>
+                    <td><b>流动性</b></td>
+                    <td>成交与滑点在可承受范围</td>
+                    <td>流动性差导致无法执行/扩大亏损</td>
+                    <td>流动性正常但事件期可能骤降 → 等待/降规模</td>
+                  </tr>
+                  <tr>
+                    <td><b>环境匹配</b></td>
+                    <td>系统适配的波动/趋势/区间状态</td>
+                    <td>明显不匹配（例如系统要求趋势但市场极端震荡）</td>
+                    <td>状态不明/过渡期 → 只做“最高质量”或观望</td>
+                  </tr>
+                  <tr>
+                    <td><b>机会质量</b></td>
+                    <td>满足最低质量阈值（证据 + 结构 + 风险回报）</td>
+                    <td>“怕错过”驱动、理由模糊、事后解释</td>
+                    <td>质量尚可但你状态差 → 先降风险/缩减频次</td>
+                  </tr>
+                  <tr>
+                    <td><b>行为状态</b></td>
+                    <td>睡眠/情绪/专注正常，能按流程执行</td>
+                    <td>冲动、报复、焦虑，想“扳回一城”</td>
+                    <td>轻微波动：把闸门调紧（提高质量阈值/降低风险）</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="tag">图 1｜“边界闸门”决策流（把哲学写成流程）</div>
+        <div class="svg-wrap" role="region" aria-label="边界闸门决策流（可横向滚动）" tabindex="0" style="margin-top:10px">
+          <svg width="980" height="340" viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="边界闸门流程图">
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#eaf4ff"/>
+                <stop offset="1" stop-color="#eef8f0"/>
+              </linearGradient>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <path d="M0,0 L9,3 L0,6 Z" fill="rgba(49,48,46,.55)"/>
+              </marker>
+            </defs>
+            <rect x="16" y="18" width="948" height="304" rx="16" fill="url(#g)" stroke="rgba(0,0,0,.12)"/>
+
+            <rect x="44" y="52" width="260" height="74" rx="14"/>
+            <text x="64" y="80" font-size="14" font-weight="700">G0：机会出现</text>
+            <text x="64" y="103" font-size="12">先写下来：理由、结构、风险假设</text>
+
+            <rect x="350" y="52" width="260" height="74" rx="14"/>
+            <text x="370" y="80" font-size="14" font-weight="700">G1：风险可定义？</text>
+            <text x="370" y="103" font-size="12">最大损失/失效条件/退出路径</text>
+
+            <rect x="656" y="52" width="260" height="74" rx="14"/>
+            <text x="676" y="80" font-size="14" font-weight="700">G2：环境匹配？</text>
+            <text x="676" y="103" font-size="12">周期/波动/流动性是否在边界内</text>
+
+            <rect x="44" y="172" width="260" height="74" rx="14"/>
+            <text x="64" y="200" font-size="14" font-weight="700">G3：质量≥阈值？</text>
+            <text x="64" y="223" font-size="12">证据 + 结构 + 风险回报（三者都要过线）</text>
+
+            <rect x="350" y="172" width="260" height="74" rx="14"/>
+            <text x="370" y="200" font-size="14" font-weight="700">G4：风险预算允许？</text>
+            <text x="370" y="223" font-size="12">单笔/当日/当周上限，相关性暴露</text>
+
+            <rect x="656" y="172" width="260" height="74" rx="14"/>
+            <text x="676" y="200" font-size="14" font-weight="700">G5：状态可执行？</text>
+            <text x="676" y="223" font-size="12">情绪/睡眠/注意力；否则降风险或暂停</text>
+
+            <rect x="350" y="266" width="260" height="50" rx="14"/>
+            <text x="370" y="296" font-size="14" font-weight="700">通过 → 执行最小单元</text>
+
+            <line x1="304" y1="89" x2="350" y2="89" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="610" y1="89" x2="656" y2="89" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="786" y1="126" x2="786" y2="172" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="656" y1="209" x2="610" y2="209" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="350" y1="209" x2="304" y2="209" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="174" y1="246" x2="174" y2="278" stroke="rgba(49,48,46,.55)" stroke-width="2"/>
+            <line x1="174" y1="278" x2="350" y2="291" stroke="rgba(49,48,46,.55)" stroke-width="2" marker-end="url(#arrow)"/>
+
+            <text x="60" y="154" font-size="12" fill="#615d59">任一闸门未通过 → No Trade / 降风险 / 等待（写进日志）</text>
+          </svg>
+        </div>
+        <div class="small" style="margin-top:8px">用法：在“最想下单”的时候按闸门逐项打钩；未通过就记录原因，而不是当场找理由。</div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="交易场景案例">
+      <div class="hd"><h2>交易场景案例（虚构）</h2><div class="hint">背景 → 常见错误 → 两本书视角 → 融合判断</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">市场背景（虚构）</div>
+            <p>某指数经历一段强势反弹后，新闻与社交平台情绪明显升温。盘中波动变大，热点切换频繁，成交变得“看起来很活跃”，但价格跳动更快、滑点更敏感。</p>
+            <div class="divider"></div>
+            <div class="tag">常见交易者错误</div>
+            <ul>
+              <li>把“热度”当成安全：认为“大家都在看”的机会更可靠，于是降低入场质量要求。</li>
+              <li>把“安全边际”理解成“我判断更确定了”：用更大的仓位来表达观点（学习提醒：这不是安全边际）。</li>
+              <li>忽视边界：原本系统只做特定结构/特定环境，但此刻为了“不想错过”去做系统外的变体。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Tharp 会怎么说？</div>
+            <ul>
+              <li>先问：<b>这笔交易的 R 如何定义？</b>退出逻辑是否清晰？如果不清晰，就不是系统交易而是情绪交易。</li>
+              <li>再问：<b>这是否属于你的系统边界？</b>若不是，统计意义上你在“换系统”，过去样本不再可比。</li>
+              <li>最后问：<b>仓位是否匹配风险预算？</b>如果你因为兴奋而放大仓位，你是在把波动变成不可控。</li>
+            </ul>
+            <div class="divider"></div>
+            <div class="tag">Marks 会怎么说？</div>
+            <ul>
+              <li>当大家都自信时，风险往往被忽略：<b>相关性、流动性、尾部</b>更可能在坏时刻突然恶化。</li>
+              <li>真正的安全边际来自缓冲：在不确定性上升时，你要的不是更大暴露，而是<b>更小暴露 + 更高质量</b>。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="callout">
+          <div class="tag">融合后的更稳健判断（示例）</div>
+          <ol>
+            <li><b>先过边界闸门：</b>风险能否定义？流动性是否足够？当前环境是否仍在系统适配范围？</li>
+            <li><b>把安全边际写成动作：</b>提高最低质量阈值、降低单笔风险预算、缩减频次；不做“系统外的变体”。</li>
+            <li><b>把结果留给样本：</b>允许错过；系统的任务不是抓住每次波动，而是在可控风险下长期存活并验证优势。</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日反思练习">
+      <div class="hd"><h2>今日反思练习（可执行）</h2><div class="hint">把“安全边际/边界”写成你的系统配置</div></div>
+      <div class="bd">
+        <p>用 15–25 分钟完成下面模板（学习用途，不涉及任何品种推荐）：</p>
+        <div class="codebox" aria-label="练习模板：系统边界与安全边际（可复制填写）">
+[A] 系统边界（允许/禁止）
+允许市场/品类（学习示例）：____________________________________
+允许周期/节奏：_______________________________________________
+允许策略族（最多 2–3 个）：____________________________________
+明确禁止（至少 5 条）：1) ______ 2) ______ 3) ______ 4) ______ 5) ______
+
+[B] 安全边际三层缓冲（写成规则）
+入场质量阈值（QualityScore/Qmin 或其他）：_____________________
+风险预算缓冲（单笔/单日/单周最大亏损，单位用 R）：______________
+行为边界缓冲（触发降风险/暂停的条件，至少 3 条）：______________
+
+[C] “边界闸门”检查（打勾式）
+G1 风险可定义：□是 □否   证据/说明：__________________________
+G2 环境匹配：  □是 □否   证据/说明：__________________________
+G3 质量过线：  □是 □否   证据/说明：__________________________
+G4 预算允许：  □是 □否   证据/说明：__________________________
+G5 状态可执行：□是 □否   证据/说明：__________________________
+
+结论（只选一个）：□执行最小单元（低风险） □等待 □不交易
+        </div>
+        <div class="small" style="margin-top:10px">关键：把“禁止项”写成具体可观测条件（例如“理由模糊/无法写出失效条件/不在允许环境/连续亏损后想扳回”），而不是抽象口号。</div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日检查清单">
+      <div class="hd"><h2>今日检查清单（≤5项）</h2><div class="hint">做完就收工</div></div>
+      <div class="bd">
+        <ol>
+          <li>我是否写出了至少 <b>5 条明确禁止</b>（可观测、可复盘），而不是“凭感觉”？</li>
+          <li>我是否区分了：<b>优势</b>（期望值）与 <b>安全</b>（缓冲），并为两者都写了规则？</li>
+          <li>我的风险预算是否包含：<b>单笔</b>、<b>当日</b>、<b>当周</b> 上限（用 R 表达也可以）？</li>
+          <li>我是否为“状态不好”的日子写了<b>自动降风险/暂停</b>规则，而不是靠意志力？</li>
+          <li>我是否接受：<b>错过机会</b>是系统边界的副产品，而不是缺陷？</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card" aria-label="明日预告">
+      <div class="hd"><h2>明日预告｜Day 09：交易心理、纪律与自我破坏</h2><div class="hint">从“边界”走向“执行偏差”</div></div>
+      <div class="bd">
+        <p>今天你把安全边际写进了系统边界；明天我们把焦点放到：<b>为什么你明明写了边界，却仍会越界</b>。</p>
+        <ul>
+          <li>识别三类执行偏差：<b>系统外冲动</b>、<b>错过有效信号</b>、<b>退出规则未执行</b>。</li>
+          <li>把心理问题工程化：用<b>触发器 → 暂停 → 复盘记录 → 复原流程</b>替代“自责/打鸡血”。</li>
+          <li>把纪律做成结构：让你的系统在压力下仍能运行，而不是只在平静时好看。</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="footer">学习边界声明：本页仅用于交易系统阅读学习与复盘训练；不提供任何投资建议、品种推荐、实时信号或保证收益的承诺。请避免高杠杆与冲动交易，把风险控制放在第一位。</div>
+  </div>
+</body>
+</html>

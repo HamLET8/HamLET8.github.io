@@ -2,7 +2,7 @@
   "siteTitle": "报告阅读入口",
   "siteSubtitle": "把本地生成的交易系统与技术报告发布到 GitHub Pages，方便在工作场景远程阅读。",
   "baseUrl": "https://hamlet8.github.io/reports/",
-  "generatedAt": "2026-05-22T00:28:48.661Z",
+  "generatedAt": "2026-05-22T23:02:10.003Z",
   "sections": [
     {
       "id": "trading",
@@ -22,7 +22,7 @@
           "destination": "reports/trading/trading-system-15-days",
           "entry": "00_plan.html",
           "entryUrl": "trading/trading-system-15-days/00_plan.html",
-          "reportCount": 8,
+          "reportCount": 9,
           "documents": [
             {
               "title": "15天交易系统阅读学习计划",
@@ -71,6 +71,12 @@
               "path": "day_07.html",
               "href": "day_07.html",
               "updatedAt": "2026-05-21T12:06:59.383Z"
+            },
+            {
+              "title": "Day 08/15｜安全边际与交易系统边界",
+              "path": "day_08.html",
+              "href": "day_08.html",
+              "updatedAt": "2026-05-22T12:04:39.090Z"
             }
           ]
         }
@@ -94,67 +100,73 @@
           "destination": "reports/tech/ssd-ftl",
           "entry": "index.html",
           "entryUrl": "tech/ssd-ftl/index.html",
-          "reportCount": 10,
+          "reportCount": 11,
           "documents": [
             {
               "title": "SSD / FTL 代码设计报告索引",
               "path": "index.html",
               "href": "index.html",
-              "updatedAt": "2026-05-21T12:36:30.242Z"
+              "updatedAt": "2026-05-22T12:35:37.143Z"
             },
             {
               "title": "SSD / FTL 代码设计 15 天计划表",
               "path": "plan.html",
               "href": "plan.html",
-              "updatedAt": "2026-05-21T12:36:30.278Z"
+              "updatedAt": "2026-05-22T12:35:37.181Z"
             },
             {
               "title": "Day 1：模块边界先于函数实现",
               "path": "day-01.html",
               "href": "day-01.html",
-              "updatedAt": "2026-05-21T12:36:30.314Z"
+              "updatedAt": "2026-05-22T12:35:37.220Z"
             },
             {
               "title": "Day 2：建立 FTL 通用语言",
               "path": "day-02.html",
               "href": "day-02.html",
-              "updatedAt": "2026-05-21T12:36:30.349Z"
+              "updatedAt": "2026-05-22T12:35:37.258Z"
             },
             {
               "title": "Day 3：接口深度：把参数列表变成领域意图",
               "path": "day-03.html",
               "href": "day-03.html",
-              "updatedAt": "2026-05-21T12:36:30.385Z"
+              "updatedAt": "2026-05-22T12:35:37.296Z"
             },
             {
               "title": "Day 4：Host Write 曳光弹",
               "path": "day-04.html",
               "href": "day-04.html",
-              "updatedAt": "2026-05-21T12:36:30.421Z"
+              "updatedAt": "2026-05-22T12:35:37.334Z"
             },
             {
               "title": "Day 5：Mapping Table 的所有权",
               "path": "day-05.html",
               "href": "day-05.html",
-              "updatedAt": "2026-05-21T12:36:30.456Z"
+              "updatedAt": "2026-05-22T12:35:37.371Z"
             },
             {
               "title": "Day 6：错误路径不是 return 语句",
               "path": "day-06.html",
               "href": "day-06.html",
-              "updatedAt": "2026-05-21T12:36:30.493Z"
+              "updatedAt": "2026-05-22T12:35:37.409Z"
             },
             {
               "title": "Day 7：Block 与 Page 生命周期状态机",
               "path": "day-07.html",
               "href": "day-07.html",
-              "updatedAt": "2026-05-21T12:36:30.528Z"
+              "updatedAt": "2026-05-22T12:35:37.448Z"
             },
             {
               "title": "Day 8：Metadata Journal 的最小可恢复记录",
               "path": "day-08.html",
               "href": "day-08.html",
-              "updatedAt": "2026-05-21T12:35:56.954Z"
+              "updatedAt": "2026-05-22T12:35:37.486Z"
+            },
+            {
+              "title": "Day 9：Power Loss Recovery 的阶段边界",
+              "path": "day-09.html",
+              "href": "day-09.html",
+              "updatedAt": "2026-05-22T12:35:05.873Z"
             }
           ]
         },
@@ -171,7 +183,7 @@
           "destination": "reports/tech/storage-radar",
           "entry": "reports/index.html",
           "entryUrl": "tech/storage-radar/reports/index.html",
-          "reportCount": 8,
+          "reportCount": 9,
           "documents": [
             {
               "title": "Storage Radar",
@@ -183,7 +195,7 @@
               "title": "Storage Reading Reports",
               "path": "reports/index.html",
               "href": "reports/index.html",
-              "updatedAt": "2026-05-20T21:26:18.994Z"
+              "updatedAt": "2026-05-22T21:29:48.756Z"
             },
             {
               "title": "F2FS GC_MERGE Deadlock 技术报告",
@@ -220,6 +232,12 @@
               "path": "reports/report-2026-05-21-gpt-linux-storage.html",
               "href": "reports/report-2026-05-21-gpt-linux-storage.html",
               "updatedAt": "2026-05-20T21:25:44.447Z"
+            },
+            {
+              "title": "Linux Storage Technical Reading · 2026-05-23 · GPT",
+              "path": "reports/report-2026-05-23-gpt-linux-storage.html",
+              "href": "reports/report-2026-05-23-gpt-linux-storage.html",
+              "updatedAt": "2026-05-22T21:29:48.756Z"
             }
           ]
         }

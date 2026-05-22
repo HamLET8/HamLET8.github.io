@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 9：Power Loss Recovery 的阶段边界</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 9 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+					<li><a class="active" href="day-09.html">Day 9：Recovery</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">阶段表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 9 · SSD / FTL 代码设计判断</p>
+				<h1>Power Loss Recovery 的阶段边界：扫描、重放、校验、接管必须分开</h1>
+				<p class="lead">
+					今天的核心判断是：Recovery 应分为扫描、重放、校验、接管四阶段，避免 mount 路径混入正常写路径细节。
+					掉电恢复不是“重新执行一次写入流程”，而是把 NAND 上已经留下的事实收敛到一个可接管的 FTL 状态。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">Recovery 是独立状态机，不是普通 IO 的旁路分支</span>
+					<span class="badge">涉及：FTL Recovery / Metadata Journal / Mapping / Block Manager / GC</span>
+					<span class="badge">关键词：scan · replay · verify · handoff · mount boundary · readonly fail-safe</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							Recovery 阶段不能调用普通 <span class="inline-code">ftl_write()</span>、GC 主循环或在线分配路径。
+							它只能调用专门的 replay / verify / rebuild 接口，把持久化证据收敛为运行时状态。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Power Loss Recovery、Metadata Journal、Mapping Table、Block Manager、Free Block Pool、
+							Bad Block Management、GC Relocation、NAND Program / Erase / Read Flow。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：恢复路径要比正常路径更有边界</h2>
+				<p>
+					掉电恢复处在系统最脆弱的位置：内存状态不存在，free pool 可能不可信，journal 可能被截断，
+					block 状态可能停在中间。此时如果复用正常写路径，会把“在线策略”和“离线收敛”混在一起，错误会被放大。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>复杂度控制依赖清晰接口和信息隐藏。Recovery 不应知道在线写路径的 open block cursor、cache flush 细节。</td>
+								<td>把 Recovery 设计成深模块：输入是 checkpoint、journal、NAND metadata；输出是可接管的 Mapping、Block 状态和 free pool。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>务实工程要求失败可诊断、路径可重复。恢复过程必须可重入，不能依赖一次性副作用。</td>
+								<td>扫描、重放、校验、接管每个阶段都有明确错误码；失败时进入 read-only 或 rebuild，而不是继续 mount。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍要保持概念完整性。恢复阶段的目标是收敛事实，不是追求启动路径最短。</td>
+								<td>不要把 mount 写成一条大 if/else；阶段边界允许以后增加 parallel scan、journal compaction、metadata version 迁移。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>恢复不是底层技巧，而是领域状态重新建模。每个阶段都对应领域语言：scan evidence、replay events、verify invariants、handoff runtime。</td>
+								<td>Recovery 只处理领域证据和领域事件，不直接解释 NAND status bit，也不直接制造普通写请求。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：Recovery 的输出必须是“可接管状态”</h2>
+				<p>
+					四本书在这里约束同一个工程事实：Recovery 的关键不是把所有数据扫一遍，而是建立可靠边界。
+					扫描阶段只收集证据，不改变 mapping；重放阶段只应用可校验、可幂等的 journal 事件；
+					校验阶段确认 mapping、block 状态、valid count、free pool 彼此一致；接管阶段才把系统交给在线 FTL。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Recovery 不是 mount 过程中的临时补丁，而是一个独立状态机。它必须明确哪些接口允许在恢复期调用，
+					哪些在线路径必须禁止，哪些错误会导致只读接管或停止挂载。
+				</div>
+				<div class="diagram" aria-label="Power Loss Recovery 四阶段">
+					<svg viewBox="0 0 1180 430" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="46" y="84" width="160" height="82" rx="12"></rect>
+						<text class="t" x="126" y="114" text-anchor="middle">1. SCAN</text>
+						<text class="s" x="126" y="138" text-anchor="middle">checkpoint / journal</text>
+						<text class="s" x="126" y="156" text-anchor="middle">block metadata</text>
+						<path class="line" d="M206 125 L258 125"></path>
+						<rect class="key" x="258" y="84" width="160" height="82" rx="12"></rect>
+						<text class="t" x="338" y="114" text-anchor="middle">2. REPLAY</text>
+						<text class="s" x="338" y="138" text-anchor="middle">idempotent events</text>
+						<text class="s" x="338" y="156" text-anchor="middle">mapping / block</text>
+						<path class="line" d="M418 125 L470 125"></path>
+						<rect class="key" x="470" y="84" width="160" height="82" rx="12"></rect>
+						<text class="t" x="550" y="114" text-anchor="middle">3. VERIFY</text>
+						<text class="s" x="550" y="138" text-anchor="middle">invariants</text>
+						<text class="s" x="550" y="156" text-anchor="middle">counts / pools</text>
+						<path class="line" d="M630 125 L682 125"></path>
+						<rect class="box" x="682" y="84" width="160" height="82" rx="12"></rect>
+						<text class="t" x="762" y="114" text-anchor="middle">4. HANDOFF</text>
+						<text class="s" x="762" y="138" text-anchor="middle">runtime accepts</text>
+						<text class="s" x="762" y="156" text-anchor="middle">online IO starts</text>
+						<path class="line" d="M842 125 L894 125"></path>
+						<rect class="box" x="894" y="84" width="206" height="82" rx="12"></rect>
+						<text class="t" x="997" y="114" text-anchor="middle">Online FTL</text>
+						<text class="s" x="997" y="138" text-anchor="middle">write / gc / read retry</text>
+						<text class="s" x="997" y="156" text-anchor="middle">receive consistent state</text>
+
+						<path class="dash" d="M126 166 C126 220, 236 222, 268 250"></path>
+						<path class="dash" d="M338 166 C338 220, 416 222, 448 250"></path>
+						<path class="dash" d="M550 166 C550 220, 606 222, 638 250"></path>
+						<rect class="warn" x="188" y="264" width="180" height="86" rx="12"></rect>
+						<text class="t" x="278" y="294" text-anchor="middle">scan gap</text>
+						<text class="s" x="278" y="318" text-anchor="middle">torn journal / bad crc</text>
+						<text class="s" x="278" y="336" text-anchor="middle">stop at last valid seq</text>
+						<rect class="warn" x="400" y="264" width="180" height="86" rx="12"></rect>
+						<text class="t" x="490" y="294" text-anchor="middle">replay conflict</text>
+						<text class="s" x="490" y="318" text-anchor="middle">stale old PPA / seq gap</text>
+						<text class="s" x="490" y="336" text-anchor="middle">readonly or rebuild</text>
+						<rect class="err" x="612" y="264" width="180" height="86" rx="12"></rect>
+						<text class="t" x="702" y="294" text-anchor="middle">verify fail</text>
+						<text class="s" x="702" y="318" text-anchor="middle">count mismatch / bad pool</text>
+						<text class="s" x="702" y="336" text-anchor="middle">no handoff</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Journal Torn Write</h3>
+						<p>扫描阶段发现 record crc 不通过时停止在最后完整 seq。不能继续猜下一个 record，也不能进入在线写路径补洞。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Mapping Replay</h3>
+						<p>重放阶段对 map delta 做幂等提交：已应用则跳过，未应用则检查 old PPA 和 expected seq 后提交。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Block State Rebuild</h3>
+						<p>Block Manager 根据 journal 和 page metadata 重建 OPEN、CLOSED、VICTIM、ERASING、RETIRED 状态，不复用在线分配器。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Free Block Pool</h3>
+						<p>Free pool 在校验阶段从 block 状态重建。只有 FREE 且 erase 校验通过的 block 才能进入 pool。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC Relocation</h3>
+						<p>掉电发生在 relocation 中间时，Recovery replay relocation delta，而不是重新启动 GC victim selection 策略。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block After Erase Fail</h3>
+						<p>如果 erase fail 的 retire 事件完整，Recovery 必须把 block 保持 RETIRED；如果证据不足，进入隔离或只读策略。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：mount 路径混入正常写路径</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码在 mount 时边扫描、边修改 mapping、边调用普通写路径和 GC。
+					它没有阶段边界，错误发生后不知道系统已经改变了哪些运行时结构，也无法安全重入。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：Recovery 复用在线路径，状态边界不清</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_mount_bad(struct ftl_dev *ftl)
+{
+	struct journal_record rec;
+	struct ftl_ppa ppa;
+	int ret;
+
+	ret = scan_checkpoint(ftl);
+	if (ret)
+		return ret;
+
+	while (journal_read_next(ftl-&gt;journal, &amp;rec) == 0) {
+		if (rec.type == REC_MAP_UPDATE) {
+			ftl-&gt;l2p[rec.lba] = rec.new_ppa;
+			block_mark_valid(ftl-&gt;bm, &amp;rec.new_ppa);
+			block_mark_invalid(ftl-&gt;bm, &amp;rec.old_ppa);
+		}
+
+		if (rec.type == REC_GC_MOVE) {
+			ret = ftl_write(ftl, rec.lba, rec.data);
+			if (ret)
+				return ret;
+		}
+
+		if (rec.type == REC_ERASE_BLOCK) {
+			ppa = rec.block_ppa;
+			ret = block_erase(ftl-&gt;bm, &amp;ppa);
+			if (ret)
+				ftl-&gt;bad_blocks++;
+		}
+	}
+
+	if (free_pool_low(ftl-&gt;bm))
+		gc_run_once(ftl);
+
+	ftl-&gt;mounted = true;
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>真实后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>阶段混杂</td>
+								<td>扫描 journal 时直接修改 mapping、block 和 bad block 计数。</td>
+								<td>任意一步失败都会留下半恢复状态，下次 mount 无法判断进度。</td>
+							</tr>
+							<tr>
+								<td>复用在线写路径</td>
+								<td>Recovery 中调用 <span class="inline-code">ftl_write()</span>。</td>
+								<td>可能分配新 open block、追加新 journal、触发缓存策略，污染原始证据。</td>
+							</tr>
+							<tr>
+								<td>策略和恢复混合</td>
+								<td>mount 期间根据 free pool 触发 <span class="inline-code">gc_run_once()</span>。</td>
+								<td>victim selection 依赖尚未校验的 valid count，可能搬迁错误数据。</td>
+							</tr>
+							<tr>
+								<td>错误路径不可判定</td>
+								<td>erase fail 只增加计数，没有写入 RETIRED 状态。</td>
+								<td>坏块可能在后续重建 free pool 时重新进入可分配集合。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：Recovery 作为独立阶段状态机</h2>
+				<p>
+					改进版明确恢复上下文和阶段接口。扫描只构造证据集，重放只调用幂等 replay 接口，
+					校验重建派生结构，接管才允许在线 IO。任何阶段失败都能报告准确边界。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_recovery.h：恢复期接口边界</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_RECOVERY_H
+#define FTL_RECOVERY_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum ftl_recovery_phase {
+	FTL_RECOVERY_SCAN = 0,
+	FTL_RECOVERY_REPLAY,
+	FTL_RECOVERY_VERIFY,
+	FTL_RECOVERY_HANDOFF,
+};
+
+enum ftl_recovery_result {
+	FTL_RECOVERY_CLEAN = 0,
+	FTL_RECOVERY_REPLAYED,
+	FTL_RECOVERY_READONLY,
+	FTL_RECOVERY_FAILED,
+};
+
+struct ftl_recovery_report {
+	enum ftl_recovery_phase failed_phase;
+	enum ftl_recovery_result result;
+	u64 checkpoint_seq;
+	u64 last_valid_journal_seq;
+	u32 replayed_records;
+	u32 orphan_pages;
+	int errno_value;
+};
+
+struct ftl_recovery_ctx {
+	struct ftl_dev *ftl;
+	struct ftl_recovery_report report;
+	bool allow_online_io;
+	bool require_readonly;
+};
+
+int ftl_recover(struct ftl_dev *ftl, struct ftl_recovery_report *report);
+int recovery_scan_metadata(struct ftl_recovery_ctx *ctx);
+int recovery_replay_journal(struct ftl_recovery_ctx *ctx);
+int recovery_verify_invariants(struct ftl_recovery_ctx *ctx);
+int recovery_handoff_runtime(struct ftl_recovery_ctx *ctx);
+
+#endif</code></pre>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>ftl_recovery.c：四阶段编排</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_recover(struct ftl_dev *ftl, struct ftl_recovery_report *report)
+{
+	struct ftl_recovery_ctx ctx = {
+		.ftl = ftl,
+		.allow_online_io = false,
+	};
+	int ret;
+
+	ctx.report.failed_phase = FTL_RECOVERY_SCAN;
+	ret = recovery_scan_metadata(&amp;ctx);
+	if (ret)
+		goto fail;
+
+	ctx.report.failed_phase = FTL_RECOVERY_REPLAY;
+	ret = recovery_replay_journal(&amp;ctx);
+	if (ret)
+		goto fail;
+
+	ctx.report.failed_phase = FTL_RECOVERY_VERIFY;
+	ret = recovery_verify_invariants(&amp;ctx);
+	if (ret)
+		goto fail;
+
+	ctx.report.failed_phase = FTL_RECOVERY_HANDOFF;
+	ret = recovery_handoff_runtime(&amp;ctx);
+	if (ret)
+		goto fail;
+
+	ctx.report.result = ctx.report.replayed_records ?
+		FTL_RECOVERY_REPLAYED : FTL_RECOVERY_CLEAN;
+	*report = ctx.report;
+	return 0;
+
+fail:
+	ctx.report.errno_value = ret;
+	ctx.report.result = ctx.require_readonly ?
+		FTL_RECOVERY_READONLY : FTL_RECOVERY_FAILED;
+	*report = ctx.report;
+	return ret;
+}
+
+int recovery_replay_journal(struct ftl_recovery_ctx *ctx)
+{
+	struct journal_record_header hdr;
+	u8 payload[JOURNAL_MAX_PAYLOAD];
+	int ret;
+
+	while ((ret = journal_read_next_valid(ctx-&gt;ftl-&gt;journal,
+					      &amp;hdr, payload)) == 0) {
+		ret = journal_replay_record(ctx, &amp;hdr, payload);
+		if (ret == -ESTALE &amp;&amp; recovery_record_already_applied(ctx, &amp;hdr))
+			ret = 0;
+		if (ret)
+			return ret;
+
+		ctx-&gt;report.last_valid_journal_seq = hdr.seq;
+		ctx-&gt;report.replayed_records++;
+	}
+
+	if (ret == -ENODATA)
+		return 0;
+	if (ret == -EILSEQ) {
+		ctx-&gt;require_readonly = true;
+		return ret;
+	}
+
+	return ret;
+}
+
+int recovery_verify_invariants(struct ftl_recovery_ctx *ctx)
+{
+	int ret;
+
+	ret = map_verify_l2p_p2l_consistency(ctx-&gt;ftl-&gt;map);
+	if (ret)
+		return ret;
+
+	ret = block_verify_page_counts(ctx-&gt;ftl-&gt;bm);
+	if (ret)
+		return ret;
+
+	ret = free_pool_rebuild_from_block_states(ctx-&gt;ftl-&gt;bm);
+	if (ret)
+		return ret;
+
+	return bad_block_verify_retired_set(ctx-&gt;ftl-&gt;bad_blocks,
+					    ctx-&gt;ftl-&gt;bm);
+}
+
+int recovery_handoff_runtime(struct ftl_recovery_ctx *ctx)
+{
+	if (ctx-&gt;require_readonly)
+		return -EROFS;
+
+	ctx-&gt;allow_online_io = true;
+	return ftl_runtime_accept_recovered_state(ctx-&gt;ftl,
+						  ctx-&gt;report.last_valid_journal_seq);
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>阶段表与思想落点表</h2>
+				<h3>Power Loss Recovery 阶段责任表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>阶段</th>
+								<th>输入</th>
+								<th>允许动作</th>
+								<th>禁止动作</th>
+								<th>输出</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>扫描 Scan</td>
+								<td>checkpoint、journal 区间、block/page metadata。</td>
+								<td>识别最后完整 journal seq，收集 orphan 候选和 block 状态证据。</td>
+								<td>修改 mapping、分配 page、触发 GC。</td>
+								<td>recovery evidence set。</td>
+							</tr>
+							<tr>
+								<td>重放 Replay</td>
+								<td>完整 journal record、checkpoint seq。</td>
+								<td>调用 Mapping / Block Manager 的幂等 replay 接口。</td>
+								<td>调用普通 write path、普通 GC、在线 wear leveling。</td>
+								<td>已收敛的核心领域状态。</td>
+							</tr>
+							<tr>
+								<td>校验 Verify</td>
+								<td>Mapping、Block 状态、P2L、valid count、retired block set。</td>
+								<td>检查不变量，重建 free pool，标记只读风险。</td>
+								<td>接受 host IO 或继续写新 journal。</td>
+								<td>可接管或不可接管判断。</td>
+							</tr>
+							<tr>
+								<td>接管 Handoff</td>
+								<td>已验证状态、last journal seq、free pool、open block 策略。</td>
+								<td>初始化在线游标，开启 host IO，恢复 GC 调度。</td>
+								<td>跳过校验直接 mount。</td>
+								<td>Online FTL runtime。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>恢复错误处理矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>错误</th>
+								<th>发生阶段</th>
+								<th>领域含义</th>
+								<th>决策</th>
+								<th>返回语义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Journal torn record</td>
+								<td>Scan</td>
+								<td>最后一条记录不完整，不能 replay。</td>
+								<td>截断到 last valid seq；必要时只读接管。</td>
+								<td><span class="inline-code">-EILSEQ</span> 或 <span class="inline-code">0</span></td>
+							</tr>
+							<tr>
+								<td>Map delta stale</td>
+								<td>Replay</td>
+								<td>事件可能已应用，或 old PPA 与当前事实冲突。</td>
+								<td>已应用则跳过；冲突则停止恢复。</td>
+								<td><span class="inline-code">-ESTALE</span></td>
+							</tr>
+							<tr>
+								<td>Valid count mismatch</td>
+								<td>Verify</td>
+								<td>Mapping 与 Block Manager 派生计数不一致。</td>
+								<td>从 P2L 重建计数；无法重建则只读。</td>
+								<td><span class="inline-code">-EUCLEAN</span></td>
+							</tr>
+							<tr>
+								<td>Free pool contains non-free block</td>
+								<td>Verify</td>
+								<td>空间池不可信，可能包含 VICTIM、ERASING 或 RETIRED block。</td>
+								<td>丢弃旧 pool，从 block state 重建。</td>
+								<td><span class="inline-code">-EINVAL</span></td>
+							</tr>
+							<tr>
+								<td>Retired block has live mapping</td>
+								<td>Verify</td>
+								<td>坏块隔离与映射事实冲突。</td>
+								<td>尝试副本恢复；失败则停止 mount。</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Readonly required</td>
+								<td>Handoff</td>
+								<td>核心数据可读，但不能安全写入。</td>
+								<td>以只读方式接管或拒绝 host write。</td>
+								<td><span class="inline-code">-EROFS</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>通过深模块和清晰接口隐藏复杂度。</td>
+								<td>Recovery 编排器、阶段函数、recovery report。</td>
+								<td>mount 调用者只看到恢复结果，不理解 journal scan 和 block 重建细节。</td>
+								<td>避免恢复细节泄漏到普通 FTL 读写路径。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>失败可诊断，路径可重复，状态可验证。</td>
+								<td>阶段化错误码、只读接管、幂等 replay。</td>
+								<td>每个阶段都必须能独立失败并报告边界。</td>
+								<td>避免 mount 失败后留下不可解释的半恢复状态。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍服务概念完整性和未来演进。</td>
+								<td>Scan / Replay / Verify / Handoff 四阶段架构。</td>
+								<td>新增 parallel scan、metadata migration、scrub 都必须挂在清晰阶段上。</td>
+								<td>避免启动流程被临时 if/else 侵蚀成不可维护脚本。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>用领域语言表达状态收敛，而不是硬件动作堆叠。</td>
+								<td>recovery evidence、journal event、invariant、runtime handoff。</td>
+								<td>Recovery 处理领域事实，不直接制造普通 host write。</td>
+								<td>避免恢复路径和在线路径互相污染。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">阶段表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>
