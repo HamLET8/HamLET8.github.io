@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 09/15｜交易心理、纪律与自我破坏</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .badge,.pill{border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;color:var(--muted);display:flex;gap:8px;align-items:center;max-width:100%}
+    .badge{padding:8px 10px;font-size:12px}
+    .pill{padding:6px 10px;font-size:12px}
+    .dot{width:9px;height:9px;border-radius:99px;background:var(--accent);flex:0 0 auto}
+    .dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}
+    .kws{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .kws .pill{white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:14px}
+    @media(max-width:920px){.grid{grid-template-columns:1fr}}
+    section{margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0))}
+    .card .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .card .hd .hint{color:var(--muted);font-size:12px}
+    .card .bd{padding:14px 16px}
+    ul,ol{margin:0;padding-left:18px}li{margin:6px 0}
+    .small{font-size:12px;color:var(--muted)}
+    .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 8px;border-radius:999px;display:inline-block}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .callout{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:14px;padding:12px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    @media(max-width:720px){.two-col{grid-template-columns:1fr}}
+    .tbl-wrap,.svg-wrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
+    table{border-collapse:collapse;min-width:760px;width:100%}
+    th,td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}
+    th{text-align:left;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06)}
+    td{font-size:13px}
+    .mono{font-family:var(--mono);font-size:12px}
+    .codebox{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(0,0,0,.22);overflow:auto;white-space:pre;max-width:100%}
+    @media(prefers-color-scheme:light){.codebox{background:rgba(10,22,40,.06)}}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:10px 12px}
+    @media(max-width:520px){.kv{grid-template-columns:1fr}}
+    .kv .k{color:var(--muted);font-size:12px}
+    .kv .v{font-size:13px}
+    .warnline{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(255,204,102,.35);background:rgba(255,204,102,.12);padding:12px;border-radius:14px}
+    .warnline b{color:var(--text)}
+    .chiprow{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+    .chip{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:999px;padding:8px 10px;font-size:12px;color:var(--muted);max-width:100%}
+    .chip b{color:var(--text)}
+    .footer{margin-top:16px;color:var(--muted);font-size:12px}
+    a{color:inherit}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 09 / 15｜交易心理、纪律与自我破坏</h1>
+        <div class="sub">学习用途：将“心理问题”工程化为可观察、可记录、可修复的系统问题（不构成任何投资建议）</div>
+        <div class="kws" aria-label="今日关键词">
+          <div class="pill"><span class="dot"></span><span>执行偏差</span></div>
+          <div class="pill"><span class="dot"></span><span>自我破坏循环</span></div>
+          <div class="pill"><span class="dot"></span><span>风险闸门</span></div>
+          <div class="pill"><span class="dot"></span><span>暂停规则</span></div>
+          <div class="pill"><span class="dot"></span><span>过程指标</span></div>
+        </div>
+      </div>
+      <div class="badge-row" aria-label="关键信息">
+        <div class="badge"><span class="dot good"></span><span><b>一句话核心判断：</b>纪律不是“更努力”，而是把自我破坏提前写进系统的闸门与恢复流程。</span></div>
+        <div class="badge"><span class="dot warn"></span><span><b>今日风险提醒：</b>把亏损当成“必须立刻赢回来”的信号，会把你从可控风险推向不可控尾部。</span></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="今日学习目标">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">3–5 个可检验目标</div></div>
+        <div class="bd">
+          <ol>
+            <li>把“心理/纪律”拆成 <b>可观察行为</b>：哪些动作属于偏离系统（而不是“心态不好”）。</li>
+            <li>建立一张 <b>执行偏差分类表</b>，每次偏差都能落到一个类别并记录其触发条件。</li>
+            <li>为你的交易系统补上 <b>心理层闸门</b>：状态检测、暂停规则、降风险模式与复盘入口。</li>
+            <li>把 Marks 的“风险是失控/永久损失”翻译为 <b>行为层风险</b>：当你开始辩论规则而不是执行规则，风险已经上升。</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn"></span>
+            <div>
+              <b>学习边界：</b>今天讨论的是“如何减少系统外交易与冲动行为”。不提供任何标的/时点/买卖建议，也不鼓励高杠杆或集中押注。
+              <div class="small">目标是长期生存与可持续学习：在坏日子里也不把系统击穿。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日速记">
+        <div class="hd"><h2>今日速记：把心理问题写成系统模块</h2><div class="hint">“能写出来，才算可执行”</div></div>
+        <div class="bd">
+          <div class="kv" role="list">
+            <div class="k" role="listitem">今日主题</div>
+            <div class="v">交易心理、纪律与自我破坏：<b>偏差不是性格缺陷，而是缺少防火墙</b>。</div>
+            <div class="k" role="listitem">Tharp 关键词</div>
+            <div class="v">系统一致性、R 风险、仓位管理、期望值、执行纪律（纪律依赖于设计与反馈）。</div>
+            <div class="k" role="listitem">Marks 关键词</div>
+            <div class="v">风险现实、周期与情绪、谦卑与安全边际、避免在“人人自信/你最焦虑”时冒进。</div>
+            <div class="k" role="listitem">你今天要形成的能力</div>
+            <div class="v">当你想“破例”时，能先问：<b>这属于系统内的可统计行为，还是系统外的不可控行为？</b></div>
+          </div>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="一句话工具（学习用）">
+当我想下单/加码/扛单时：
+1) 我是在执行规则，还是在为“想赢回来/怕错过/证明自己”找理由？
+2) 这个动作能否用 1R 风险定义并纳入统计？
+3) 若不能 —— 立刻进入“暂停/降风险/复盘”流程。
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" aria-label="两本书的核心思想">
+      <div class="hd"><h2>两本书的核心思想</h2><div class="hint">用自己的话复述（非机械摘抄）</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div class="callout">
+            <div class="tag">Van K. Tharp｜纪律是系统产物</div>
+            <ul>
+              <li><b>系统是为人类缺陷设计的</b>：如果系统只能在你“状态完美”时才能执行，那它不是系统，是愿望。</li>
+              <li><b>纪律=一致性</b>：同一套条件下做同一套动作；偏离一致性会让统计（胜率/赔率/期望值）失效。</li>
+              <li><b>自我破坏往往通过“例外”出现</b>：一次“就这一次”会把规则变成可辩论的建议。</li>
+              <li><b>改进来自反馈</b>：用日志把偏差变成数据，迭代规则、闸门与仓位，而不是靠羞耻感。</li>
+            </ul>
+          </div>
+          <div class="callout">
+            <div class="tag">Howard Marks｜情绪是风险放大器</div>
+            <ul>
+              <li><b>风险在情绪上升时被低估</b>：你越自信/越焦虑，越可能忽略尾部、流动性、相关性与“不可恢复的损失”。</li>
+              <li><b>周期驱动情绪</b>：在顺风期你会高估能力，在逆风期你会追求立刻修复——两者都容易把风险推向失控。</li>
+              <li><b>安全边际不仅是价格</b>：也是行为上的缓冲——当你最想出手时，你仍有“暂停”的结构性约束。</li>
+              <li><b>谦卑是风控的一部分</b>：承认不确定性，才会把“最坏情况”写进规则。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="融合解释">
+      <div class="hd"><h2>融合解释：把“心理风险”纳入系统风控</h2><div class="hint">Tharp 给方法，Marks 给现实约束</div></div>
+      <div class="bd">
+        <div class="chiprow" aria-label="融合要点">
+          <div class="chip"><b>Marks：</b>风险=失控</div>
+          <div class="chip"><b>Tharp：</b>失控=偏离系统 + 风险不可定义</div>
+          <div class="chip"><b>Marks：</b>情绪随周期波动</div>
+          <div class="chip"><b>Tharp：</b>因此需要暂停/降风险模式</div>
+          <div class="chip"><b>Marks：</b>最坏情形要先写</div>
+          <div class="chip"><b>Tharp：</b>写成闸门、上限与恢复流程</div>
+        </div>
+
+        <div class="divider"></div>
+        <p class="small">一个可落地的融合定义（学习用）：</p>
+        <div class="codebox" aria-label="融合定义（学习用）">
+心理风险（Trading version）= 让你偏离系统、突破风险预算、并导致统计失效的那类行为驱动
+
+把它写进系统的三件事：
+1) 状态闸门（Before）：睡眠/情绪/注意力/冲动水平，不合格就不交易或降风险
+2) 行为闸门（During）：出现“加码/扛单/报复/频繁出手/临场改规则” -> 触发暂停
+3) 恢复流程（After）：复盘 -> 归类偏差 -> 调整规则/环境 -> 小步恢复到正常风险
+        </div>
+        <div class="divider"></div>
+        <p>核心直觉：</p>
+        <ul>
+          <li>Marks 帮你识别“风险现实”：<b>坏日子里你的行为会变</b>，而这会把风险从“可控波动”推向“不可恢复损失”。</li>
+          <li>Tharp 帮你把“行为变化”做成工程：<b>写成闸门、上限、暂停规则、日志与复盘机制</b>，让系统能在你不完美时仍可运行。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-label="图表化理解">
+      <div class="hd"><h2>图表化理解</h2><div class="hint">至少 2 个图表/表格（无外部 JS）</div></div>
+      <div class="bd">
+        <div class="two-col">
+          <div>
+            <div class="tag">表 1｜执行偏差分类（把“心态”变成数据）</div>
+            <div class="tbl-wrap" role="region" aria-label="执行偏差分类表" tabindex="0">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:180px">偏差类别</th>
+                    <th>可观察行为（例）</th>
+                    <th>Marks 风险视角</th>
+                    <th>Tharp 系统修复</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>系统外入场</b></td>
+                    <td>不满足条件也下单；“看着像要涨/跌”就参与</td>
+                    <td>把不确定性当成确定性；风险被低估</td>
+                    <td>入口闸门写清：条件、禁止情形、证据最小集</td>
+                  </tr>
+                  <tr>
+                    <td><b>临场改规则</b></td>
+                    <td>把止损改成“再等等”；目标位随意上调/下调</td>
+                    <td>失控开始：最坏情形被抹掉</td>
+                    <td>规则不可辩论：止损/退出写成“一旦触发即执行”</td>
+                  </tr>
+                  <tr>
+                    <td><b>报复/追回</b></td>
+                    <td>连亏后加频率/加仓位；想“把亏损赢回来”</td>
+                    <td>尾部风险集中爆发；从波动走向永久损失</td>
+                    <td>单日/单周风险上限 + 自动暂停；恢复从小风险开始</td>
+                  </tr>
+                  <tr>
+                    <td><b>过度交易</b></td>
+                    <td>无聊/焦虑就找机会；频繁切换方法</td>
+                    <td>成本与错误累积；周期噪音放大</td>
+                    <td>限定“允许交易窗口/次数”；只交易可统计样本</td>
+                  </tr>
+                  <tr>
+                    <td><b>错过后追</b></td>
+                    <td>错过后立刻追入；把“错过”当成必须修复的问题</td>
+                    <td>情绪驱动下风险上升</td>
+                    <td>写“错过=正常”；只接受系统信号，不接受情绪补仓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <div class="tag">表 2｜“自我破坏循环”与对策（闸门化）</div>
+            <div class="tbl-wrap" role="region" aria-label="自我破坏循环表" tabindex="0">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:160px">阶段</th>
+                    <th>内在叙事（常见）</th>
+                    <th>行为信号</th>
+                    <th style="width:220px">系统闸门/恢复动作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>压力上升</b></td>
+                    <td>“我最近不顺，我得证明自己”</td>
+                    <td>更频繁盯盘；更想出手</td>
+                    <td class="mono">状态闸门：冲动≥7/10 -> 禁止新开仓</td>
+                  </tr>
+                  <tr>
+                    <td><b>合理化破例</b></td>
+                    <td>“就这一次，机会太好了”</td>
+                    <td>开始辩论规则；寻找支持观点的信息</td>
+                    <td class="mono">行为闸门：出现“改规则”念头 -> 5 分钟冷却</td>
+                  </tr>
+                  <tr>
+                    <td><b>风险扩张</b></td>
+                    <td>“再加一点就回本了”</td>
+                    <td>加仓/扛单/频率上升</td>
+                    <td class="mono">风险上限：触发日亏损上限 -> 当天结束</td>
+                  </tr>
+                  <tr>
+                    <td><b>结果恶化</b></td>
+                    <td>“我怎么这么差”</td>
+                    <td>情绪波动、决策更随意</td>
+                    <td class="mono">恢复流程：只做复盘，不做交易；下次从更小风险恢复</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="tag">图｜心理-执行反馈回路（学习示意）</div>
+        <div class="svg-wrap" role="region" aria-label="心理-执行反馈回路图" tabindex="0">
+          <svg viewBox="0 0 980 360" width="980" height="360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="心理-执行反馈回路与闸门">
+            <defs>
+              <style>
+                .box{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.18);stroke-width:1.2}
+                .txt{fill:rgba(255,255,255,.92);font:600 14px ui-sans-serif,system-ui}
+                .sub{fill:rgba(255,255,255,.72);font:12px ui-sans-serif,system-ui}
+                .arr{stroke:rgba(110,231,255,.85);stroke-width:2;fill:none;marker-end:url(#m)}
+                .warn{stroke:rgba(255,204,102,.85)}
+                .bad{stroke:rgba(255,107,107,.88)}
+                .gate{fill:rgba(167,243,208,.10);stroke:rgba(167,243,208,.55);stroke-width:1.4}
+              </style>
+              <marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <path d="M0,0 L10,3 L0,6 Z" fill="rgba(110,231,255,.9)"/>
+              </marker>
+              <marker id="mw" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <path d="M0,0 L10,3 L0,6 Z" fill="rgba(255,204,102,.9)"/>
+              </marker>
+              <marker id="mb" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <path d="M0,0 L10,3 L0,6 Z" fill="rgba(255,107,107,.92)"/>
+              </marker>
+            </defs>
+
+            <rect x="30" y="34" rx="16" ry="16" width="240" height="92" class="box"/>
+            <text x="52" y="64" class="txt">外部波动/结果冲击</text>
+            <text x="52" y="88" class="sub">连亏、错过、回撤、噪音</text>
+
+            <rect x="350" y="34" rx="16" ry="16" width="270" height="92" class="box"/>
+            <text x="372" y="64" class="txt">内部压力与叙事</text>
+            <text x="372" y="88" class="sub">证明自己｜怕错过｜想赢回来</text>
+
+            <rect x="700" y="34" rx="16" ry="16" width="250" height="92" class="box"/>
+            <text x="722" y="64" class="txt">偏离系统的冲动</text>
+            <text x="722" y="88" class="sub">破例｜加码｜扛单｜频率上升</text>
+
+            <rect x="350" y="214" rx="16" ry="16" width="270" height="102" class="box"/>
+            <text x="372" y="244" class="txt">风险扩张 &amp; 统计失效</text>
+            <text x="372" y="268" class="sub">R 不可控｜样本污染｜回撤放大</text>
+
+            <rect x="30" y="214" rx="16" ry="16" width="240" height="102" class="box"/>
+            <text x="52" y="244" class="txt">负反馈：更差结果</text>
+            <text x="52" y="268" class="sub">亏损更大｜情绪更糟｜更想修复</text>
+
+            <rect x="700" y="214" rx="16" ry="16" width="250" height="102" class="gate"/>
+            <text x="722" y="244" class="txt">系统闸门（介入点）</text>
+            <text x="722" y="268" class="sub">暂停｜降风险｜复盘｜恢复流程</text>
+
+            <path d="M270 80 C300 80, 320 80, 350 80" class="arr"/>
+            <path d="M620 80 C650 80, 670 80, 700 80" class="arr"/>
+            <path d="M830 126 C830 160, 830 176, 700 240" class="arr warn" style="marker-end:url(#mw)"/>
+            <path d="M350 265 C310 265, 300 265, 270 265" class="arr bad" style="marker-end:url(#mb)"/>
+            <path d="M150 214 C150 170, 150 150, 150 126" class="arr bad" style="marker-end:url(#mb)"/>
+
+            <path d="M700 265 C660 265, 646 265, 620 265" class="arr warn" style="marker-end:url(#mw)"/>
+            <text x="628" y="248" class="sub">把冲动转成流程</text>
+          </svg>
+        </div>
+
+        <div class="footer">阅读提示：这张图的目的不是解释“你为什么会这样”，而是明确“你可以在哪里介入”。越早介入，成本越低。</div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="交易场景案例">
+      <div class="hd"><h2>交易场景案例（虚构，仅用于学习）</h2><div class="hint">背景 → 常见错误 → 两本书视角 → 融合后的更稳判断</div></div>
+      <div class="bd">
+        <div class="kv" role="list">
+          <div class="k" role="listitem">市场背景（虚构）</div>
+          <div class="v">某指数连续多日震荡，日内波动加大；你最近 4 笔交易中 3 笔亏损，开始怀疑自己。</div>
+
+          <div class="k" role="listitem">常见交易者错误</div>
+          <div class="v">你看到一次价格快速拉升，担心错过，于是 <b>不等系统确认</b>就追入；随后回撤，你把止损改成“再等等”，并在下跌中加码想摊平。</div>
+
+          <div class="k" role="listitem">Tharp 会怎么看</div>
+          <div class="v">这是典型的 <b>执行偏差链</b>：系统外入场 → 临场改规则 → 风险预算失效。你的统计样本被污染，期望值无法验证；需要把“想摊平/改止损”的冲动写成明确的 <b>禁止行为</b> 与 <b>暂停触发器</b>。</div>
+
+          <div class="k" role="listitem">Marks 会怎么看</div>
+          <div class="v">这不是“波动变大”，而是“风险形态变了”：你在情绪压力下把自己暴露在 <b>尾部与失控</b> 中。你正在用“必须修复亏损”的叙事替代风险评估，安全边际消失。</div>
+
+          <div class="k" role="listitem">融合后的更稳判断（学习用）</div>
+          <div class="v">
+            <ul>
+              <li><b>先承认风险现实（Marks）：</b>当你开始想“追回/证明/修复”，风险已上升，不适合提高暴露。</li>
+              <li><b>再执行系统闸门（Tharp）：</b>触发冲动阈值 → 当天停止新开仓；若已持仓，只按既定退出规则处理，不做加码与改规则。</li>
+              <li><b>最后走恢复流程：</b>复盘归类偏差 → 调整闸门（例如：连亏触发更低仓位）→ 用更小风险回到一致性。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日反思练习">
+      <div class="hd"><h2>今日反思练习（可执行）</h2><div class="hint">把“心理改进”变成 15–25 分钟的动作</div></div>
+      <div class="bd">
+        <p><b>练习：写一份你的“自我破坏防火墙”</b>（学习用模板，建议保存到日志里）。</p>
+        <div class="codebox" aria-label="自我破坏防火墙模板">
+Part A｜触发器（写你最常见的 3 个）
+1) 触发器：____________  （例：连亏/错过/回撤/无聊/被他人观点刺激）
+   身体信号：____________  （例：心跳加速/盯盘停不下来）
+   常见叙事：____________  （例：我必须赢回来）
+
+Part B｜If-Then 规则（把闸门写成动作）
+IF 我出现“想改规则/想加码/想摊平”的念头
+THEN 我立刻执行：离开屏幕 5 分钟 + 记录冲动评分(0-10) + 今日不新增仓位
+
+Part C｜暂停与恢复（写清“怎么回来”）
+暂停触发（任选其一即可开始）：日内达到 ___R 亏损 / 冲动评分≥___ / 连续 ___ 次偏差
+暂停期间做什么：只复盘 + 写偏差归类 + 回放执行链条
+恢复规则：下一次只允许更小风险（例如 0.25x 常规）持续 ___ 次无偏差后恢复
+        </div>
+        <div class="divider"></div>
+        <p class="small">自测：这份防火墙是否“足够具体到你在情绪里也能照做”？如果需要临场思考，它就还不够工程化。</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="今日检查清单">
+      <div class="hd"><h2>今日检查清单（最多 5 条）</h2><div class="hint">用于明天开始前的 30 秒自检</div></div>
+      <div class="bd">
+        <ul>
+          <li>我现在的行为是 <b>执行规则</b> 还是 <b>为冲动找理由</b>？</li>
+          <li>这一次的风险能否用 <b>1R</b> 定义，并且不突破单日/单周风险预算？</li>
+          <li>我是否出现了“想改规则/想加码/想追回”的冲动信号？若有，立即触发暂停。</li>
+          <li>我是否记录了偏差（若发生）：类别、触发器、当时叙事、介入点？</li>
+          <li>我是否在用“小步恢复”而不是“立刻修复”来对待回撤与不顺？</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-label="明日预告">
+      <div class="hd"><h2>明日预告：Day 10｜亏损、回撤与恢复能力</h2><div class="hint">从“情绪与纪律”进入“恢复系统”</div></div>
+      <div class="bd">
+        <p>今天你把“心理风险”变成了可记录的执行偏差与闸门机制。明天将把这套机制扩展成一套更完整的 <b>回撤与恢复系统</b>：</p>
+        <ul>
+          <li>用 Tharp 的 R 与仓位框架定义：<b>回撤阈值、降风险阶梯、恢复阶梯</b>。</li>
+          <li>用 Marks 的风险现实与周期思维定义：<b>什么时候需要防守、什么时候允许恢复进攻</b>，以及如何避免“在最脆弱时冒进”。</li>
+          <li>最终产出：一张可粘贴到系统文档里的 <b>回撤应对流程图</b> 与 <b>恢复计划表</b>。</li>
+        </ul>
+        <div class="footer">提示：真正的纪律，体现在亏损与回撤之后你仍能“按流程”行事，而不是“按情绪”行事。</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

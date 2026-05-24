@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 11：Victim Selection 与 Wear Leveling 策略分离</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 11 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+					<li><a href="day-09.html">Day 9：Recovery</a></li>
+					<li><a href="day-10.html">Day 10：GC 服务</a></li>
+					<li><a class="active" href="day-11.html">Day 11：策略分离</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">策略表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 11 · SSD / FTL 代码设计判断</p>
+				<h1>Victim Selection 与 Wear Leveling 策略分离：策略输出 score 和理由</h1>
+				<p class="lead">
+					今天的核心判断是：选择策略应输出 score、reason 和约束说明；GC 流程不直接散落 erase count、
+					valid count、hot/cold 数据判断。策略可替换，流程保持稳定，长期磨损控制才有演进空间。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">策略计算分数，GC 只消费决策</span>
+					<span class="badge">涉及：Victim Selection / Wear Leveling / GC / Mapping / Block Manager</span>
+					<span class="badge">关键词：score · reason · policy ops · hot/cold · wear pressure · algorithm evolution</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							不要在 <span class="inline-code">gc_reclaim_once()</span> 里写复杂打分公式。
+							用 <span class="inline-code">victim_policy_select()</span> 返回 candidate、score、reason 和风险标记。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Victim Selection、Wear Leveling、GC、Block Manager、Mapping Table、Hot/Cold Data Classifier、
+							Free Block Pool、Bad Block Management。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：策略要能替换，理由要能审计</h2>
+				<p>
+					Victim 选择不是一个 if 条件，而是长期产品策略：空间回收效率、写放大、磨损均衡、前台延迟都在这里冲突。
+					策略分离的目的不是抽象漂亮，而是让这些取舍可以被替换、观测和回放。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>接口要隐藏复杂实现，但暴露有用信息。策略算法可复杂，输出接口必须简单稳定。</td>
+								<td>Victim policy 返回 score、reason、candidate，不暴露内部公式给 GC。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性和可配置性要求策略和机制分离。算法变化不应改动 GC 主流程。</td>
+								<td>GC 是机制，Victim Selection 和 Wear Leveling 是策略；二者通过 policy ops 连接。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍需要可解释。没有 reason 的 score 只是魔法数字，无法评估副作用。</td>
+								<td>输出 reason：低有效页、磨损压力、冷热迁移、QoS 预算，而不是只返回 block id。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>策略是领域知识，不是流程细节。它应使用领域语言表达候选理由。</td>
+								<td>使用 wear pressure、valid ratio、cold data、relocation cost 等领域词汇建模。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：score 是机器选择，reason 是工程判断</h2>
+				<p>
+					如果 victim selection 只返回一个 block，GC 无法知道这次选择是为了快速回收空间，还是为了降低磨损偏差。
+					如果策略代码散在 GC 中，算法变化会改动回收流程。更稳的设计是让策略模块输出结构化决策：
+					candidate、score、reason、relocation cost、wear delta、QoS 风险。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					策略分离不是为了“多一层抽象”，而是为了把会频繁调整的取舍从稳定流程中移出。
+					GC 主流程保持可预测，策略模块承担算法演进，Block Manager 和 Mapping 继续保有事实所有权。
+				</div>
+				<div class="diagram" aria-label="Victim Selection 策略分离">
+					<svg viewBox="0 0 1180 440" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="46" y="76" width="170" height="86" rx="12"></rect>
+						<text class="t" x="131" y="106" text-anchor="middle">Block Facts</text>
+						<text class="s" x="131" y="130" text-anchor="middle">valid ratio / erase count</text>
+						<text class="s" x="131" y="148" text-anchor="middle">age / state</text>
+						<path class="line" d="M216 119 L270 119"></path>
+						<rect class="box" x="270" y="76" width="170" height="86" rx="12"></rect>
+						<text class="t" x="355" y="106" text-anchor="middle">Workload Signals</text>
+						<text class="s" x="355" y="130" text-anchor="middle">hot / cold / QoS</text>
+						<text class="s" x="355" y="148" text-anchor="middle">write budget</text>
+						<path class="line" d="M440 119 L494 119"></path>
+						<rect class="key" x="494" y="56" width="206" height="126" rx="12"></rect>
+						<text class="t" x="597" y="88" text-anchor="middle">Victim Policy</text>
+						<text class="s" x="597" y="114" text-anchor="middle">compute score</text>
+						<text class="s" x="597" y="134" text-anchor="middle">attach reason</text>
+						<text class="s" x="597" y="154" text-anchor="middle">estimate relocation cost</text>
+						<path class="line" d="M700 119 L754 119"></path>
+						<rect class="warn" x="754" y="76" width="170" height="86" rx="12"></rect>
+						<text class="t" x="839" y="106" text-anchor="middle">Candidate</text>
+						<text class="s" x="839" y="130" text-anchor="middle">block + score + reason</text>
+						<text class="s" x="839" y="148" text-anchor="middle">risk flags</text>
+						<path class="line" d="M924 119 L978 119"></path>
+						<rect class="box" x="978" y="76" width="150" height="86" rx="12"></rect>
+						<text class="t" x="1053" y="106" text-anchor="middle">GC Flow</text>
+						<text class="s" x="1053" y="130" text-anchor="middle">consume decision</text>
+						<text class="s" x="1053" y="148" text-anchor="middle">move / erase</text>
+
+						<rect class="box" x="248" y="258" width="190" height="86" rx="12"></rect>
+						<text class="t" x="343" y="288" text-anchor="middle">Fast Reclaim</text>
+						<text class="s" x="343" y="312" text-anchor="middle">low valid ratio wins</text>
+						<rect class="box" x="496" y="258" width="190" height="86" rx="12"></rect>
+						<text class="t" x="591" y="288" text-anchor="middle">Dynamic WL</text>
+						<text class="s" x="591" y="312" text-anchor="middle">hot blocks rotate wear</text>
+						<rect class="box" x="744" y="258" width="190" height="86" rx="12"></rect>
+						<text class="t" x="839" y="288" text-anchor="middle">Static WL</text>
+						<text class="s" x="839" y="312" text-anchor="middle">cold data migration</text>
+						<path class="line" d="M343 258 C386 218, 512 206, 566 182"></path>
+						<path class="line" d="M591 258 L591 182"></path>
+						<path class="line" d="M839 258 C798 218, 682 206, 628 182"></path>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Low Free Block GC</h3>
+						<p>空间压力高时，策略优先选择 valid ratio 低、搬迁成本小的 block，以快速回收 free block。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Dynamic Wear Leveling</h3>
+						<p>前台写入集中在少量 block 时，策略提高磨损低 block 的选择概率，避免热点区域过早老化。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Static Wear Leveling</h3>
+						<p>冷数据长期占用低 erase count block 时，策略可选择高价值冷 block 做迁移，平衡全盘磨损。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Hot / Cold Data</h3>
+						<p>策略读取数据温度信号，但 GC 流程不解释温度算法；温度分类器可以单独演进。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>QoS Budget</h3>
+						<p>前台延迟敏感时，策略降低搬迁成本高的 candidate 权重，返回 reason 说明选择受 QoS 限制。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Risk</h3>
+						<p>接近坏块阈值的 block 可被策略标记 risk，交给 GC 以更保守的 erase / retire 路径处理。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：评分公式散落在 GC 流程里</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把 victim selection、wear leveling、冷热判断和 QoS 都硬编码在 GC 中。
+					算法变化会改动流程，且没有 reason 可供调试和回放。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：GC 内部硬编码策略</span>
+						<span>C</span>
+					</div>
+					<pre><code>struct ftl_block *gc_pick_victim_bad(struct ftl_dev *ftl, int foreground)
+{
+	struct ftl_block *best = NULL;
+	int best_score = -1;
+	int i;
+
+	for (i = 0; i &lt; ftl-&gt;nr_blocks; i++) {
+		struct ftl_block *blk = &amp;ftl-&gt;blocks[i];
+		int score;
+
+		if (blk-&gt;bad || blk-&gt;open || blk-&gt;free)
+			continue;
+
+		score = (blk-&gt;pages_per_block - blk-&gt;valid_pages) * 100;
+
+		if (blk-&gt;erase_count &lt; ftl-&gt;avg_erase_count)
+			score += 30;
+		if (blk-&gt;cold_data)
+			score -= 20;
+		if (foreground &amp;&amp; blk-&gt;valid_pages &gt; 32)
+			score -= 200;
+		if (blk-&gt;last_read_retry)
+			score += 10;
+
+		if (score &gt; best_score) {
+			best_score = score;
+			best = blk;
+		}
+	}
+
+	return best;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>算法和流程耦合</td>
+								<td>GC 直接计算 score。</td>
+								<td>替换策略必须修改 GC 主流程，回归风险高。</td>
+							</tr>
+							<tr>
+								<td>reason 缺失</td>
+								<td>只返回 best block。</td>
+								<td>无法解释某次选择是为了空间、磨损、冷热还是 QoS。</td>
+							</tr>
+							<tr>
+								<td>输入所有权混乱</td>
+								<td>直接读 <span class="inline-code">cold_data</span>、<span class="inline-code">last_read_retry</span>。</td>
+								<td>温度分类、介质健康和磨损统计都被 GC 流程吸收。</td>
+							</tr>
+							<tr>
+								<td>不可演进</td>
+								<td>魔法数散落。</td>
+								<td>调参无法记录版本，也无法在仿真和线上共享同一策略。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：策略接口输出结构化决策</h2>
+				<p>
+					改进版把策略定义为可替换接口。GC 只消费候选结果，策略模块负责读取特征、计算 score、
+					输出 reason 和风险标记。这样可以在不改 GC 流程的前提下演进算法。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>victim_policy.h：策略输出 score 和 reason</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_VICTIM_POLICY_H
+#define FTL_VICTIM_POLICY_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum victim_reason {
+	VICTIM_REASON_RECLAIM_EFFICIENCY = 0,
+	VICTIM_REASON_DYNAMIC_WL,
+	VICTIM_REASON_STATIC_WL,
+	VICTIM_REASON_QOS_BUDGET,
+	VICTIM_REASON_MEDIA_RISK,
+};
+
+struct victim_features {
+	u32 valid_pages;
+	u32 free_pages;
+	u32 erase_count;
+	u32 avg_erase_count;
+	u32 hotness;
+	u32 corrected_bits;
+	bool foreground_gc;
+};
+
+struct victim_candidate {
+	struct ftl_ppa block_ppa;
+	s32 score;
+	enum victim_reason reason;
+	u32 relocation_cost;
+	u32 wear_delta;
+	u32 risk_flags;
+};
+
+struct block_manager;
+
+struct victim_policy_request {
+	struct block_manager *bm;
+	bool foreground_gc;
+	u32 max_relocation_cost;
+};
+
+struct victim_policy_ops {
+	int (*score)(const struct victim_features *features,
+		     struct victim_candidate *candidate);
+};
+
+struct victim_policy {
+	const struct victim_policy_ops *ops;
+	void *private;
+};
+
+int victim_policy_select(struct victim_policy *policy,
+			 const struct victim_policy_request *req,
+			 struct victim_candidate *candidate);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>victim_policy.c：策略独立演进</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int balanced_policy_score(const struct victim_features *f,
+				 struct victim_candidate *candidate)
+{
+	s32 reclaim_score;
+	s32 wear_score;
+	s32 qos_penalty;
+
+	reclaim_score = (s32)(f-&gt;free_pages * 100) - (s32)(f-&gt;valid_pages * 4);
+	wear_score = (s32)f-&gt;avg_erase_count - (s32)f-&gt;erase_count;
+	qos_penalty = f-&gt;foreground_gc ? (s32)f-&gt;valid_pages * 8 : 0;
+
+	candidate-&gt;score = reclaim_score + wear_score - qos_penalty;
+	candidate-&gt;relocation_cost = f-&gt;valid_pages;
+	candidate-&gt;wear_delta = abs(wear_score);
+
+	if (f-&gt;corrected_bits &gt; MEDIA_RISK_CORRECTED_BITS) {
+		candidate-&gt;reason = VICTIM_REASON_MEDIA_RISK;
+		candidate-&gt;risk_flags |= VICTIM_RISK_READ_RECLAIM;
+	} else if (wear_score &gt; WEAR_LEVELING_THRESHOLD) {
+		candidate-&gt;reason = VICTIM_REASON_DYNAMIC_WL;
+	} else if (f-&gt;foreground_gc &amp;&amp; qos_penalty) {
+		candidate-&gt;reason = VICTIM_REASON_QOS_BUDGET;
+	} else {
+		candidate-&gt;reason = VICTIM_REASON_RECLAIM_EFFICIENCY;
+	}
+
+	return 0;
+}
+
+int victim_policy_select(struct victim_policy *policy,
+			 const struct victim_policy_request *req,
+			 struct victim_candidate *candidate)
+{
+	struct victim_features features;
+	struct victim_candidate best = { 0 };
+	bool found = false;
+	int ret;
+
+	block_iter_begin(req-&gt;bm);
+	while (block_iter_next_candidate(req-&gt;bm, &amp;features) == 0) {
+		struct victim_candidate current = { 0 };
+
+		current.block_ppa = features_to_block_ppa(&amp;features);
+		ret = policy-&gt;ops-&gt;score(&amp;features, &amp;current);
+		if (ret)
+			return ret;
+
+		if (!found || current.score &gt; best.score) {
+			best = current;
+			found = true;
+		}
+	}
+
+	if (!found)
+		return -ENOSPC;
+
+	*candidate = best;
+	return 0;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>策略表与思想落点表</h2>
+				<h3>策略输入与所有权表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>输入特征</th>
+								<th>所有者</th>
+								<th>策略用途</th>
+								<th>接口约束</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>valid / free page count</td>
+								<td>Block Manager</td>
+								<td>估算 relocation cost 和回收收益。</td>
+								<td>策略只读快照，不直接修正计数。</td>
+							</tr>
+							<tr>
+								<td>erase count / avg erase count</td>
+								<td>Wear Leveling 统计</td>
+								<td>估算 wear delta，判断是否需要动态均衡。</td>
+								<td>统计版本要可追踪，不能散落魔法阈值。</td>
+							</tr>
+							<tr>
+								<td>hotness / coldness</td>
+								<td>Hot/Cold Classifier</td>
+								<td>判断静态 wear leveling 是否值得迁移冷数据。</td>
+								<td>分类算法可变，策略接口保持稳定。</td>
+							</tr>
+							<tr>
+								<td>corrected bits / read retry</td>
+								<td>ECC / Read Path</td>
+								<td>把介质健康纳入 read reclaim 或 media risk。</td>
+								<td>策略输出 risk flag，不直接退役 block。</td>
+							</tr>
+							<tr>
+								<td>foreground GC / QoS budget</td>
+								<td>Scheduler / GC Request</td>
+								<td>限制高 relocation cost candidate。</td>
+								<td>策略解释选择原因，GC 执行预算。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>score 到 GC 决策映射</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>reason</th>
+								<th>score 主要来源</th>
+								<th>GC 应如何消费</th>
+								<th>不能做什么</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>RECLAIM_EFFICIENCY</td>
+								<td>低 valid ratio，高 free gain。</td>
+								<td>按普通 relocation 流程搬迁有效页并擦除 victim。</td>
+								<td>GC 不重新计算收益公式。</td>
+							</tr>
+							<tr>
+								<td>DYNAMIC_WL</td>
+								<td>erase count 与平均值差距。</td>
+								<td>记录 wear-leveling 原因，限制对前台延迟的影响。</td>
+								<td>GC 不直接修改 wear 统计。</td>
+							</tr>
+							<tr>
+								<td>STATIC_WL</td>
+								<td>冷数据长期占用低磨损 block。</td>
+								<td>以低频后台任务执行，避免扰动 hot write。</td>
+								<td>不能在前台 GC 中强行搬大量冷数据。</td>
+							</tr>
+							<tr>
+								<td>QOS_BUDGET</td>
+								<td>foreground request 和 relocation cost。</td>
+								<td>选择可在预算内完成的 victim。</td>
+								<td>不能忽略 score 直接选最低 valid count。</td>
+							</tr>
+							<tr>
+								<td>MEDIA_RISK</td>
+								<td>ECC corrected bits、read retry 次数。</td>
+								<td>触发 read reclaim 或更保守迁移。</td>
+								<td>策略不能直接把 block 标成 bad。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块：复杂算法隐藏在简单稳定接口后。</td>
+								<td>victim_policy_select() 和 victim_candidate。</td>
+								<td>GC 只接收 score 和 reason，不理解内部公式。</td>
+								<td>避免策略细节泄漏到回收流程。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性：策略和机制分离。</td>
+								<td>policy ops、features snapshot、GC request。</td>
+								<td>算法替换不改 GC 主流程。</td>
+								<td>避免每次调参都影响 relocation 和 erase 路径。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>取舍要可解释。</td>
+								<td>reason、risk_flags、relocation_cost。</td>
+								<td>每次选择必须能说明为什么选这个 block。</td>
+								<td>避免 score 成为不可审计魔法数字。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>策略是领域知识，必须使用领域语言表达。</td>
+								<td>wear pressure、hotness、cold data、media risk。</td>
+								<td>策略输入来自领域事实所有者，输出领域决策。</td>
+								<td>避免 erase count、hot/cold、ECC 信号在 GC 中混杂。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">策略表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

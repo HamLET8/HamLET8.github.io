@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 10：GC 是领域服务，不是后台线程</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 10 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+					<li><a href="day-09.html">Day 9：Recovery</a></li>
+					<li><a class="active" href="day-10.html">Day 10：GC 服务</a></li>
+					<li><a href="day-11.html">Day 11：策略分离</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">责任表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 10 · SSD / FTL 代码设计判断</p>
+				<h1>GC 是领域服务，不是后台线程：让它编排流程，而不是拥有全部知识</h1>
+				<p class="lead">
+					今天的核心判断是：GC 负责协调空间回收流程，但不应该直接拥有 victim 选择、有效页判断、
+					relocation commit、block 擦除和 free pool 归还的全部内部知识。GC 是领域服务，不是一个什么都能改的后台线程。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">GC 编排回收，不侵入 Mapping、Block、Journal 的事实所有权</span>
+					<span class="badge">涉及：GC / Mapping / Block Manager / Journal / Victim Selection</span>
+					<span class="badge">关键词：领域服务 · 协作边界 · relocation delta · valid check · erase handoff</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							GC 的接口应该像 <span class="inline-code">gc_reclaim_once()</span> 一样表达编排意图，
+							内部通过 Mapping 查询当前性、通过 Journal 提交 relocation、通过 Block Manager 推进状态。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							GC、Victim Block Selection、Mapping Table、Block Manager、Metadata Journal、
+							Free Block Pool、Wear Leveling、Bad Block Management、NAND Erase Flow。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：把协调和所有权分开</h2>
+				<p>
+					GC 很容易变成系统里权限最大的函数，因为它要读 mapping、搬 page、擦 block、补 free pool。
+					但这正是边界最需要收紧的地方。GC 的价值在于编排，而不是成为第二套 Mapping、第二套 Block Manager。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块把复杂度藏在稳定接口后面。GC 不应绕过深模块直接修改内部状态。</td>
+								<td>GC 不直接改 L2P、valid count、block state；它调用 Mapping、Block Manager、Journal 的领域接口。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性要求一个知识只有一个所有者。空间压力、有效性、状态推进不能散在一个大线程里。</td>
+								<td>GC 只保留流程知识；victim 分数、page 当前性、擦除结果处理分别由策略和模块负责。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>好的设计不是把所有需求放到一个中心，而是选择清晰协作形状。</td>
+								<td>GC 的设计取舍是“编排器 + 协作接口”，不是“超级后台任务”。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域服务用于表达跨聚合流程，但不接管聚合内部不变量。</td>
+								<td>GC 是跨 Mapping、Block、Journal 的领域服务；Mapping 和 Block 仍拥有各自事实。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：GC 应该是一条可审计的协作链</h2>
+				<p>
+					GC 的复杂度来自跨模块：它要基于空间压力触发、选择 victim、识别有效页、搬迁数据、提交映射、
+					擦除 block、归还 free pool。把这些都写进一个线程会让每个模块的事实所有权失效。
+					更稳的设计是让 GC 只掌握流程阶段，每个阶段通过领域接口向真正所有者发请求。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					GC 是领域服务，它的职责是把“空间回收”这个业务过程串起来；它不应成为 Mapping、Block Manager、
+					Journal、Wear Leveling 的替身。只要 GC 直接写它们的内部字段，恢复语义和长期演进都会被破坏。
+				</div>
+				<div class="diagram" aria-label="GC 领域服务协作链">
+					<svg viewBox="0 0 1180 440" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="key" x="42" y="74" width="176" height="82" rx="12"></rect>
+						<text class="t" x="130" y="104" text-anchor="middle">GC Service</text>
+						<text class="s" x="130" y="128" text-anchor="middle">orchestrate reclaim</text>
+						<text class="s" x="130" y="146" text-anchor="middle">own workflow only</text>
+						<path class="line" d="M218 115 L272 115"></path>
+						<rect class="box" x="272" y="74" width="150" height="82" rx="12"></rect>
+						<text class="t" x="347" y="104" text-anchor="middle">Victim Policy</text>
+						<text class="s" x="347" y="128" text-anchor="middle">score + reason</text>
+						<path class="line" d="M422 115 L476 115"></path>
+						<rect class="box" x="476" y="74" width="150" height="82" rx="12"></rect>
+						<text class="t" x="551" y="104" text-anchor="middle">Mapping</text>
+						<text class="s" x="551" y="128" text-anchor="middle">is-current check</text>
+						<path class="line" d="M626 115 L680 115"></path>
+						<rect class="box" x="680" y="74" width="150" height="82" rx="12"></rect>
+						<text class="t" x="755" y="104" text-anchor="middle">Journal</text>
+						<text class="s" x="755" y="128" text-anchor="middle">relocation delta</text>
+						<path class="line" d="M830 115 L884 115"></path>
+						<rect class="box" x="884" y="74" width="150" height="82" rx="12"></rect>
+						<text class="t" x="959" y="104" text-anchor="middle">Block Manager</text>
+						<text class="s" x="959" y="128" text-anchor="middle">erase + free pool</text>
+
+						<path class="dash" d="M130 156 C130 218, 302 224, 326 260"></path>
+						<path class="dash" d="M551 156 C551 218, 524 224, 502 260"></path>
+						<path class="dash" d="M959 156 C959 218, 800 224, 778 260"></path>
+						<rect class="warn" x="238" y="276" width="176" height="82" rx="12"></rect>
+						<text class="t" x="326" y="306" text-anchor="middle">GC owns only</text>
+						<text class="s" x="326" y="330" text-anchor="middle">plan / stage / budget</text>
+						<rect class="warn" x="442" y="276" width="176" height="82" rx="12"></rect>
+						<text class="t" x="530" y="306" text-anchor="middle">Facts stay local</text>
+						<text class="s" x="530" y="330" text-anchor="middle">L2P / P2L / current seq</text>
+						<rect class="warn" x="646" y="276" width="176" height="82" rx="12"></rect>
+						<text class="t" x="734" y="306" text-anchor="middle">State stays local</text>
+						<text class="s" x="734" y="330" text-anchor="middle">VICTIM / ERASING / FREE</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Free Block Pressure</h3>
+						<p>GC 根据 free block 水位和写入预算启动，但水位计算来自 Block Manager，GC 不直接维护 free pool。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Victim Block Selection</h3>
+						<p>GC 请求策略模块给出 victim candidate、score 和 reason；它不在流程中散落 erase count、valid count、冷热判断。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Valid Page Relocation</h3>
+						<p>GC 搬迁前调用 Mapping 做 current check，只有当前 LBA 版本才构造 relocation delta。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Metadata Journal</h3>
+						<p>每个 relocation delta 先 journal append，再 commit mapping；掉电后 Recovery 能重复 replay。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>NAND Erase Flow</h3>
+						<p>GC 只请求 Block Manager 从 VICTIM 进入 ERASING；erase 结果由 Block Manager 决定 FREE 或 RETIRED。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Management</h3>
+						<p>erase fail 不是 GC 私有错误，必须走坏块退役路径，避免失败 block 被重新加入 free pool。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：GC 线程拥有太多内部知识</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把 victim 选择、mapping 判断、page 搬迁、valid count、erase、free pool 更新全部写在 GC 线程里。
+					它看似集中，实际是在复制多个模块的知识。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：GC 直接修改 Mapping 和 Block 内部状态</span>
+						<span>C</span>
+					</div>
+					<pre><code>int gc_thread_bad(struct ftl_dev *ftl)
+{
+	struct ftl_block *victim = NULL;
+	struct ftl_page *page;
+	struct ftl_ppa new_ppa;
+	int i;
+	int ret;
+
+	for (i = 0; i &lt; ftl-&gt;nr_blocks; i++) {
+		struct ftl_block *blk = &amp;ftl-&gt;blocks[i];
+
+		if (blk-&gt;bad || blk-&gt;open || blk-&gt;free)
+			continue;
+		if (!victim || blk-&gt;valid_pages &lt; victim-&gt;valid_pages)
+			victim = blk;
+	}
+
+	if (!victim)
+		return -ENOSPC;
+
+	victim-&gt;victim = true;
+
+	for_each_page(victim, page) {
+		if (!page-&gt;valid)
+			continue;
+		if (ftl-&gt;l2p[page-&gt;lba].block != victim-&gt;id)
+			continue;
+
+		ret = block_alloc_page(ftl-&gt;bm, &amp;new_ppa);
+		if (ret)
+			return ret;
+
+		ret = nand_program_page(ftl-&gt;nand, &amp;new_ppa, page-&gt;data);
+		if (ret)
+			return ret;
+
+		ftl-&gt;l2p[page-&gt;lba] = new_ppa;
+		page-&gt;valid = false;
+		victim-&gt;valid_pages--;
+	}
+
+	ret = nand_erase_block(ftl-&gt;nand, victim-&gt;id);
+	if (ret)
+		victim-&gt;bad = true;
+	else
+		free_pool_push(ftl-&gt;free_pool, victim);
+
+	return ret;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>策略和流程耦合</td>
+								<td>victim 选择直接写在 GC 循环里。</td>
+								<td>Wear Leveling、冷热数据、QoS 策略无法独立演进。</td>
+							</tr>
+							<tr>
+								<td>Mapping 所有权泄漏</td>
+								<td>GC 直接读写 <span class="inline-code">l2p</span>。</td>
+								<td>无法做条件提交、journal replay 和并发当前性校验。</td>
+							</tr>
+							<tr>
+								<td>Block 状态污染</td>
+								<td>直接改 <span class="inline-code">victim</span>、<span class="inline-code">valid_pages</span>、<span class="inline-code">bad</span>。</td>
+								<td>状态机被绕过，Recovery 无法解释 block 停在哪个阶段。</td>
+							</tr>
+							<tr>
+								<td>错误路径无补偿</td>
+								<td>program fail 后直接返回。</td>
+								<td>新分配 page、journal、mapping、old page 状态没有统一收敛。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：GC 只编排领域协作</h2>
+				<p>
+					改进版把 GC 定义为领域服务。GC 生成 reclaim plan，向策略模块拿 candidate，
+					向 Mapping 提交 relocation delta，向 Block Manager 推进 victim 和 erase 状态。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>gc_service.h：GC 服务接口</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_GC_SERVICE_H
+#define FTL_GC_SERVICE_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum gc_reason {
+	GC_REASON_LOW_FREE_BLOCKS = 0,
+	GC_REASON_WRITE_BUDGET,
+	GC_REASON_WEAR_LEVELING,
+};
+
+struct gc_request {
+	enum gc_reason reason;
+	u32 target_free_blocks;
+	u32 max_pages_to_move;
+	bool allow_foreground_gc;
+};
+
+struct gc_reclaim_result {
+	u32 moved_pages;
+	u32 reclaimed_blocks;
+	u32 retired_blocks;
+	int last_errno;
+};
+
+struct gc_service;
+
+int gc_reclaim_once(struct gc_service *gc, const struct gc_request *req,
+		    struct gc_reclaim_result *result);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>gc_service.c：流程编排，不直接拥有事实</span>
+						<span>C</span>
+					</div>
+					<pre><code>static int gc_move_valid_page(struct gc_service *gc,
+			      const struct ftl_ppa *old_ppa,
+			      struct gc_reclaim_result *result)
+{
+	struct mapping_relocation_delta delta;
+	struct ftl_ppa new_ppa;
+	int ret;
+
+	ret = map_build_relocation_delta(gc-&gt;map, old_ppa, &amp;delta);
+	if (ret == -ENOENT)
+		return 0;
+	if (ret)
+		return ret;
+
+	ret = block_alloc_page(gc-&gt;bm, &amp;new_ppa);
+	if (ret)
+		return ret;
+
+	delta.new_ppa = new_ppa;
+
+	ret = nand_copy_page(gc-&gt;nand, old_ppa, &amp;new_ppa);
+	if (ret)
+		goto err_copy;
+
+	ret = journal_append_relocation(gc-&gt;journal, &amp;delta);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_relocation_if_current(gc-&gt;map, &amp;delta);
+	if (ret)
+		goto err_mapping;
+
+	ret = block_commit_relocated_page(gc-&gt;bm, &amp;delta);
+	if (ret)
+		return ret;
+
+	result-&gt;moved_pages++;
+	return 0;
+
+err_mapping:
+	gc_mark_recovery_required(gc, GC_RECOVERY_REPLAY_RELOCATION);
+	return ret;
+
+err_journal:
+	block_mark_orphan(gc-&gt;bm, &amp;new_ppa);
+	return ret;
+
+err_copy:
+	block_apply_program_failure(gc-&gt;bm, &amp;new_ppa, ret);
+	return ret;
+}
+
+int gc_reclaim_once(struct gc_service *gc, const struct gc_request *req,
+		    struct gc_reclaim_result *result)
+{
+	struct victim_candidate victim;
+	struct ftl_ppa page_ppa;
+	int ret;
+
+	memset(result, 0, sizeof(*result));
+
+	ret = victim_select(gc-&gt;victim_policy, req, &amp;victim);
+	if (ret)
+		return ret;
+
+	ret = block_begin_gc_victim(gc-&gt;bm, &amp;victim.block_ppa);
+	if (ret)
+		return ret;
+
+	while (block_next_valid_page(gc-&gt;bm, &amp;victim.block_ppa, &amp;page_ppa) == 0) {
+		ret = gc_move_valid_page(gc, &amp;page_ppa, result);
+		if (ret)
+			return ret;
+		if (result-&gt;moved_pages &gt;= req-&gt;max_pages_to_move)
+			return -EAGAIN;
+	}
+
+	ret = block_erase_victim(gc-&gt;bm, &amp;victim.block_ppa);
+	if (ret == -EIO)
+		result-&gt;retired_blocks++;
+	else if (!ret)
+		result-&gt;reclaimed_blocks++;
+
+	return ret;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>责任表与思想落点表</h2>
+				<h3>GC 协作责任矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>协作点</th>
+								<th>GC 负责</th>
+								<th>其他模块负责</th>
+								<th>禁止做法</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>触发条件</td>
+								<td>根据空间压力和预算发起 reclaim request。</td>
+								<td>Block Manager 提供 free block 水位和状态统计。</td>
+								<td>GC 自己维护一份 free pool 影子状态。</td>
+							</tr>
+							<tr>
+								<td>Victim 选择</td>
+								<td>请求 candidate，记录 reason。</td>
+								<td>策略模块计算 score，Wear Leveling 提供磨损压力。</td>
+								<td>GC 流程里硬编码 score 公式。</td>
+							</tr>
+							<tr>
+								<td>有效页判断</td>
+								<td>按页请求 relocation delta。</td>
+								<td>Mapping 判断 old PPA 是否仍是当前版本。</td>
+								<td>GC 直接读取并改写 L2P。</td>
+							</tr>
+							<tr>
+								<td>提交搬迁</td>
+								<td>编排 copy、journal、mapping commit、block commit。</td>
+								<td>Journal 保证可恢复记录，Mapping 条件提交，Block 推进 page 状态。</td>
+								<td>program 后直接替换 mapping。</td>
+							</tr>
+							<tr>
+								<td>擦除归还</td>
+								<td>请求 block erase victim。</td>
+								<td>Block Manager 根据 erase 结果转 FREE 或 RETIRED。</td>
+								<td>GC 直接把 block push 到 free pool。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>GC 阶段错误路径矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>阶段</th>
+								<th>失败</th>
+								<th>领域解释</th>
+								<th>补偿所有者</th>
+								<th>返回语义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Victim begin</td>
+								<td>状态不允许进入 VICTIM。</td>
+								<td>candidate 已过期或 block 正被其他流程接管。</td>
+								<td>Block Manager</td>
+								<td><span class="inline-code">-ESTALE</span></td>
+							</tr>
+							<tr>
+								<td>Copy page</td>
+								<td>program fail。</td>
+								<td>new PPA 未提交，可能需要退役 open block。</td>
+								<td>Block Manager / Bad Block</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Journal append</td>
+								<td>relocation delta 未持久化。</td>
+								<td>new page 不能成为当前 mapping。</td>
+								<td>Journal / Block Manager</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Mapping commit</td>
+								<td>old PPA 已非当前。</td>
+								<td>该页已被前台写替换，GC 应跳过或标记旧页无效。</td>
+								<td>Mapping Table</td>
+								<td><span class="inline-code">-ESTALE</span> 可收敛</td>
+							</tr>
+							<tr>
+								<td>Erase victim</td>
+								<td>erase fail。</td>
+								<td>block 不能回 free pool。</td>
+								<td>Bad Block Management</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块和信息隐藏。</td>
+								<td>Mapping、Block Manager、Journal 的 GC-facing 接口。</td>
+								<td>GC 不能绕过模块直接改内部状态。</td>
+								<td>避免 GC 成为复杂度黑洞。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性和知识唯一化。</td>
+								<td>GC request、victim candidate、relocation delta。</td>
+								<td>策略知识、状态知识、映射知识分别只有一个所有者。</td>
+								<td>避免 valid count、erase count、冷热判断散落。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念完整性优先于局部方便。</td>
+								<td>GC 编排器与协作接口的形状。</td>
+								<td>新增功能必须落在合适协作点，而不是继续扩大 GC 线程。</td>
+								<td>避免后台任务吞掉所有设计边界。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域服务协调跨聚合流程，但不拥有聚合内部不变量。</td>
+								<td>GC Service、Mapping Aggregate、Block Aggregate、Journal Service。</td>
+								<td>GC 只表达 reclaim 过程，不拥有 L2P 或 block 生命周期事实。</td>
+								<td>避免 Recovery、GC、Mapping 的语言混乱。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">责任表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

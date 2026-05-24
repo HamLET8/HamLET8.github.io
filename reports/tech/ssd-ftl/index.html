@@ -322,12 +322,24 @@
 				</div>
 				<p>Recovery 分为扫描、重放、校验、接管四阶段，避免 mount 路径混入正常写路径细节。</p>
 			</a>
+			<a class="card ready" href="day-10.html">
+				<div class="card-title">
+					<span>Day 10：GC 是领域服务，不是后台线程</span>
+					<span class="status ready">Ready</span>
+				</div>
+				<p>GC 编排空间回收流程，victim 选择、有效页判断、提交和擦除分别由对应模块负责。</p>
+			</a>
+			<a class="card ready" href="day-11.html">
+				<div class="card-title">
+					<span>Day 11：Victim Selection 与 Wear Leveling 策略分离</span>
+					<span class="status ready">Ready</span>
+				</div>
+				<p>选择策略输出 score 和 reason，GC 流程不散落 erase count、valid count、hot/cold 判断。</p>
+			</a>
 		</div>
 
 		<h2>待生成</h2>
 		<div class="grid">
-			<div class="card"><div class="card-title"><span>Day 10：GC 是领域服务</span><span class="status">Pending</span></div><p>GC 编排空间回收，不拥有全部内部知识。</p></div>
-			<div class="card"><div class="card-title"><span>Day 11：Victim Selection 与 Wear Leveling</span><span class="status">Pending</span></div><p>策略输出 score 和理由。</p></div>
 			<div class="card"><div class="card-title"><span>Day 12：SLC Cache / WriteBooster</span><span class="status">Pending</span></div><p>写入加速上下文与主 FTL 写路径分离。</p></div>
 			<div class="card"><div class="card-title"><span>Day 13：Read Retry、ECC</span><span class="status">Pending</span></div><p>返回数据可信度和恢复动作建议。</p></div>
 			<div class="card"><div class="card-title"><span>Day 14：Bad Block Management</span><span class="status">Pending</span></div><p>坏块隔离、替换、退役和统计归属清晰。</p></div>
