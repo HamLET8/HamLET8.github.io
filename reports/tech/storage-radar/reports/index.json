@@ -1,6 +1,18 @@
 {
-  "generatedAt": "2026-05-23T05:23:28+08:00",
+  "generatedAt": "2026-05-26T05:25:43+08:00",
   "reports": [
+    {
+      "id": "report-2026-05-26-gpt-linux-storage",
+      "title": "Linux Storage Technical Reading · 2026-05-26 · GPT",
+      "date": "2026-05-26",
+      "generatedAt": "2026-05-26T05:25:43+08:00",
+      "snapshotGeneratedAt": "2026-05-11T12:39:46.482Z",
+      "insightsGeneratedAt": null,
+      "model": "GPT-5.5 / Codex-side",
+      "itemCount": 5,
+      "path": "./reports/report-2026-05-26-gpt-linux-storage.html",
+      "summary": "精选 UFS PHY 状态/gear 切换、iSCSI ECDB AHS 长度验证、SCSI host locking、blk-mq request/quiesce 不变量，以及 smartpqi reset recovery。"
+    },
     {
       "id": "report-2026-05-23-gpt-linux-storage",
       "title": "Linux Storage Technical Reading · 2026-05-23 · GPT",

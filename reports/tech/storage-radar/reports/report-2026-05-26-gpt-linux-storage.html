@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Linux Storage Technical Reading · 2026-05-26 · GPT</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css">
+    <style>
+      .technical-report .report-hero h1{max-width:1060px}.technical-report .lead{max-width:1010px;font-size:16px;line-height:1.78;color:var(--muted)}
+      .source-note{padding:15px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong);color:var(--muted);font-size:13px;line-height:1.72}
+      .topic-stack{display:grid;gap:18px;margin-top:18px}.topic{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}.topic>header{padding:18px;border-bottom:1px solid var(--line)}.topic>header h2{margin:7px 0 0;max-width:1000px;font-size:24px;line-height:1.25;letter-spacing:0}
+      .topic-body{display:grid;gap:16px;padding:18px}.topic-body h3{margin:0 0 8px;color:var(--ink);font-size:16px;line-height:1.35;letter-spacing:0}.topic-body p,.topic-body li{color:var(--muted);font-size:14px;line-height:1.74}.topic-body p{margin:0}.topic-body ul{margin:0;padding-left:20px}
+      .topic-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,.72fr);gap:14px}.box{padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong)}.box strong{color:var(--ink)}
+      .source-tag{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid var(--line);border-radius:999px;color:var(--subtle);font-size:11px;font-weight:700;text-transform:uppercase}.source-tag.fact{color:var(--accent-hover);background:var(--accent-soft);border-color:rgba(94,106,210,.28)}.source-tag.gpt{color:var(--ink);background:var(--panel)}
+      .diagram{padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-strong);overflow-x:auto}.diagram-title{margin-bottom:10px;color:var(--subtle);font-size:12px;font-weight:700;text-transform:uppercase}
+      .flow{display:grid;gap:10px;min-width:760px}.flow-row{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;align-items:stretch}.flow-row.four{grid-template-columns:repeat(4,minmax(150px,1fr))}.flow-row.three{grid-template-columns:repeat(3,minmax(190px,1fr));min-width:640px}.flow-node{display:grid;align-content:center;min-height:86px;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.flow-node b{color:var(--ink);font-size:12px;line-height:1.35}.flow-node span{margin-top:5px;color:var(--subtle);font-size:11px;line-height:1.45}.edge{display:grid;place-items:center;color:var(--accent-hover);font-family:var(--font-mono);font-size:18px;font-weight:700}
+      .split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.matrix{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:8px;overflow:hidden}.matrix th,.matrix td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px;line-height:1.58}.matrix th{color:var(--subtle);background:var(--panel-strong);font-weight:700}.matrix td{color:var(--muted)}
+      .reading-map{display:grid;gap:1px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--line)}.reading-map a{display:grid;grid-template-columns:116px minmax(0,1fr);gap:12px;padding:13px 14px;background:var(--panel);color:inherit;text-decoration:none}.reading-map a:hover{background:var(--panel-strong)}.reading-map span{color:var(--subtle);font-size:12px;font-family:var(--font-mono)}.reading-map strong{color:var(--ink);font-size:14px}.reading-map p{margin:5px 0 0;color:var(--subtle);font-size:12px;line-height:1.55}
+      .source-links{display:flex;flex-wrap:wrap;gap:8px}.source-links a{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink);background:var(--panel-strong);font-size:12px;text-decoration:none}.source-links a:hover{border-color:rgba(94,106,210,.45);color:var(--accent-hover)}
+      .state-svg{width:100%;min-width:800px;height:auto}.state-svg text{fill:var(--muted);font-family:var(--font-sans);font-size:12px}.state-svg .title{fill:var(--ink);font-weight:700}.state-svg .rect{fill:var(--panel);stroke:var(--line);stroke-width:1.3;rx:8}.state-svg .hot{fill:var(--accent-soft);stroke:rgba(94,106,210,.55)}.state-svg .warn{fill:rgba(239,115,90,.10);stroke:rgba(239,115,90,.45)}.state-svg .arrow,.state-svg .arrow2{stroke:var(--accent-hover);stroke-width:1.6;fill:none}.state-svg .arrow{marker-end:url(#arrow)}.state-svg .arrow2{marker-end:url(#arrow2)}
+      @media(max-width:900px){.topic-grid,.split{grid-template-columns:1fr}.reading-map a{grid-template-columns:1fr}.flow,.flow-row.three,.state-svg{min-width:680px}}
+    </style>
+  </head>
+  <body>
+    <div class="report-page-shell technical-report"><main class="report-page">
+      <nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav>
+      <header class="report-hero">
+        <p class="eyebrow">GPT-side technical reading</p>
+        <h1>Linux Storage Technical Reading · 2026-05-26</h1>
+        <p class="lead">本期继续把 2026-05-11 的本地 snapshot 当作系统知识索引，但避开前两期已经展开过的主题。重点放在五类更接近长期工程能力的问题：UFS PHY 状态边界、iSCSI target 命令解析的长度验证、SCSI host state 的锁语义、blk-mq request/quiesce 不变量，以及 PCIe RAID 控制器 reset recovery。它们表面上分属 UFS、SCSI target、block 和驱动恢复路径，本质都在回答同一个问题：状态机的 owner、时序和异常入口是否可证明。</p>
+        <div class="report-stats"><span>Generated 2026-05-26T05:25:43+08:00</span><span>Snapshot 2026-05-11T12:39:46.482Z</span><span>insights.json missing</span><span>5 deep topics</span></div>
+      </header>
+
+      <section class="report-section">
+        <div class="report-section-head"><p class="eyebrow">Source caveat</p><h2>本期数据边界</h2></div>
+        <div class="topic-body">
+          <p class="source-note"><span class="source-tag fact">snapshot fact</span> 本报告读取了本地 <code>data/snapshot.json</code>、<code>reports/index.json</code> 和现有报告页面结构。项目中没有独立的 <code>data/insights.json</code> 文件；本期不调用工作站 Ollama，正文由 Codex 侧 GPT 分析完成。patch 事实只采用 snapshot 中保存的标题、状态、提交者、时间、系列名、风险标签、signals、context excerpt、文件路径和 URL。<span class="source-tag gpt">GPT interpretation</span> 标记的内容是基于 Linux storage 常见代码路径的解释和 review 框架，不当作 patch 作者原文。部分条目只有标题级事实，没有完整 diff 或 list 讨论，因此本报告会明确把具体机制说明为推理；syzbot 条目仍只有标题/摘要级信息，本期只放在 brief notes，不伪造 reproducer 或 console 细节。</p>
+          <div class="reading-map">
+            <a href="#ufs-phy"><span>Topic 01</span><div><strong>UFS QCOM PHY state and gear switching</strong><p>PHY init/power/gear 的 owner 必须从隐含顺序变成显式状态。</p></div></a>
+            <a href="#iscsi-ahs"><span>Topic 02</span><div><strong>iSCSI target ECDB AHS length validation</strong><p>网络输入进入 SCSI CDB 前，长度语义必须先闭合。</p></div></a>
+            <a href="#scsi-lock"><span>Topic 03</span><div><strong>SCSI host state lock context</strong><p>host state 不是普通字段，必须绑定锁上下文。</p></div></a>
+            <a href="#blk-mq"><span>Topic 04</span><div><strong>blk-mq cached request and quiesce depth</strong><p>submit fast path 和 queue freeze 都依赖细粒度不变量。</p></div></a>
+            <a href="#smartpqi-reset"><span>Topic 05</span><div><strong>smartpqi PCIe hot reset recovery</strong><p>reset 恢复不是“等一会儿”，而是 host/device 协议重新收敛。</p></div></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="topic-stack">
+        <article class="topic" id="ufs-phy">
+          <header><div class="report-meta"><span>UFS / QCOM</span><span>Generic PHY API</span><span>power state</span><span>dynamic gear</span></div><h2>1. UFS QCOM PHY：把 init、power 和 gear 切换从隐含顺序改成显式状态</h2></header>
+          <div class="topic-body">
+            <div class="topic-grid">
+              <div class="box">
+                <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                <ul>
+                  <li>snapshot 记录了 Vladimir Oltean 的 <code>Split Generic PHY consumer and provider API</code> v8 系列，其中 UFS 相关条目状态为 <code>not-applicable</code>，说明本地 snapshot 不把它们当作当前待合入 UFS patch。</li>
+                  <li>UFS 相关标题包括：<code>ufs-qcom: call phy_init() before phy_power_on()</code>、<code>ufs-qcom: make use of QMP PHY dynamic gear switching ability</code>、<code>ufs-qcom: keep separate track of PHY power state</code>、<code>ufs: exynos: use dedicated API for updating PHY bus width</code>。</li>
+                  <li>风险标签集中在 <code>platform</code> 和 <code>reset</code>；snapshot 没有保存完整 diff 或 context excerpt。</li>
+                </ul>
+              </div>
+              <div class="box">
+                <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                <p>UFS host driver 与 PHY provider 的关系很容易被写成“probe 里按经验调用几个函数”。但高速链路下，PHY init、power on、lane/bus width、gear 切换、runtime suspend/resume 和 reset recovery 都是状态机边。如果内核只靠调用顺序隐含状态，某个 error path 或 PM path 很容易重复 power-on、漏掉 init，或者在 PHY 已断电时做 gear 切换。</p>
+              </div>
+            </div>
+            <div class="diagram">
+              <div class="diagram-title">UFS PHY state ownership after API split</div>
+              <svg class="state-svg" viewBox="0 0 920 330" role="img" aria-label="UFS PHY state ownership diagram">
+                <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path></marker></defs>
+                <rect class="rect" x="30" y="45" width="155" height="76"></rect><text class="title" x="58" y="76">UFS probe</text><text x="58" y="99">resources and caps</text>
+                <rect class="rect hot" x="250" y="35" width="168" height="92"></rect><text class="title" x="276" y="68">PHY init</text><text x="276" y="90">program static state</text><text x="276" y="110">before power on</text>
+                <rect class="rect" x="485" y="45" width="158" height="76"></rect><text class="title" x="513" y="76">PHY power</text><text x="513" y="99">separate on/off owner</text>
+                <rect class="rect" x="715" y="45" width="155" height="76"></rect><text class="title" x="744" y="76">Link startup</text><text x="744" y="99">UniPro + PA params</text>
+                <rect class="rect" x="250" y="205" width="168" height="76"></rect><text class="title" x="278" y="236">Gear switch</text><text x="278" y="258">provider capability</text>
+                <rect class="rect warn" x="485" y="205" width="158" height="76"></rect><text class="title" x="514" y="236">PM / reset</text><text x="514" y="258">must replay legal states</text>
+                <path class="arrow" d="M185 83 H250"></path><path class="arrow" d="M418 83 H485"></path><path class="arrow" d="M643 83 H715"></path><path class="arrow" d="M792 121 C778 190 690 230 643 242"></path><path class="arrow" d="M485 243 H418"></path><path class="arrow" d="M334 205 V127"></path>
+              </svg>
+            </div>
+            <div class="split">
+              <div class="box">
+                <h3>Patch 的修复逻辑</h3>
+                <p><span class="source-tag gpt">GPT interpretation</span> 从标题看，这组 patch 的价值不是某个 SoC 多支持一个 helper，而是把 Generic PHY consumer/provider API 的职责切开：consumer 不应直接假设 provider 的内部上电状态；provider 能表达 dynamic gear switching 能力；UFS QCOM driver 必须在 <code>phy_power_on()</code> 前完成 <code>phy_init()</code>；driver 还要单独记录 PHY power state，避免 link state 和 power state 被混成一个布尔值。</p>
+              </div>
+              <div class="box">
+                <h3>Review 时看什么</h3>
+                <ul>
+                  <li>所有 PM 和 reset path 是否遵循同一条 <code>init → power_on → configure gear → link startup</code> 序列。</li>
+                  <li>dynamic gear switching 是否只在 provider 明确支持时使用，失败后是否回到可诊断状态。</li>
+                  <li>新增状态变量是否真正防止重复 power-on/off，而不是制造另一个可能失真的 shadow state。</li>
+                  <li>Exynos/QCOM 等 host 的 bus width 或 gear API 是否保持同一层级的抽象，不把 provider 私有寄存器泄漏给 core。</li>
+                </ul>
+              </div>
+            </div>
+            <table class="matrix"><thead><tr><th>对 UFS 固件开发的启发</th><th>对应检查点</th></tr></thead><tbody><tr><td>固件看到的 link startup failure 可能源自 host PHY 状态顺序错误。</td><td>抓日志时同时记录 ref clock、PHY power、PA gear/lane、hibern8 状态，而不是只看 UIC error code。</td></tr><tr><td>动态 gear 切换不是性能开关，它改变 PHY/provider 与 host/core 的契约。</td><td>确认 gear switch 前后是否 quiesce I/O，是否有失败回滚和 retrain 证据。</td></tr></tbody></table>
+            <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260505100523.1922388-12-vladimir.oltean@nxp.com/" target="_blank" rel="noreferrer">phy_init before power_on</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260505100523.1922388-13-vladimir.oltean@nxp.com/" target="_blank" rel="noreferrer">dynamic gear switching</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260505100523.1922388-14-vladimir.oltean@nxp.com/" target="_blank" rel="noreferrer">separate PHY power state</a></div>
+          </div>
+        </article>
+
+        <article class="topic" id="iscsi-ahs">
+          <header><div class="report-meta"><span>SCSI target</span><span>iSCSI</span><span>input validation</span><span>FORTIFY</span></div><h2>2. iSCSI target ECDB AHS：命令解析器必须先验证长度，再产生 CDB 语义</h2></header>
+          <div class="topic-body">
+            <div class="topic-grid">
+              <div class="box">
+                <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                <ul>
+                  <li>条目：<code>scsi: target: iscsi: validate ECDB AHS length</code>，文件为 <code>drivers/target/iscsi/iscsi_target.c</code>，状态 new，signal 为 needs review。</li>
+                  <li>snapshot excerpt 指出 <code>iscsit_setup_scsi_cmd()</code> 处理 Extended-CDB Additional Header Segment 时没有先约束 <code>AHSLength</code>，尽管附近已有 long-standing FIXME。</li>
+                  <li>恶意 Command PDU 在 login 后携带 <code>hlength=1</code>、<code>ahstype=ISCSI_AHSTYPE_CDB</code>、<code>ahslength=0</code>，会走到 <code>kmalloc(0 + 15)</code>、随后 16 字节 memcpy 到 15 字节声明目标，非 FORTIFY 情况下还可能进入 <code>size_t</code> 下溢的第二次 memcpy。</li>
+                  <li>excerpt 明确说触发者是完成 login 的 initiator；作者没有声称 RCE、LPE 或 controlled write。</li>
+                </ul>
+              </div>
+              <div class="box">
+                <h3><span class="source-tag gpt">GPT interpretation</span> Linux storage 路径</h3>
+                <p>这是网络协议输入进入 SCSI command 的边界。iSCSI target 收到 PDU 后要生成内核内部的 CDB 表示，再交给 target core。问题不在 SCSI 命令本身复杂，而在 Additional Header Segment 的长度字段同时影响 allocation size、copy size 和指针偏移。一旦这些单位没有先闭合，后面的 target/SCSI 语义都已经建立在坏内存对象上。</p>
+              </div>
+            </div>
+            <div class="diagram">
+              <div class="diagram-title">Malformed ECDB AHS path before validation</div>
+              <div class="flow">
+                <div class="flow-row">
+                  <div class="flow-node"><b>iSCSI Login</b><span>initiator reaches command phase</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>Command PDU</b><span>hlength=1, ECDB AHS, ahslength=0</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>setup_scsi_cmd</b><span>old path trusts AHS shape too early</span></div>
+                </div>
+                <div class="flow-row">
+                  <div class="flow-node"><b>kmalloc(15)</b><span>length derived from invalid ECDB value</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>copy 16 bytes</b><span>FORTIFY catches declared object overflow</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>size_t underflow</b><span>second copy can become effectively unbounded</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="split">
+              <div class="box">
+                <h3>Patch 的修复逻辑</h3>
+                <p><span class="source-tag fact">snapshot fact</span> excerpt 说修复是在任何 dereference 和 allocation 之前验证：socket 中收到的 AHS 区域至少包含 4 字节 <code>iscsi_ecdb_ahdr</code>，ECDB AHS 的 <code>AHSLength</code> 至少为 1，并且后续长度换算不会造成短分配或下溢。<span class="source-tag gpt">GPT interpretation</span> 这就是把 parser 分成两阶段：先证明输入 buffer 结构完整，再把它转成内核 CDB 对象。</p>
+              </div>
+              <div class="box">
+                <h3>Review 时看什么</h3>
+                <ul>
+                  <li><code>hlength</code>、<code>ahslength</code>、字节数和 32-bit word 数是否统一换算，避免 off-by-one。</li>
+                  <li>验证是否发生在所有 dereference、allocation、memcpy 之前。</li>
+                  <li>错误返回是否清理半初始化 command，不把坏 CDB 继续交给 target core。</li>
+                  <li>FORTIFY 触发只是症状；非 FORTIFY 下的第二次 memcpy 下溢才是必须一起覆盖的语义漏洞。</li>
+                </ul>
+              </div>
+            </div>
+            <table class="matrix"><thead><tr><th>对 UFS/固件的启发</th><th>可迁移规则</th></tr></thead><tbody><tr><td>UFS 也有 query request、descriptor、RPMB frame、vendor command 等外部输入。</td><td>先验证长度字段和对象边界，再生成内部命令对象；不要让 copy helper 同时承担验证和构造。</td></tr><tr><td>固件 parser 的“只在 debug/厂内可达”经常会变成 host/tooling 可达。</td><td>把可达性、认证状态、最短长度、最大长度和单位换算写成表，而不是散在 memcpy 旁边。</td></tr></tbody></table>
+            <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260507142559.2373177-1-mendozayt13@gmail.com/" target="_blank" rel="noreferrer">Patchwork</a></div>
+          </div>
+        </article>
+
+        <article class="topic" id="scsi-lock">
+          <header><div class="report-meta"><span>SCSI core</span><span>host state</span><span>locking</span><span>56-patch series</span></div><h2>3. SCSI host state：锁上下文不是注释，是状态机的一部分</h2></header>
+          <div class="topic-body">
+            <div class="topic-grid">
+              <div class="box">
+                <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                <ul>
+                  <li>snapshot 记录 Bart Van Assche 的 <code>Enable lock context analysis for the SCSI subsystem</code> v2 系列，至少包括 <code>[55/56] scsi: core: Enable lock context analysis</code> 和 <code>[56/56] scsi: core: Protect host state changes with the host lock</code>。</li>
+                  <li>这两条状态为 new，风险标签 <code>locking</code>，signal 为 needs review；snapshot 没有保存具体 diff 或 context excerpt。</li>
+                  <li>同一系列还覆盖具体 low-level driver，例如 <code>sym53c8xx_2</code> 的 lock context analysis。</li>
+                </ul>
+              </div>
+              <div class="box">
+                <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                <p>SCSI host state 影响 scan、queue command、error handling、device removal、runtime PM 和 transport recovery。它不是一个普通 enum 字段。如果 state change 可以在不同锁上下文中发生，review 很难证明 queue 是否仍能提交命令、error handler 是否能推进、remove 是否会和 timeout/reset 交错。</p>
+              </div>
+            </div>
+            <div class="diagram">
+              <div class="diagram-title">Wait-for and mutation graph around host state</div>
+              <svg class="state-svg" viewBox="0 0 930 340" role="img" aria-label="SCSI host state lock graph">
+                <defs><marker id="arrow2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path></marker></defs>
+                <rect class="rect" x="50" y="45" width="170" height="80"></rect><text class="title" x="82" y="78">Queue path</text><text x="82" y="100">scsi_queue_rq</text>
+                <rect class="rect warn" x="380" y="35" width="180" height="100"></rect><text class="title" x="412" y="70">Host state</text><text x="412" y="92">running / cancel</text><text x="412" y="112">recovery / deleted</text>
+                <rect class="rect" x="710" y="45" width="170" height="80"></rect><text class="title" x="742" y="78">EH thread</text><text x="742" y="100">timeout and reset</text>
+                <rect class="rect" x="50" y="220" width="170" height="80"></rect><text class="title" x="82" y="253">Scan / probe</text><text x="82" y="275">device discovery</text>
+                <rect class="rect" x="380" y="220" width="180" height="80"></rect><text class="title" x="410" y="253">host lock</text><text x="410" y="275">single mutation gate</text>
+                <rect class="rect" x="710" y="220" width="170" height="80"></rect><text class="title" x="742" y="253">Remove / PM</text><text x="742" y="275">freeze and teardown</text>
+                <path class="arrow2" d="M220 84 H380"></path><path class="arrow2" d="M560 84 H710"></path><path class="arrow2" d="M135 220 V125"></path><path class="arrow2" d="M470 220 V135"></path><path class="arrow2" d="M795 220 V125"></path>
+              </svg>
+            </div>
+            <div class="split">
+              <div class="box">
+                <h3>Patch 的修复逻辑</h3>
+                <p><span class="source-tag gpt">GPT interpretation</span> 从标题看，系列先让 SCSI subsystem 能表达并检查 lock context，再把 core host state change 收敛到 host lock 下。这个顺序很重要：如果只改某个赋值点，reviewer 不知道别的路径是否还裸写 state；先启用分析再保护核心状态，才像是在建立全局不变量。</p>
+              </div>
+              <div class="box">
+                <h3>Review 时看什么</h3>
+                <ul>
+                  <li>所有 host state writer 是否都在相同锁下，尤其是 error handler、remove、scan 和 PM path。</li>
+                  <li>新增 lockdep/context annotation 是否覆盖 driver callback，而不只是 SCSI core 文件。</li>
+                  <li>锁顺序是否与 request queue freeze、device lock、transport lock 形成循环等待。</li>
+                  <li>state reader 是否需要 lock、RCU、READ_ONCE 或已经由上层 serialization 保证。</li>
+                </ul>
+              </div>
+            </div>
+            <table class="matrix"><thead><tr><th>对 UFS 稳定性的启发</th><th>Review 落点</th></tr></thead><tbody><tr><td>UFS 有 <code>ufshcd_state</code>、link state、pm state、eh flags、MCQ enable state 等多套状态。</td><td>每套状态都要能回答：谁能写、持什么锁写、读者是否允许看到旧值、状态变化是否唤醒等待者。</td></tr><tr><td>error handler 常常是“看起来能修复所有状态”的路径。</td><td>真正要审的是 error handler 和正常 I/O path 是否共享同一套可证明的锁顺序。</td></tr></tbody></table>
+            <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260430182130.1978347-56-bvanassche@acm.org/" target="_blank" rel="noreferrer">Enable lock context analysis</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/20260430182130.1978347-57-bvanassche@acm.org/" target="_blank" rel="noreferrer">Protect host state</a></div>
+          </div>
+        </article>
+
+        <article class="topic" id="blk-mq">
+          <header><div class="report-meta"><span>block / blk-mq</span><span>request cache</span><span>quiesce</span><span>RT locking</span></div><h2>4. blk-mq：fast path 的小优化只有在 request 和 queue 状态不变量成立时才安全</h2></header>
+          <div class="topic-body">
+            <div class="topic-grid">
+              <div class="box">
+                <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                <ul>
+                  <li><code>[PATCHv2] blk-mq: check for stale cached request in blk_mq_submit_bio</code>，提交者 Keith Busch，状态 new，signal 为 check: success。</li>
+                  <li><code>[v6,1/1] block/blk-mq: use atomic_t for quiesce_depth to avoid lock contention on RT</code>，提交者 Ionut Nechita，风险标签 <code>locking</code>，signal 为 check: success。</li>
+                  <li>snapshot 没有保存这两条的完整 diff 或 context excerpt，因此本节将具体路径解释标记为 GPT 推理。</li>
+                </ul>
+              </div>
+              <div class="box">
+                <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                <p>blk-mq 的性能来自两个方向：submit path 尽量少分配、少锁、复用上下文；control path 则用 freeze/quiesce 等机制让 queue 在 resize、reset、limits change 或 driver teardown 时停下来。这两者天然紧张：fast path 想缓存 request，control path 想证明没有旧 request 混入新 queue 状态。</p>
+              </div>
+            </div>
+            <div class="diagram">
+              <div class="diagram-title">Request cache and queue quiesce invariants</div>
+              <div class="flow">
+                <div class="flow-row">
+                  <div class="flow-node"><b>submit bio</b><span>caller enters blk_mq_submit_bio</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>cached request</b><span>fast path may reuse preallocated request</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>stale check</b><span>request must still belong to current queue/context</span></div>
+                </div>
+                <div class="flow-row">
+                  <div class="flow-node"><b>quiesce begin</b><span>control path increments depth</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>RT contention</b><span>spinlock-heavy depth update hurts latency</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>atomic depth</b><span>preserve state count with lower lock pressure</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="split">
+              <div class="box">
+                <h3>Patch 的修复逻辑</h3>
+                <p><span class="source-tag gpt">GPT interpretation</span> stale cached request patch 的核心应是：复用 request 前先证明它没有被 queue reconfiguration、context switch、tagset change 或 completion path 变成“属于旧世界的对象”。quiesce_depth patch 则是在不改变 quiesce 嵌套计数语义的前提下，用 <code>atomic_t</code> 降低 RT 内核上的锁竞争。前者保护对象身份，后者保护状态计数。</p>
+              </div>
+              <div class="box">
+                <h3>Review 时看什么</h3>
+                <ul>
+                  <li>stale 判断依据是否足够强：queue、hardware context、tag、rq flags 和 bio merge 状态是否都在同一代。</li>
+                  <li>缓存命中失败后是否回到普通 allocation path，而不是静默提交错误 request。</li>
+                  <li><code>quiesce_depth</code> 改成 atomic 后，等待者是否仍有正确 barrier 和 wakeup 语义。</li>
+                  <li>RT 场景的优化是否改变非 RT 内核行为，尤其是嵌套 quiesce 和并发 unquiesce。</li>
+                </ul>
+              </div>
+            </div>
+            <table class="matrix"><thead><tr><th>对 UFS/性能调试的启发</th><th>观察方式</th></tr></thead><tbody><tr><td>UFS MCQ 和 blk-mq 都高度依赖 tag/request 身份。</td><td>看超时或乱序完成时，先确认 request 是否属于当前 queue generation，而不是只看 device response。</td></tr><tr><td>RT latency 问题可能来自控制路径锁，而不是设备慢。</td><td>把 quiesce/freeze/reset 计数和 submit/completion latency 放在同一时间轴。</td></tr></tbody></table>
+            <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-block/patch/20260501174120.403960-1-kbusch@meta.com/" target="_blank" rel="noreferrer">stale cached request</a><a href="https://patchwork.kernel.org/project/linux-block/patch/406f424c0a718bf492d40c206983e355e600945a.1778048987.git.ionut.nechita@windriver.com/" target="_blank" rel="noreferrer">atomic quiesce_depth</a></div>
+          </div>
+        </article>
+
+        <article class="topic" id="smartpqi-reset">
+          <header><div class="report-meta"><span>SCSI driver</span><span>smartpqi</span><span>PCIe hot reset</span><span>resume timeout</span></div><h2>5. smartpqi reset recovery：恢复路径要等待协议重新收敛，而不是只等待固定延时</h2></header>
+          <div class="topic-body">
+            <div class="topic-grid">
+              <div class="box">
+                <h3><span class="source-tag fact">snapshot fact</span> 本地事实</h3>
+                <ul>
+                  <li>系列：<code>scsi: smartpqi: fix PCIe hot reset recovery</code>，两条状态 new，signal 为 needs review。</li>
+                  <li>第一条：<code>smartpqi: add pci_error_handlers for bus reset recovery</code>，风险标签 <code>reset</code>。</li>
+                  <li>第二条：<code>smartpqi: increase SIS ctrl ready resume timeout to 180s</code>，风险标签 <code>timeout</code>、<code>reset</code>、<code>power-management</code>。</li>
+                  <li>snapshot 没有保存完整 diff 或 context excerpt。</li>
+                </ul>
+              </div>
+              <div class="box">
+                <h3><span class="source-tag gpt">GPT interpretation</span> 背景知识</h3>
+                <p>smartpqi 是 SCSI RAID/HBA 类驱动。PCIe hot reset 后，内核侧要经历 PCI error recovery、控制器重新 ready、队列恢复、SCSI host 重新接收命令等多个阶段。把 timeout 从较短值增加到 180s 不是简单“等更久”，而是承认某些控制器在 reset 后需要更长时间完成 firmware/adapter 侧初始化。</p>
+              </div>
+            </div>
+            <div class="diagram">
+              <div class="diagram-title">PCIe hot reset recovery sequence</div>
+              <div class="flow">
+                <div class="flow-row">
+                  <div class="flow-node"><b>PCIe fault</b><span>AER, hot reset, or bus reset event</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>error handlers</b><span>driver participates in PCI recovery callbacks</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>controller reset</b><span>firmware and SIS interface restart</span></div>
+                </div>
+                <div class="flow-row">
+                  <div class="flow-node"><b>ready wait</b><span>timeout must match real controller recovery</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>queue rebuild</b><span>commands blocked until adapter is coherent</span></div><div class="edge">→</div>
+                  <div class="flow-node"><b>SCSI resumes</b><span>host accepts I/O after state is proven</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="split">
+              <div class="box">
+                <h3>Patch 的修复逻辑</h3>
+                <p><span class="source-tag gpt">GPT interpretation</span> 第一条通过 <code>pci_error_handlers</code> 把 smartpqi 接入标准 PCI error recovery 框架，让 bus reset 不再只是外部事件。第二条增加 SIS controller ready 的 resume timeout，使 driver 在恢复阶段等待控制器真正 ready，而不是过早宣告失败或让上层 SCSI 看到半恢复设备。</p>
+              </div>
+              <div class="box">
+                <h3>Review 时看什么</h3>
+                <ul>
+                  <li>error handler 回调是否正确 freeze/stop I/O，避免 reset 中还有 command 进入硬件。</li>
+                  <li>180s timeout 是否只作用在 reset/resume recovery，不拖慢正常 probe 的失败反馈。</li>
+                  <li>ready wait 是否检查明确硬件状态位，而不是盲 sleep。</li>
+                  <li>超时失败路径是否清理队列、tag、SCSI device state，并向上层返回可恢复错误。</li>
+                </ul>
+              </div>
+            </div>
+            <table class="matrix"><thead><tr><th>对 UFS 固件/稳定性的启发</th><th>迁移视角</th></tr></thead><tbody><tr><td>UFS reset、power collapse resume、hibern8 exit 后也有“设备还活着但协议未收敛”的窗口。</td><td>timeout 不是越短越好，也不是越长越稳；要对应可观测状态位、event log 和恢复阶段。</td></tr><tr><td>host 过早恢复队列会把固件初始化噪声放大成随机 I/O timeout。</td><td>在恢复流程中明确区分：链路 up、device ready、LUN ready、queue ready。</td></tr></tbody></table>
+            <div class="source-links"><a href="https://patchwork.kernel.org/project/linux-scsi/patch/af115a200993d9ca69ba91c47973e45d6c298de5.1778075755.git.mateusz.nowicki@posteo.net/" target="_blank" rel="noreferrer">PCI error handlers</a><a href="https://patchwork.kernel.org/project/linux-scsi/patch/ecabb7c8ab89554d362f2e15c4351e41814d073f.1778075755.git.mateusz.nowicki@posteo.net/" target="_blank" rel="noreferrer">180s ready timeout</a></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="report-section">
+        <div class="report-section-head"><p class="eyebrow">Brief notes</p><h2>本期不展开但值得后续抓取</h2></div>
+        <div class="topic-body">
+          <div class="split">
+            <div class="box">
+              <h3>ATAPI multi-LUN support</h3>
+              <p><span class="source-tag fact">snapshot fact</span> Phil Pemberton 的 <code>ata: libata-scsi: multi-LUN ATAPI device support</code> v4 系列包含 atapi_max_lun、per-LUN sdev、non-zero LUN command routing、BLIST quirk 和额外 LUN probe。<span class="source-tag gpt">GPT interpretation</span> 适合后续作为“legacy protocol 如何通过 SCSI midlayer 表达多 LUN”的专题。</p>
+            </div>
+            <div class="box">
+              <h3>Fault injection and QoS edge cases</h3>
+              <p><span class="source-tag fact">snapshot fact</span> snapshot 还有 <code>scsi: Add transport-agnostic initiator-side fault injector</code>、<code>block/blk-iolatency</code> chained bio QoS、<code>blktrace: reject buf_size smaller than blk_io_trace2</code>、<code>nvme-multipath</code> queue-depth policy RFC。<span class="source-tag gpt">GPT interpretation</span> 这些更适合在能抓到完整 diff/list 讨论后展开，因为标题级数据不足以严肃还原修复逻辑。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main></div>
+  </body>
+</html>

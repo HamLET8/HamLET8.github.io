@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 12：SLC Cache / WriteBooster 的边界</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 12 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+					<li><a href="day-09.html">Day 9：Recovery</a></li>
+					<li><a href="day-10.html">Day 10：GC 服务</a></li>
+					<li><a href="day-11.html">Day 11：策略分离</a></li>
+					<li><a class="active" href="day-12.html">Day 12：WriteBooster</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">协议表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 12 · SSD / FTL 代码设计判断</p>
+				<h1>SLC Cache / WriteBooster 的边界：写入加速上下文不应污染主 FTL 写路径</h1>
+				<p class="lead">
+					今天的核心判断是：WriteBooster 是写入加速上下文，不应让主 FTL 写路径理解 SLC/TLC 迁移细节。
+					主路径只表达写入意图和一致性要求；SLC 分配、cache entry、destage、flush、回收和恢复都应收敛在独立边界内。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">WriteBooster 管加速语义，主 FTL 管逻辑一致性</span>
+					<span class="badge">涉及：SLC Cache / Host Write / Mapping / Journal / GC / Recovery</span>
+					<span class="badge">关键词：bounded context · write route · cache entry · destage · flush protocol · QoS</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							主 FTL 写路径不应该出现 <span class="inline-code">if (slc_mode)</span> 分支来理解 SLC/TLC 迁移。
+							它应该向 write router 提交写入请求，由 WriteBooster 决定 cache、fallback、backpressure 或 bypass。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							SLC Cache manager、WriteBooster、Host Write、Mapping Table、Metadata Journal、
+							FTL Recovery、GC、Free Block Pool、QoS Scheduler、NAND Program / Erase Flow。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：加速路径也是一个领域边界</h2>
+				<p>
+					WriteBooster 往往从一个性能优化开始，但很快会触及一致性、读后写、掉电恢复、缓存清空、TLC destage、
+					QoS 预算和空间水位。如果这些知识进入主写路径，主路径会同时承担逻辑写入和加速策略，最终变得不可维护。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>信息隐藏要求把易变策略藏在深模块内。SLC/TLC 细节是加速实现，不是主写接口。</td>
+								<td>FTL Core 只依赖 <span class="inline-code">write_route_submit()</span>，不直接理解 cache block、destage cursor、SLC free pool。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性和可撤退性要求优化路径能被禁用、降级或替换，而不改变主路径语义。</td>
+								<td>WriteBooster full 时返回 bypass/backpressure 决策；主写路径仍能走普通 TLC 写入。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>原型会演进成系统的一部分。临时性能优化如果没有边界，会成为永久复杂度。</td>
+								<td>把 flush protocol、destage policy 和 recovery record 设计成明确协议，而不是在主写函数里堆分支。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>上下文映射要求不同子域使用各自语言，并通过稳定契约协作。</td>
+								<td>WriteBooster 使用 cache entry、destage job、SLC segment；Mapping 使用 LBA/PPA/current seq；二者通过 mapping delta 协作。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：WriteBooster 是上下文，不是 if 分支</h2>
+				<p>
+					四本书在这里形成的统一判断是：性能优化不能破坏概念边界。SLC Cache 可以改变物理写入位置和写入时机，
+					但不能改变 FTL 对外的一致性语义。主写路径只关心“这次写入是否提交、读路径能否读到最新版本、掉电后能否恢复”；
+					WriteBooster 关心“是否写入 SLC、何时 destage 到 TLC、如何节流、如何回收 SLC 空间”。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					WriteBooster 的输出应该是领域契约：cache commit、destage delta、flush result、bypass decision。
+					它不能把 SLC/TLC 状态字段泄漏给 FTL Core；FTL Core 也不能绕过 WriteBooster 直接操作 cache metadata。
+				</div>
+				<div class="diagram" aria-label="WriteBooster 与主 FTL 边界">
+					<svg viewBox="0 0 1180 440" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="42" y="80" width="140" height="78" rx="12"></rect>
+						<text class="t" x="112" y="110" text-anchor="middle">Host Write</text>
+						<text class="s" x="112" y="134" text-anchor="middle">LBA + payload</text>
+						<path class="line" d="M182 119 L236 119"></path>
+						<rect class="key" x="236" y="72" width="170" height="94" rx="12"></rect>
+						<text class="t" x="321" y="102" text-anchor="middle">Write Router</text>
+						<text class="s" x="321" y="126" text-anchor="middle">cache / bypass</text>
+						<text class="s" x="321" y="144" text-anchor="middle">backpressure</text>
+						<path class="line" d="M406 119 L460 119"></path>
+						<rect class="key" x="460" y="62" width="190" height="114" rx="12"></rect>
+						<text class="t" x="555" y="92" text-anchor="middle">WriteBooster</text>
+						<text class="s" x="555" y="116" text-anchor="middle">SLC cache entry</text>
+						<text class="s" x="555" y="134" text-anchor="middle">destage job</text>
+						<text class="s" x="555" y="152" text-anchor="middle">flush protocol</text>
+						<path class="line" d="M650 119 L704 119"></path>
+						<rect class="box" x="704" y="80" width="150" height="78" rx="12"></rect>
+						<text class="t" x="779" y="110" text-anchor="middle">Journal</text>
+						<text class="s" x="779" y="134" text-anchor="middle">cache / destage record</text>
+						<path class="line" d="M854 119 L908 119"></path>
+						<rect class="box" x="908" y="80" width="150" height="78" rx="12"></rect>
+						<text class="t" x="983" y="110" text-anchor="middle">Mapping</text>
+						<text class="s" x="983" y="134" text-anchor="middle">current seq</text>
+						<path class="dash" d="M555 176 C555 232, 370 238, 340 272"></path>
+						<path class="dash" d="M555 176 C555 232, 574 238, 604 272"></path>
+						<path class="dash" d="M555 176 C555 232, 782 238, 812 272"></path>
+						<rect class="warn" x="230" y="286" width="220" height="86" rx="12"></rect>
+						<text class="t" x="340" y="316" text-anchor="middle">SLC Context</text>
+						<text class="s" x="340" y="340" text-anchor="middle">segment / cache line / cursor</text>
+						<rect class="warn" x="494" y="286" width="220" height="86" rx="12"></rect>
+						<text class="t" x="604" y="316" text-anchor="middle">Destage Context</text>
+						<text class="s" x="604" y="340" text-anchor="middle">TLC target + mapping delta</text>
+						<rect class="warn" x="758" y="286" width="220" height="86" rx="12"></rect>
+						<text class="t" x="868" y="316" text-anchor="middle">Recovery Context</text>
+						<text class="s" x="868" y="340" text-anchor="middle">cache record replay</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>Host Write 进入 SLC</h3>
+						<p>Write Router 根据空间水位、QoS 和写入大小决定进入 SLC。主 FTL 只接收提交结果，不理解 SLC open segment。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Read After Write</h3>
+						<p>读路径通过 Mapping 或 overlay 查询最新版本；如果 LBA 最新版本在 SLC，返回 cache PPA，而不是让 Host Read 扫描 cache。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Destage 到 TLC</h3>
+						<p>后台 destage 构造从 SLC PPA 到 TLC PPA 的 mapping delta，先 journal，再条件提交，再释放 SLC entry。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>SLC Full / Backpressure</h3>
+						<p>SLC 空间不足时，WriteBooster 返回 bypass 或 backpressure 决策；主路径不直接调用 SLC GC。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Power Loss Recovery</h3>
+						<p>Recovery replay cache commit 和 destage record，识别已提交 SLC entry、未完成 destage 和可回收 orphan cache page。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>GC 协作</h3>
+						<p>TLC GC 不选择 SLC cache block；SLC 回收由 WriteBooster 的 flush / invalidate 协议驱动。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：主写路径理解 SLC/TLC 细节</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码把 SLC 分配、TLC fallback、mapping 更新、cache full 处理、destage 触发全部塞进主写路径。
+					主路径开始理解缓存实现，WriteBooster 不再是独立边界。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：ftl_write 充满 SLC/TLC 分支</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_write_bad(struct ftl_dev *ftl, u64 lba, const void *buf, u32 len)
+{
+	struct ftl_ppa ppa;
+	struct ftl_ppa old_ppa;
+	int ret;
+
+	if (ftl-&gt;slc_enabled &amp;&amp; len &lt;= ftl-&gt;slc_max_write) {
+		if (ftl-&gt;slc_free_pages == 0) {
+			ret = slc_flush_some_pages(ftl);
+			if (ret)
+				goto write_tlc;
+		}
+
+		ppa = ftl-&gt;slc_open_block-&gt;next_ppa;
+		ret = nand_program_slc(ftl-&gt;nand, &amp;ppa, buf, len);
+		if (ret)
+			return ret;
+
+		old_ppa = ftl-&gt;l2p[lba];
+		ftl-&gt;l2p[lba] = ppa;
+		ftl-&gt;slc_map[lba] = ppa;
+		ftl-&gt;slc_free_pages--;
+		ftl-&gt;slc_dirty_pages++;
+
+		if (ftl-&gt;slc_dirty_pages &gt; ftl-&gt;slc_flush_threshold)
+			schedule_destage_thread(ftl);
+
+		block_invalidate_page(ftl-&gt;bm, &amp;old_ppa);
+		return 0;
+	}
+
+write_tlc:
+	ret = block_alloc_tlc_page(ftl-&gt;bm, &amp;ppa);
+	if (ret)
+		return ret;
+
+	ret = nand_program_tlc(ftl-&gt;nand, &amp;ppa, buf, len);
+	if (ret)
+		return ret;
+
+	old_ppa = ftl-&gt;l2p[lba];
+	ftl-&gt;l2p[lba] = ppa;
+	block_invalidate_page(ftl-&gt;bm, &amp;old_ppa);
+	return 0;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>上下文泄漏</td>
+								<td>主路径直接读写 <span class="inline-code">slc_open_block</span>、<span class="inline-code">slc_map</span>、dirty count。</td>
+								<td>SLC 实现一变，主写路径和恢复路径都要改。</td>
+							</tr>
+							<tr>
+								<td>Mapping 所有权破坏</td>
+								<td>直接替换 <span class="inline-code">l2p</span>。</td>
+								<td>无法做 journal、条件提交、destage replay 和 read-after-write 统一解析。</td>
+							</tr>
+							<tr>
+								<td>错误路径不可恢复</td>
+								<td>program 后没有 cache commit record。</td>
+								<td>掉电后不知道 SLC page 是已提交、未提交还是 orphan。</td>
+							</tr>
+							<tr>
+								<td>QoS 和策略混杂</td>
+								<td>写路径直接触发 flush / destage。</td>
+								<td>前台延迟、后台 flush、空间水位互相污染，无法单独调度。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：WriteBooster 通过写入路由和协议协作</h2>
+				<p>
+					改进版把 WriteBooster 作为独立上下文。FTL Core 提交写入请求，Write Router 选择 cache、bypass 或 backpressure。
+					Mapping、Journal、Block Manager 仍通过清晰接口维护一致性。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>write_booster.h：上下文边界接口</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_WRITE_BOOSTER_H
+#define FTL_WRITE_BOOSTER_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum wb_route {
+	WB_ROUTE_CACHE = 0,
+	WB_ROUTE_BYPASS,
+	WB_ROUTE_BACKPRESSURE,
+};
+
+enum wb_entry_state {
+	WB_ENTRY_RESERVED = 0,
+	WB_ENTRY_PROGRAMMED,
+	WB_ENTRY_COMMITTED,
+	WB_ENTRY_DESTAGING,
+	WB_ENTRY_RELEASED,
+};
+
+struct wb_write_req {
+	u64 lba;
+	const void *buf;
+	u32 len;
+	u32 qos_class;
+	bool force_fua;
+};
+
+struct wb_write_result {
+	enum wb_route route;
+	struct ftl_ppa visible_ppa;
+	u64 mapping_seq;
+	bool recovery_required;
+};
+
+struct write_booster;
+
+int wb_submit_write(struct write_booster *wb, const struct wb_write_req *req,
+		    struct wb_write_result *result);
+int wb_schedule_destage(struct write_booster *wb, u32 max_entries);
+int wb_replay_cache_record(struct write_booster *wb,
+			   const struct journal_wb_record *record);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>write_booster.c：cache commit 与 destage 分离</span>
+						<span>C</span>
+					</div>
+					<pre><code>int wb_submit_write(struct write_booster *wb, const struct wb_write_req *req,
+		    struct wb_write_result *result)
+{
+	struct wb_cache_entry entry;
+	struct journal_wb_record record;
+	int ret;
+
+	ret = wb_route_write(wb, req);
+	if (ret == WB_ROUTE_BYPASS) {
+		result-&gt;route = WB_ROUTE_BYPASS;
+		return 0;
+	}
+	if (ret == WB_ROUTE_BACKPRESSURE)
+		return -EAGAIN;
+	if (ret &lt; 0)
+		return ret;
+
+	ret = wb_reserve_cache_entry(wb, req, &amp;entry);
+	if (ret)
+		return ret;
+
+	ret = nand_program_slc(wb-&gt;nand, &amp;entry.ppa, req-&gt;buf, req-&gt;len);
+	if (ret)
+		goto err_program;
+
+	entry.state = WB_ENTRY_PROGRAMMED;
+	wb_build_cache_commit_record(&amp;entry, req, &amp;record);
+
+	ret = journal_append_wb_record(wb-&gt;journal, &amp;record);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_cache_entry(wb-&gt;map, req-&gt;lba, &amp;entry.ppa,
+				     record.new_mapping_seq);
+	if (ret)
+		goto err_mapping;
+
+	entry.state = WB_ENTRY_COMMITTED;
+	wb_commit_entry(wb, &amp;entry);
+
+	result-&gt;route = WB_ROUTE_CACHE;
+	result-&gt;visible_ppa = entry.ppa;
+	result-&gt;mapping_seq = record.new_mapping_seq;
+	return 0;
+
+err_mapping:
+	wb_mark_recovery_required(wb, WB_RECOVERY_CACHE_COMMIT);
+	return ret;
+
+err_journal:
+	wb_mark_orphan_entry(wb, &amp;entry);
+	return ret;
+
+err_program:
+	wb_release_reserved_entry(wb, &amp;entry);
+	return ret;
+}
+
+int wb_destage_one(struct write_booster *wb, struct wb_cache_entry *entry)
+{
+	struct mapping_destage_delta delta;
+	struct ftl_ppa tlc_ppa;
+	int ret;
+
+	ret = block_alloc_tlc_page(wb-&gt;bm, &amp;tlc_ppa);
+	if (ret)
+		return ret;
+
+	ret = nand_copy_slc_to_tlc(wb-&gt;nand, &amp;entry-&gt;ppa, &amp;tlc_ppa);
+	if (ret)
+		goto err_copy;
+
+	map_build_destage_delta(wb-&gt;map, entry-&gt;lba, &amp;entry-&gt;ppa,
+				&amp;tlc_ppa, &amp;delta);
+
+	ret = journal_append_destage_delta(wb-&gt;journal, &amp;delta);
+	if (ret)
+		goto err_journal;
+
+	ret = map_commit_destage_if_current(wb-&gt;map, &amp;delta);
+	if (ret)
+		goto err_mapping;
+
+	wb_release_committed_entry(wb, entry);
+	return 0;
+
+err_mapping:
+	wb_mark_recovery_required(wb, WB_RECOVERY_DESTAGE_REPLAY);
+	return ret;
+
+err_journal:
+	block_discard_uncommitted_page(wb-&gt;bm, &amp;tlc_ppa);
+	return ret;
+
+err_copy:
+	block_apply_program_failure(wb-&gt;bm, &amp;tlc_ppa, ret);
+	return ret;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>协议表与思想落点表</h2>
+				<h3>WriteBooster 与主 FTL 边界表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>协作点</th>
+								<th>主 FTL 负责</th>
+								<th>WriteBooster 负责</th>
+								<th>禁止做法</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>写入路由</td>
+								<td>提交 LBA、payload、QoS、FUA 等写入意图。</td>
+								<td>判断 cache、bypass、backpressure。</td>
+								<td>主路径读取 SLC free page 或 open segment。</td>
+							</tr>
+							<tr>
+								<td>可见性提交</td>
+								<td>依赖 Mapping 的当前事实。</td>
+								<td>构造 cache commit record 并请求 Mapping 条件提交。</td>
+								<td>直接修改 L2P 或维护第二份 slc_map。</td>
+							</tr>
+							<tr>
+								<td>读后写</td>
+								<td>按 Mapping/overlay 查询最新 PPA。</td>
+								<td>保证 committed cache entry 可被查询。</td>
+								<td>Host Read 扫描 SLC cache 内部链表。</td>
+							</tr>
+							<tr>
+								<td>Destage</td>
+								<td>不感知 SLC 到 TLC 的迁移细节。</td>
+								<td>后台 copy、journal、mapping commit、释放 cache entry。</td>
+								<td>主写路径同步执行大量 SLC flush。</td>
+							</tr>
+							<tr>
+								<td>恢复</td>
+								<td>挂载时调用 Recovery 统一接管。</td>
+								<td>提供 cache record replay 和 orphan entry 处理。</td>
+								<td>Recovery 猜测 SLC block 的内部 cursor。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>WriteBooster 状态与错误矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>阶段</th>
+								<th>失败</th>
+								<th>领域解释</th>
+								<th>补偿动作</th>
+								<th>返回语义</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Reserve cache entry</td>
+								<td>SLC 空间不足。</td>
+								<td>加速资源不可用，但主写语义仍可继续。</td>
+								<td>返回 bypass 或 backpressure。</td>
+								<td><span class="inline-code">0</span> with bypass 或 <span class="inline-code">-EAGAIN</span></td>
+							</tr>
+							<tr>
+								<td>Program SLC</td>
+								<td>program fail。</td>
+								<td>cache entry 未提交，不应对 Mapping 可见。</td>
+								<td>释放 reserved entry，必要时隔离 SLC block。</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Journal cache commit</td>
+								<td>记录失败。</td>
+								<td>SLC page 已写但不可恢复。</td>
+								<td>标记 orphan cache entry，等待回收。</td>
+								<td><span class="inline-code">-EIO</span></td>
+							</tr>
+							<tr>
+								<td>Destage commit</td>
+								<td>old SLC PPA 已非当前。</td>
+								<td>前台写已覆盖该 LBA，destage 过期。</td>
+								<td>释放旧 cache entry 或标记 stale。</td>
+								<td><span class="inline-code">-ESTALE</span> 可收敛</td>
+							</tr>
+							<tr>
+								<td>Flush barrier</td>
+								<td>FUA 或 shutdown flush 未完成。</td>
+								<td>主机要求持久化边界尚未满足。</td>
+								<td>阻塞、降级只读或返回错误。</td>
+								<td><span class="inline-code">-EIO</span> / <span class="inline-code">-EAGAIN</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>隐藏易变实现，暴露稳定接口。</td>
+								<td>write_route_submit、wb_submit_write、destage API。</td>
+								<td>主路径不理解 SLC segment、dirty count、destage cursor。</td>
+								<td>避免加速实现泄漏导致变更放大。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>正交性、可撤退性和务实降级。</td>
+								<td>bypass/backpressure、flush protocol、recovery_required。</td>
+								<td>WriteBooster 可禁用或降级，主 FTL 语义不变。</td>
+								<td>避免性能优化成为不可关闭的风险源。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>原型到产品要建立设计约束。</td>
+								<td>SLC cache entry 状态机、destage job、journal record。</td>
+								<td>临时优化必须有明确协议和恢复边界。</td>
+								<td>避免性能补丁长期污染主写路径。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>上下文映射和领域语言分离。</td>
+								<td>WriteBooster context 与 Mapping / GC / Recovery 的协作契约。</td>
+								<td>SLC 语言只在加速上下文内使用，对外输出 mapping delta 和 flush result。</td>
+								<td>避免 SLC/TLC 细节在 FTL Core、GC、Recovery 中到处传播。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">协议表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>

@@ -1,2 +1,66 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="cache-control" content="no-cache"><title>Storage Reading Reports</title><script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script><link rel="stylesheet" href="../assets/styles.css?v=20260523-report"><style>.technical-report .report-hero h1{max-width:980px}.technical-report .lead{max-width:900px;font-size:16px;line-height:1.75;color:var(--muted)}@media(max-width:900px){.report-index-item{grid-template-columns:1fr}}</style></head><body><div class="report-page-shell technical-report"><main class="report-page"><nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav><header class="report-hero"><p class="eyebrow">Scheduled reports</p><h1>Storage Reading Reports</h1><p class="lead">每周二、周四、周六由 Codex 侧 GPT 生成真正的技术报告：梳理背景、问题结构、修复逻辑和阅读检查点。</p><div class="report-stats"><span>3 reports</span><span>Tue / Thu / Sat</span><span>GPT-side</span></div></header><section class="report-section"><div class="report-section-head"><p class="eyebrow">Archive</p><h2>Generated Reports</h2></div><div class="report-index-list"><a class="report-index-item" href="./report-2026-05-23-gpt-linux-storage.html"><div><div class="report-meta"><span>2026-05-23T05:23:28+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div><strong>Linux Storage Technical Reading · 2026-05-23 · GPT</strong><p>精选 UFS TX Equalization/Gear 6、classic polling 延迟、bio_map_user_iov 错误回滚、ublk uring_cmd 生命周期，以及 MMC/eMMC 调谐对 UFS 固件的启发。</p></div><span aria-hidden="true">→</span></a><a class="report-index-item" href="./report-2026-05-21-gpt-linux-storage.html"><div><div class="report-meta"><span>2026-05-21T05:23:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div><strong>Linux Storage Technical Reading · 2026-05-21 · GPT</strong><p>精选 UFS hibern8 notify、StarFive/DWC UFS 平台化、loop queue/workqueue 竞态、mpi3mr BSG SGL 越界和 block-as-NVMEM lifetime 语义。</p></div><span aria-hidden="true">→</span></a><a class="report-index-item" href="./report-2026-05-20-technical-gpt.html"><div><div class="report-meta"><span>2026-05-20T00:52:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div><strong>Storage Technical Report · 2026-05-20 · GPT</strong><p>重写为技术报告：重点解释 UFS QCOM ICE probe race、F2FS gc_merge deadlock、iomap REQ_POLLED/REQ_NOWAIT 语义，并补充 UFS tracepoint 与 Hawi PHY bring-up 的阅读线索。</p></div><span aria-hidden="true">→</span></a></div></section></main></div></body></html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Storage Reading Reports</title>
+    <script>(()=>{const choice=localStorage.getItem('storage-radar-theme')||'dark';const dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=choice==='system'?(dark?'dark':'light'):choice;document.documentElement.dataset.themeChoice=choice;})();</script>
+    <link rel="stylesheet" href="../assets/styles.css?v=20260526-report">
+    <style>
+      .technical-report .report-hero h1{max-width:980px}
+      .technical-report .lead{max-width:900px;font-size:16px;line-height:1.75;color:var(--muted)}
+      @media(max-width:900px){.report-index-item{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <div class="report-page-shell technical-report">
+      <main class="report-page">
+        <nav class="report-topnav"><a href="../index.html">← Storage Radar</a><a href="./index.html">Reports</a></nav>
+        <header class="report-hero">
+          <p class="eyebrow">Scheduled reports</p>
+          <h1>Storage Reading Reports</h1>
+          <p class="lead">每周二、周四、周六由 Codex 侧 GPT 生成真正的技术报告：梳理背景、问题结构、修复逻辑和阅读检查点。</p>
+          <div class="report-stats"><span>4 reports</span><span>Tue / Thu / Sat</span><span>GPT-side</span></div>
+        </header>
+        <section class="report-section">
+          <div class="report-section-head"><p class="eyebrow">Archive</p><h2>Generated Reports</h2></div>
+          <div class="report-index-list">
+            <a class="report-index-item" href="./report-2026-05-26-gpt-linux-storage.html">
+              <div>
+                <div class="report-meta"><span>2026-05-26T05:25:43+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>Linux Storage Technical Reading · 2026-05-26 · GPT</strong>
+                <p>精选 UFS PHY 状态/gear 切换、iSCSI ECDB AHS 长度验证、SCSI host locking、blk-mq request/quiesce 不变量，以及 smartpqi reset recovery。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a class="report-index-item" href="./report-2026-05-23-gpt-linux-storage.html">
+              <div>
+                <div class="report-meta"><span>2026-05-23T05:23:28+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>Linux Storage Technical Reading · 2026-05-23 · GPT</strong>
+                <p>精选 UFS TX Equalization/Gear 6、classic polling 延迟、bio_map_user_iov 错误回滚、ublk uring_cmd 生命周期，以及 MMC/eMMC 调谐对 UFS 固件的启发。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a class="report-index-item" href="./report-2026-05-21-gpt-linux-storage.html">
+              <div>
+                <div class="report-meta"><span>2026-05-21T05:23:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>Linux Storage Technical Reading · 2026-05-21 · GPT</strong>
+                <p>精选 UFS hibern8 notify、StarFive/DWC UFS 平台化、loop queue/workqueue 竞态、mpi3mr BSG SGL 越界和 block-as-NVMEM lifetime 语义。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a class="report-index-item" href="./report-2026-05-20-technical-gpt.html">
+              <div>
+                <div class="report-meta"><span>2026-05-20T00:52:00+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>Storage Technical Report · 2026-05-20 · GPT</strong>
+                <p>重写为技术报告：重点解释 UFS QCOM ICE probe race、F2FS gc_merge deadlock、iomap REQ_POLLED/REQ_NOWAIT 语义，并补充 UFS tracepoint 与 Hawi PHY bring-up 的阅读线索。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

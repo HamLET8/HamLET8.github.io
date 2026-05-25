@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 10/15｜亏损、回撤与恢复能力</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .kws{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .pill{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end;min-width:260px}
+    .badge{flex:1 1 320px;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.06);color:var(--muted);font-size:12.5px}
+    .badge b{color:var(--text)}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:5px;flex:0 0 auto;box-shadow:0 0 0 4px rgba(110,231,255,.10)}
+    .dot.good{background:var(--good);box-shadow:0 0 0 4px rgba(85,239,196,.12)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(255,204,102,.14)}
+    .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(255,107,107,.14)}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+    @media (min-width: 980px){.grid{grid-template-columns:1.15fr .85fr}}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));box-shadow:var(--shadow);overflow:hidden}
+    .hd{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:14px 16px;border-bottom:1px solid var(--line)}
+    .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .hint{color:var(--faint);font-size:12px}
+    .bd{padding:14px 16px}
+    .divider{height:1px;background:var(--line);margin:14px 0}
+    .small{font-size:12.5px;color:var(--muted)}
+    .kv{display:grid;grid-template-columns:140px 1fr;gap:10px}
+    @media (max-width:560px){.kv{grid-template-columns:1fr}}
+    .k{color:var(--faint);font-size:12px}
+    .v{color:var(--text)}
+    .codebox{font-family:var(--mono);font-size:12.5px;line-height:1.55;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+    @media (prefers-color-scheme: light){.codebox{background:rgba(10,22,40,.05)}}
+    .warnline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(255,204,102,.55);border-radius:14px;background:rgba(255,204,102,.08)}
+    .okline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(85,239,196,.55);border-radius:14px;background:rgba(85,239,196,.08)}
+    .badline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(255,107,107,.55);border-radius:14px;background:rgba(255,107,107,.08)}
+    .row{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width: 980px){.row{grid-template-columns:1fr 1fr}}
+    .table-wrap{border:1px solid var(--line);border-radius:14px;overflow:auto;background:rgba(0,0,0,.10)}
+    @media (prefers-color-scheme: light){.table-wrap{background:rgba(10,22,40,.03)}}
+    table{border-collapse:collapse;width:100%;min-width:620px}
+    th,td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+    th{position:sticky;top:0;background:rgba(255,255,255,.06);text-align:left;color:var(--text);font-weight:650}
+    .t-muted{color:var(--muted)}
+    .tag{display:inline-flex;gap:8px;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .tag .dot{margin-top:0;width:8px;height:8px;box-shadow:none}
+    .svgbox{border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.10);overflow:hidden}
+    @media (prefers-color-scheme: light){.svgbox{background:rgba(10,22,40,.03)}}
+    .svgbox .cap{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+    .svgbox svg{display:block;width:100%;height:auto}
+    .list-tight{margin:0;padding-left:18px}
+    .list-tight li{margin:6px 0}
+    a{color:var(--accent)}
+    .footer{margin-top:18px;color:var(--faint);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 10 / 15｜亏损、回撤与恢复能力</h1>
+        <div class="sub">学习用途：把“亏损与回撤”写成可执行的生存协议与恢复流程（不构成任何投资建议）</div>
+        <div class="kws" aria-label="今日关键词">
+          <div class="pill"><span class="dot"></span><span>回撤阶梯</span></div>
+          <div class="pill"><span class="dot"></span><span>恢复数学</span></div>
+          <div class="pill"><span class="dot"></span><span>1R 风险预算</span></div>
+          <div class="pill"><span class="dot"></span><span>降风险模式</span></div>
+          <div class="pill"><span class="dot"></span><span>避免被迫卖出</span></div>
+        </div>
+      </div>
+      <div class="badge-row" aria-label="关键信息">
+        <div class="badge"><span class="dot good"></span><span><b>一句话核心判断：</b>亏损不可避免；真正的能力是把回撤限制在“还能继续玩”的区间，并用预设流程恢复。</span></div>
+        <div class="badge"><span class="dot warn"></span><span><b>今日风险提醒：</b>把回撤当成“必须证明自己”的挑战，会触发加码/频繁出手/规则漂移，反而放大尾部风险。</span></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="今日学习目标">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">3–5 个可检验目标</div></div>
+        <div class="bd">
+          <ol>
+            <li>区分 <b>正常波动</b> vs <b>系统回撤</b>：用 R 倍数与最大回撤阈值定义“何时需要进入恢复流程”。</li>
+            <li>写出一张你的 <b>回撤阶梯（Drawdown Ladder）</b>：每个阶段对应的行动（减仓、暂停、复盘、重启）。</li>
+            <li>理解“恢复数学”：回撤越深，需要的恢复收益越陡峭 —— <b>先保护本金与心智资本</b>。</li>
+            <li>把 Marks 的“风险＝永久损失/被迫卖出”翻译为交易制度：<b>任何会让你不得不扛单/加杠杆/缩短周期的状态，都是危险信号</b>。</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn"></span>
+            <div>
+              <b>学习边界：</b>本文只讨论回撤管理与恢复能力的通用方法，不提供任何标的、时点、买卖建议；不鼓励高杠杆、集中押注或冲动短线。
+              <div class="small">目标是长期生存：在坏阶段仍能遵守系统边界，并把损失锁在可恢复范围。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日速记">
+        <div class="hd"><h2>今日速记：回撤不是羞耻，是信号</h2><div class="hint">“触发流程，而不是触发情绪”</div></div>
+        <div class="bd">
+          <div class="kv" role="list">
+            <div class="k" role="listitem">今日主题</div>
+            <div class="v">亏损、回撤与恢复能力：<b>你不需要避免所有亏损，你需要避免不可恢复的亏损</b>。</div>
+            <div class="k" role="listitem">Tharp 关键词</div>
+            <div class="v">R 倍数、期望值、仓位管理、风险上限、系统一致性、用数据驱动“降风险/暂停/重启”。</div>
+            <div class="k" role="listitem">Marks 关键词</div>
+            <div class="v">安全边际、周期与情绪、风险现实、避免在坏环境里承担“你以为不会发生”的尾部。</div>
+            <div class="k" role="listitem">你今天要形成的能力</div>
+            <div class="v">把“我最近很不顺”改写成：<b>我的回撤已到 X 阶段，因此我必须执行 Y 动作</b>。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="一句话工具（学习用）">当我连续亏损或权益曲线下行时：
+1) 这属于“系统内波动”（仍在统计预期内），还是“系统回撤”（需要动作）？
+2) 若回撤触发阈值：我不是要更用力交易，而是进入“降风险 / 暂停 / 复盘 / 重启”流程。
+3) 我优先保护：本金 + 规则一致性 + 心智资本（避免报复性交易与规则漂移）。</div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="两本书的核心思想">
+        <div class="hd"><h2>两本书的核心思想（用自己的话）</h2><div class="hint">Tharp × Marks</div></div>
+        <div class="bd">
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot good"></span><b>Van K. Tharp：</b><span class="t-muted">亏损管理是系统的一部分</span></div>
+              <ul class="list-tight">
+                <li><b>亏损是统计分布的一部分：</b>如果你的系统有正期望值，那么亏损串（loss streak）是必然事件；关键是让每次亏损都被 1R 框住。</li>
+                <li><b>回撤管理要写成规则：</b>当你处在回撤中，最危险的是“临时改变系统”。更好的做法是：预先定义何时降风险、何时暂停、何时用小仓重新校准。</li>
+                <li><b>仓位决定生存：</b>仓位过大时，回撤会把你推向情绪化与被迫决策；仓位合理时，亏损只是“下一笔样本”。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="tag"><span class="dot warn"></span><b>Howard Marks：</b><span class="t-muted">最重要的是避免被淘汰</span></div>
+              <ul class="list-tight">
+                <li><b>风险常在看不见处：</b>回撤时暴露的不是“坏运气”，而是你在好阶段忽略的脆弱性：杠杆、流动性、情绪、过度自信。</li>
+                <li><b>在周期中保持“可行动性”：</b>坏阶段的首要目标是保持选择权：不被迫卖出、不被迫加码、不陷入“必须立刻回本”的叙事。</li>
+                <li><b>安全边际是恢复能力：</b>安全边际不是预测正确，而是即便错了也不致命；回撤管理就是把安全边际制度化。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="okline" role="note">
+            <span class="dot good"></span>
+            <div>
+              <b>连接句：</b>Tharp 给你“可量化的损失单位（1R）与恢复流程”，Marks 逼你承认“回撤阶段会放大系统外风险”。两者合起来，就是：<b>用规则保护你在坏阶段仍拥有选择权</b>。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="融合解释">
+        <div class="hd"><h2>融合解释：回撤期的“三层防线”</h2><div class="hint">系统层 × 行为层 × 环境层</div></div>
+        <div class="bd">
+          <div class="row">
+            <div class="codebox" aria-label="防线 1：系统层（Tharp）">防线 1：系统层（可执行、可回测/可统计）
+- 每笔风险固定为 1R（或更小），R 必须“事先可定义”
+- 最大回撤阈值：到阈值自动进入降风险/暂停
+- 重启规则：小仓恢复、样本量门槛、恢复到正常模式的条件</div>
+            <div class="codebox" aria-label="防线 2/3：行为与环境（Marks）">防线 2：行为层（避免自我破坏）
+- 回撤中禁止“证明自己”的加码逻辑
+- 禁止规则漂移：任何“这次不一样”都必须先写入复盘
+
+防线 3：环境层（周期/情绪/流动性）
+- 环境恶化时，把目标从“赚钱”改为“保持选择权”
+- 任何可能导致被迫卖出/被迫加杠杆的状态，都视为风险上升</div>
+          </div>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn"></span>
+            <div>
+              <b>关键约束：</b>回撤阶段最常见的错误不是“系统失效”，而是 <b>仓位过大 + 情绪升温</b> 让你开始做系统外动作。你的恢复能力来自：<b>先缩小伤口，再寻找原因</b>。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="图表化理解">
+        <div class="hd"><h2>图表化理解（至少两张）</h2><div class="hint">表格 / SVG：移动端不溢出</div></div>
+        <div class="bd">
+          <div class="row">
+            <div class="table-wrap" aria-label="回撤阶梯表">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="min-width:110px">阶段</th>
+                    <th>触发条件（示例）</th>
+                    <th>允许做什么</th>
+                    <th>禁止做什么</th>
+                    <th>下一步动作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="tag"><span class="dot good"></span>正常</span></td>
+                    <td class="t-muted">回撤 ≤ 2R（或 ≤ 3%）</td>
+                    <td>按原系统执行；保持记录与复盘节奏</td>
+                    <td class="t-muted">情绪化加码；“临时优化规则”</td>
+                    <td>继续交易，但每天做一次“偏差检查”</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag"><span class="dot warn"></span>警戒</span></td>
+                    <td class="t-muted">2R &lt; 回撤 ≤ 5R（或 3%–6%）</td>
+                    <td>进入降风险模式：每笔风险降到 0.5R；减少频率</td>
+                    <td class="t-muted">扩大风险上限；增加交易次数“摊薄亏损”</td>
+                    <td>聚焦“执行质量”，而不是“翻本”</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag"><span class="dot bad"></span>暂停</span></td>
+                    <td class="t-muted">回撤 &gt; 5R（或 &gt; 6%）/ 连续亏损触发阈值</td>
+                    <td>停止新交易；只允许复盘与模拟；修复系统/执行问题</td>
+                    <td class="t-muted">报复性交易；提高杠杆；“赌一把回血”</td>
+                    <td>完成复盘清单后，用 0.25R 小仓重启</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-wrap" aria-label="恢复数学：回撤与恢复所需收益">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="min-width:150px">权益回撤（%）</th>
+                    <th>从回撤底部回到原点所需收益（%）</th>
+                    <th>直觉提示</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>5%</td><td><b>5.3%</b></td><td class="t-muted">可恢复，但不值得为 5% 去赌尾部。</td></tr>
+                  <tr><td>10%</td><td><b>11.1%</b></td><td class="t-muted">开始明显变难；仓位管理重要性上升。</td></tr>
+                  <tr><td>20%</td><td><b>25.0%</b></td><td class="t-muted">恢复斜率陡增；最怕在此阶段加码。</td></tr>
+                  <tr><td>30%</td><td><b>42.9%</b></td><td class="t-muted">进入“可能被系统外行为毁掉”的区间。</td></tr>
+                  <tr><td>50%</td><td><b>100%</b></td><td class="t-muted">极端困难；最合理的策略往往是先止血与重建。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="svgbox" aria-label="回撤与恢复曲线示意">
+            <div class="cap">
+              <div>SVG｜回撤越深，恢复越陡峭（概念示意）</div>
+              <div class="small">提醒：图为学习用途，不代表任何市场预测</div>
+            </div>
+            <svg viewBox="0 0 980 360" role="img" aria-label="回撤与恢复曲线概念图">
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="rgba(110,231,255,.55)"/>
+                  <stop offset="1" stop-color="rgba(167,243,208,.55)"/>
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="980" height="360" fill="transparent"/>
+              <g stroke="rgba(255,255,255,.16)" stroke-width="1">
+                <line x1="70" y1="35" x2="70" y2="315"/>
+                <line x1="70" y1="315" x2="940" y2="315"/>
+                <line x1="70" y1="245" x2="940" y2="245"/>
+                <line x1="70" y1="175" x2="940" y2="175"/>
+                <line x1="70" y1="105" x2="940" y2="105"/>
+              </g>
+              <g fill="rgba(255,255,255,.72)" font-size="12" font-family="ui-sans-serif,system-ui">
+                <text x="18" y="108">0%</text>
+                <text x="14" y="178">-10%</text>
+                <text x="14" y="248">-20%</text>
+                <text x="14" y="318">-30%</text>
+                <text x="70" y="340">时间</text>
+                <text x="16" y="24">权益变化</text>
+              </g>
+              <path d="M70,110 C170,95 240,130 310,155 C380,180 440,220 510,250 C580,280 650,300 720,290 C800,278 860,250 940,200"
+                    fill="none" stroke="url(#g1)" stroke-width="4"/>
+              <g fill="rgba(255,255,255,.80)" font-size="12">
+                <text x="130" y="85">轻回撤：恢复斜率温和</text>
+                <text x="520" y="312">深回撤：恢复斜率变陡</text>
+              </g>
+              <g>
+                <circle cx="520" cy="250" r="6" fill="rgba(255,107,107,.9)"/>
+                <text x="532" y="254" fill="rgba(255,255,255,.85)" font-size="12">回撤底部（若继续扩大，将进入更难恢复区）</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="svgbox" aria-label="回撤期决策闸门流程图">
+            <div class="cap">
+              <div>SVG｜回撤期“闸门式”决策流程（Tharp 规则 + Marks 风险现实）</div>
+              <div class="small">用阈值触发动作，避免情绪驱动</div>
+            </div>
+            <svg viewBox="0 0 980 420" role="img" aria-label="回撤期闸门决策流程图">
+              <defs>
+                <filter id="s" x="-10%" y="-10%" width="120%" height="120%">
+                  <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="rgba(0,0,0,.25)"/>
+                </filter>
+              </defs>
+              <rect x="0" y="0" width="980" height="420" fill="transparent"/>
+              <g font-family="ui-sans-serif,system-ui" font-size="13" fill="rgba(255,255,255,.90)" stroke="rgba(255,255,255,.18)">
+                <rect x="60" y="50" width="250" height="64" rx="14" fill="rgba(110,231,255,.10)" filter="url(#s)"/>
+                <text x="86" y="80">输入：最近 N 笔结果 + 回撤</text>
+                <text x="86" y="102" fill="rgba(255,255,255,.70)">（用 R 与权益回撤两条尺）</text>
+
+                <rect x="360" y="50" width="260" height="64" rx="14" fill="rgba(255,204,102,.10)" filter="url(#s)"/>
+                <text x="386" y="80">闸门 1：是否触发阈值？</text>
+                <text x="386" y="102" fill="rgba(255,255,255,.70)">未触发：正常执行 + 记录</text>
+
+                <rect x="670" y="50" width="250" height="64" rx="14" fill="rgba(167,243,208,.10)" filter="url(#s)"/>
+                <text x="696" y="80">闸门 2：是否出现“系统外冲动”？</text>
+                <text x="696" y="102" fill="rgba(255,255,255,.70)">若有：直接进入暂停/复盘</text>
+
+                <rect x="120" y="165" width="320" height="78" rx="16" fill="rgba(85,239,196,.10)" filter="url(#s)"/>
+                <text x="146" y="196">动作 A：降风险模式（0.5R 或更小）</text>
+                <text x="146" y="218" fill="rgba(255,255,255,.70)">减少频率；只做最清晰、最可控的样本</text>
+                <text x="146" y="240" fill="rgba(255,255,255,.70)">目标：保护选择权，而非立刻回本</text>
+
+                <rect x="520" y="165" width="340" height="78" rx="16" fill="rgba(255,107,107,.10)" filter="url(#s)"/>
+                <text x="546" y="196">动作 B：暂停交易（止血）</text>
+                <text x="546" y="218" fill="rgba(255,255,255,.70)">只复盘/模拟；修复执行偏差或系统假设</text>
+                <text x="546" y="240" fill="rgba(255,255,255,.70)">避免被迫卖出/被迫加码（Marks 风险现实）</text>
+
+                <rect x="300" y="295" width="380" height="86" rx="18" fill="rgba(110,231,255,.08)" filter="url(#s)"/>
+                <text x="326" y="330">重启闸门：复盘结论 + 规则一致性恢复</text>
+                <text x="326" y="352" fill="rgba(255,255,255,.70)">用 0.25R 小仓重启；达到样本量再恢复正常</text>
+                <text x="326" y="374" fill="rgba(255,255,255,.70)">若再次触发阈值：回到暂停（避免拖成深回撤）</text>
+              </g>
+
+              <g stroke="rgba(255,255,255,.22)" stroke-width="2" fill="none">
+                <path d="M310,82 L360,82"/>
+                <path d="M620,82 L670,82"/>
+                <path d="M490,114 L300,165"/>
+                <path d="M620,114 L690,165"/>
+                <path d="M280,243 L420,295"/>
+                <path d="M690,243 L560,295"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="交易场景案例">
+        <div class="hd"><h2>交易场景案例（虚构学习）</h2><div class="hint">背景 → 常见错误 → 两本书视角 → 融合判断</div></div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">市场背景（虚构）</div>
+            <div class="v">过去两周波动加大，消息面反复。你做的是一套“趋势回撤入场”的系统，但最近 6 笔里 4 笔亏损，权益回撤达到 <b>4R</b>。</div>
+            <div class="k">常见交易者错误</div>
+            <div class="v">你开始怀疑系统“是不是不灵了”，于是：提高频率、把止损放宽、试图用更大的仓位把亏损追回来。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="row">
+            <div class="badline" role="note">
+              <span class="dot bad"></span>
+              <div>
+                <b>Tharp 会怎么说：</b>你把“统计波动”当成“必须马上修复的问题”。系统没机会完成样本分布，你却通过加码和放宽止损把 1R 变成 2R、3R —— <b>你在用仓位管理毁掉期望值</b>。
+                <div class="small">正确动作应该是执行回撤阶梯：进入降风险模式，检查执行偏差与样本分布是否符合系统预期。</div>
+              </div>
+            </div>
+            <div class="warnline" role="note">
+              <span class="dot warn"></span>
+              <div>
+                <b>Marks 会怎么说：</b>坏环境里，风险会从“看起来可控”的地方溢出：你在回撤中更情绪化，更可能犯大错；同时波动增大可能意味着市场处于不友好的阶段。<b>此时最重要的是不被迫做事</b>（不赌一把、不加杠杆、不让自己失去选择权）。
+                <div class="small">你要做的是降低脆弱性：缩小仓位、收缩战线、承认不确定性，而不是提升攻击性。</div>
+              </div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="okline" role="note">
+            <span class="dot good"></span>
+            <div>
+              <b>融合后的更稳健判断：</b>把 4R 回撤当成“流程触发器”。立即切换到 <b>0.5R</b> 的降风险模式，且只做系统最清晰的形态；同时完成一次结构化复盘：
+              <ul class="list-tight">
+                <li>这是系统的正常回撤段，还是执行偏差导致？</li>
+                <li>近期环境是否让系统边界更容易被打穿（波动、流动性、情绪极端）？</li>
+                <li>我的任何动作是否在增加“被迫卖出/被迫加码”的概率？若是，立刻停止。</li>
+              </ul>
+              <div class="small">你的目标不是“今天就赢回来”，而是“把回撤锁在可恢复范围内并保持规则一致性”。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日反思练习" style="grid-column:1/-1">
+        <div class="hd"><h2>今日反思练习（可执行）</h2><div class="hint">做完就能落地</div></div>
+        <div class="bd">
+          <p class="small">目标：做出一份属于你的“回撤生存协议”（写下来、能执行、能复盘）。</p>
+          <div class="codebox" aria-label="练习模板">练习：我的回撤阶梯（10–15 分钟）
+
+一、定义度量尺（任选其一或同时使用）
+- R 尺：当前回撤 = ____ R；连续亏损阈值 = ____ 笔
+- 权益尺：当前回撤 = ____ %；最大允许回撤 = ____ %
+
+二、回撤阶梯（把动作写成动词）
+阶段 1（正常）：触发条件：__________
+  我允许做：__________
+  我禁止做：__________
+  我每天必须做：__________
+
+阶段 2（警戒/降风险）：触发条件：__________
+  风险降到：____ R/笔；频率限制：__________
+  我禁止做：__________
+  我必须完成的复盘条目：__________
+
+阶段 3（暂停/止血）：触发条件：__________
+  暂停时长/条件：__________
+  我只允许做：复盘/模拟/修复 ________
+  重启条件（至少 3 条）：__________
+
+三、Marks 风险现实检查（写一句即可）
+- 在回撤中，我最容易被迫做的事是：__________
+- 我用什么制度避免“被迫卖出/被迫加码/冲动交易”：__________</div>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn"></span>
+            <div>
+              <b>提示：</b>如果你发现自己的阈值“写不出来”，通常不是你不够努力，而是你还没有把风险单位（1R）与系统边界（可统计行为）定义清楚。宁可从小阈值开始，也不要靠情绪临时决定。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日检查清单">
+        <div class="hd"><h2>今日检查清单</h2><div class="hint">≤ 5 条，可勾选</div></div>
+        <div class="bd">
+          <ul class="list-tight">
+            <li>我能用 <b>R</b> 或 <b>权益回撤%</b> 说清楚“现在处在哪个阶段”。</li>
+            <li>我有一张写好的 <b>回撤阶梯</b>，并承诺触发时无条件执行。</li>
+            <li>回撤中我会 <b>降低风险/减少频率</b>，而不是通过加码来“摊平亏损”。</li>
+            <li>我能识别“被迫决策”信号（时间压力/杠杆压力/情绪压力），并把它视为风险上升。</li>
+            <li>我把复盘重点放在：执行偏差、系统边界、环境变化，而不是“运气好坏”。</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card" aria-label="明日预告">
+        <div class="hd"><h2>明日预告：Day 11</h2><div class="hint">何时进攻，何时防守</div></div>
+        <div class="bd">
+          <p style="margin:0">明天我们把今天的“回撤阶梯”继续升级为 <b>攻防切换制度</b>：在不同的市场周期、情绪温度与系统表现下，如何决定“加速/减速/观望”，避免在最不该进攻的时候提高风险。你会得到一张 <b>攻防决策矩阵</b>，并把它接到你的系统闸门里。</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer">
+      <div>免责声明：本页仅用于交易系统学习与自我训练，不构成任何投资建议或收益承诺；请避免高杠杆、集中押注与冲动短期交易。</div>
+    </div>
+  </div>
+</body>
+</html>
