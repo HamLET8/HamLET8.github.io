@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Day 11/15｜何时进攻，何时防守</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.06);--text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.72);--faint:rgba(255,255,255,.55);--line:rgba(255,255,255,.14);
+      --accent:#6ee7ff;--accent2:#a7f3d0;--warn:#ffcc66;--bad:#ff6b6b;--good:#55efc4;--shadow:0 18px 60px rgba(0,0,0,.35);--radius:16px;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--card:rgba(10,22,40,.05);--text:rgba(10,22,40,.92);--muted:rgba(10,22,40,.72);--faint:rgba(10,22,40,.55);--line:rgba(10,22,40,.12);--shadow:0 18px 60px rgba(10,22,40,.10)}}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(1200px 620px at 12% -10%,rgba(110,231,255,.24),transparent 60%),radial-gradient(1000px 720px at 92% 0%,rgba(167,243,208,.20),transparent 55%),radial-gradient(900px 700px at 42% 120%,rgba(255,204,102,.10),transparent 55%),var(--bg);line-height:1.55}
+    a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px 80px}
+    .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));box-shadow:var(--shadow)}
+    .title{min-width:260px}
+    .title h1{margin:0 0 6px;font-size:20px;letter-spacing:.2px}
+    .title .sub{color:var(--muted);font-size:13px}
+    .kws{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .pill{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end;min-width:260px}
+    .badge{flex:1 1 320px;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.06);color:var(--muted);font-size:12.5px}
+    .badge b{color:var(--text)}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:5px;flex:0 0 auto;box-shadow:0 0 0 4px rgba(110,231,255,.10)}
+    .dot.good{background:var(--good);box-shadow:0 0 0 4px rgba(85,239,196,.12)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(255,204,102,.14)}
+    .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(255,107,107,.14)}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+    @media (min-width: 980px){.grid{grid-template-columns:1.15fr .85fr}}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));box-shadow:var(--shadow);overflow:hidden}
+    .hd{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:14px 16px;border-bottom:1px solid var(--line)}
+    .hd h2{margin:0;font-size:15px;letter-spacing:.2px}
+    .hint{color:var(--faint);font-size:12px}
+    .bd{padding:14px 16px}
+    .divider{height:1px;background:var(--line);margin:14px 0}
+    .small{font-size:12.5px;color:var(--muted)}
+    .kv{display:grid;grid-template-columns:140px 1fr;gap:10px}
+    @media (max-width:560px){.kv{grid-template-columns:1fr}}
+    .k{color:var(--faint);font-size:12px}
+    .v{color:var(--text)}
+    .codebox{font-family:var(--mono);font-size:12.5px;line-height:1.55;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+    @media (prefers-color-scheme: light){.codebox{background:rgba(10,22,40,.05)}}
+    .warnline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(255,204,102,.55);border-radius:14px;background:rgba(255,204,102,.08)}
+    .okline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(85,239,196,.55);border-radius:14px;background:rgba(85,239,196,.08)}
+    .badline{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px dashed rgba(255,107,107,.55);border-radius:14px;background:rgba(255,107,107,.08)}
+    .row{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width: 980px){.row{grid-template-columns:1fr 1fr}}
+    .table-wrap{border:1px solid var(--line);border-radius:14px;overflow:auto;background:rgba(0,0,0,.10)}
+    @media (prefers-color-scheme: light){.table-wrap{background:rgba(10,22,40,.03)}}
+    table{border-collapse:collapse;width:100%;min-width:620px}
+    th,td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+    th{position:sticky;top:0;background:rgba(0,0,0,.18);backdrop-filter: blur(10px);text-align:left;color:var(--text);font-size:12px;letter-spacing:.2px}
+    @media (prefers-color-scheme: light){th{background:rgba(10,22,40,.06)}}
+    td{color:var(--muted);font-size:12.5px}
+    tr:hover td{background:rgba(255,255,255,.03)}
+    .tag{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.06);color:var(--muted);font-size:12.5px}
+    .tag b{color:var(--text)}
+    .t-muted{color:var(--muted)}
+    .list-tight{margin:10px 0 0;padding-left:18px;color:var(--muted)}
+    .list-tight li{margin:6px 0}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .chip .mini{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 4px rgba(167,243,208,.10)}
+    .chip.warn .mini{background:var(--warn);box-shadow:0 0 0 4px rgba(255,204,102,.12)}
+    .chip.bad .mini{background:var(--bad);box-shadow:0 0 0 4px rgba(255,107,107,.12)}
+    .svg-wrap{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(0,0,0,.14)}
+    @media (prefers-color-scheme: light){.svg-wrap{background:rgba(10,22,40,.04)}}
+    .footer{margin-top:16px;color:var(--faint);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar" aria-label="顶部摘要区">
+      <div class="title">
+        <h1>Day 11 / 15｜何时进攻，何时防守</h1>
+        <div class="sub">学习目标：把“想更快赚回来/想把握机会”的冲动，改写成可执行的 <b>进攻/防守切换规则</b>（学习用，不构成投资建议）。</div>
+        <div class="kws" aria-label="今日关键词">
+          <span class="pill"><span class="dot good"></span>进攻阈值</span>
+          <span class="pill"><span class="dot"></span>边际优势（edge）</span>
+          <span class="pill"><span class="dot warn"></span>周期/情绪温度</span>
+          <span class="pill"><span class="dot"></span>风险预算</span>
+          <span class="pill"><span class="dot bad"></span>回撤触发</span>
+        </div>
+      </div>
+      <div class="badge-row">
+        <div class="badge" role="note" aria-label="一句话核心判断">
+          <span class="dot good"></span>
+          <div><b>一句话核心判断：</b>进攻不是更猛的交易，而是 <b>在有优势且风险可控时，按预设规则提高“可承受的参与度”</b>；防守不是躺平，而是 <b>用更低的风险预算换取选择权与恢复能力</b>。</div>
+        </div>
+        <div class="badge" role="note" aria-label="今日风险提醒">
+          <span class="dot warn"></span>
+          <div><b>今日风险提醒：</b>“进攻”最常被误解为加杠杆、集中押注、缩短周期。学习中请把进攻定义为：<b>仍在系统边界内、仍以 1R 控制单笔风险</b>，只是调整频率/仓位档位。</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card" aria-label="今日学习目标">
+        <div class="hd"><h2>今日学习目标</h2><div class="hint">3–5 个可检验目标</div></div>
+        <div class="bd">
+          <ol class="list-tight">
+            <li>用一句话区分：<b>进攻＝提高参与度</b> vs <b>防守＝提高生存率</b>，并写出你自己的定义（学习用）。</li>
+            <li>把 “市场很好/很差” 变成三类输入：<b>系统优势（edge）</b>、<b>周期与情绪温度</b>、<b>个人风险状态（回撤/疲劳/执行偏差）</b>。</li>
+            <li>建立一个 <b>三档风险预算</b>（防守/中性/进攻），并给出每档对应的：单笔 1R、日/周风险上限、最大同时持仓数（示例即可）。</li>
+            <li>学会使用一个 “切换闸门” 流程：<b>先排除不可交易状态</b>，再决定档位，而不是先决定“想进攻”。</li>
+          </ol>
+          <div class="divider"></div>
+          <div class="warnline" role="note">
+            <span class="dot warn"></span>
+            <div>
+              <b>学习边界：</b>本文为交易学习材料，不提供任何具体标的、时点或买卖建议；不鼓励高杠杆、集中仓位或冲动短线；不保证收益。
+              <div class="small">你要练的是“什么时候该收缩/什么时候允许展开”，而不是“押对一次”。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="顶部摘要补充">
+        <div class="hd"><h2>顶部摘要补充：今日速记</h2><div class="hint">写进你的系统</div></div>
+        <div class="bd">
+          <div class="kv" role="list">
+            <div class="k" role="listitem">今日主题</div>
+            <div class="v">何时进攻，何时防守：<b>用规则决定“参与度”</b>，而不是用情绪决定“力度”。</div>
+            <div class="k" role="listitem">今日关键词</div>
+            <div class="v">Edge、风险预算、回撤阈值、周期温度、选择权、系统一致性。</div>
+            <div class="k" role="listitem">你最容易犯的错</div>
+            <div class="v"><b>把“机会”当作指令</b>：忽略周期/回撤/执行状态，直接提高仓位或频率。</div>
+            <div class="k" role="listitem">你要替换成的动作</div>
+            <div class="v"><b>把“机会”当作输入</b>：先通过闸门，合格后再按档位执行。</div>
+          </div>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="一句话工具（学习用）">进攻/防守切换句式：
+我的系统在当前环境的优势是（edge=____），周期/情绪温度是（____），我当前风险状态是（回撤____、执行偏差____）。
+因此我选择档位（防守/中性/进攻），并把单笔风险固定为（1R=____），本周风险上限为（____）。</div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="两本书的核心思想">
+        <div class="hd"><h2>两本书的核心思想（用自己的话）</h2><div class="hint">Tharp × Marks</div></div>
+        <div class="bd">
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot good"></span><b>Van K. Tharp：</b><span class="t-muted">进攻/防守本质是仓位与风险预算的调节</span></div>
+              <ul class="list-tight">
+                <li><b>你无法控制结果，只能控制风险：</b>“进攻”不是要预测更准，而是当系统有优势时，把 <b>每次试错成本（1R）</b>固定，再决定“允许尝试多少次/多大仓位”。</li>
+                <li><b>期望值（Expectancy）决定你配不配进攻：</b>当你的优势不清晰或统计不稳定，进攻只会放大噪声；当优势明确且执行稳定，提高参与度才有意义。</li>
+                <li><b>回撤是强制防守信号：</b>回撤阶段最危险的不是亏损本身，而是你为“翻本”临时改系统；正确动作是降低风险预算并复盘。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="tag"><span class="dot warn"></span><b>Howard Marks：</b><span class="t-muted">市场环境决定“该谦虚还是该积极”</span></div>
+              <ul class="list-tight">
+                <li><b>周期与情绪会改变风险回报的分布：</b>在狂热阶段，表面机会多，但尾部风险也更大；在恐慌阶段，表面风险大，但安全边际可能更厚。</li>
+                <li><b>进攻需要安全边际：</b>真正的积极是在你“即使错了也不致命”的地方加大参与度；当你缺乏安全边际，最聪明的是防守。</li>
+                <li><b>最重要的是不被淘汰：</b>坏阶段保住选择权（不被迫卖出/不被迫加码）比“抓住一次反弹”更重要。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="okline" role="note">
+            <span class="dot good"></span>
+            <div>
+              <b>连接句：</b>Tharp 让你用 “1R + 期望值 + 仓位档位” 把进攻写成制度；Marks 让你用 “周期温度 + 安全边际 + 选择权” 把防守写成制度。合起来：<b>先决定是否值得参与，再决定参与多少</b>。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="融合解释">
+        <div class="hd"><h2>融合解释：把“参与度”拆成三个旋钮</h2><div class="hint">Tharp 的量化 × Marks 的环境</div></div>
+        <div class="bd">
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot"></span><b>旋钮 A：系统优势（Edge）</b><span class="t-muted">—— 你凭什么参与？</span></div>
+              <div class="small">学习化表达：你可以用 “是否满足入场条件 + 历史样本表现 + 当下执行稳定度” 代替“我感觉有把握”。</div>
+              <ul class="list-tight">
+                <li><b>优势清晰：</b>规则明确、可复现、错了有清晰无效点 → 才谈“进攻”。</li>
+                <li><b>优势不清晰：</b>观点多、解释多、无效点模糊 → 默认“防守或中性”，小仓试错。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="tag"><span class="dot warn"></span><b>旋钮 B：周期与情绪温度</b><span class="t-muted">—— 分布是否变坏？</span></div>
+              <div class="small">Marks 的关键提醒：风险不是常数。你要问“现在更像容易赚钱的阶段，还是容易出事的阶段？”</div>
+              <ul class="list-tight">
+                <li><b>温度过热：</b>自信蔓延、叙事统一、波动被忽视 → 进攻更要严格边界与风控。</li>
+                <li><b>温度过冷：</b>恐慌、流动性脆弱、利空放大 → 只在有安全边际的地方逐步参与。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="tag"><span class="dot bad"></span><b>旋钮 C：个人风险状态</b><span class="t-muted">—— 你现在是否“有资格进攻”？</span></div>
+          <div class="small">Tharp 的纪律约束：当你处于回撤/疲劳/执行偏差时，进攻往往是情绪补偿。最稳健的做法是：先把自己恢复到“可执行”状态。</div>
+          <div class="chips" aria-label="个人状态快速自检">
+            <span class="chip bad"><span class="mini"></span>回撤已触发阈值</span>
+            <span class="chip warn"><span class="mini"></span>连续违规则/冲动单</span>
+            <span class="chip warn"><span class="mini"></span>睡眠不足/注意力差</span>
+            <span class="chip"><span class="mini"></span>能按流程写计划</span>
+            <span class="chip"><span class="mini"></span>能接受小亏与等待</span>
+          </div>
+          <div class="divider"></div>
+          <div class="codebox" aria-label="融合后的核心原则">融合后的核心原则（学习用）：
+1) 先问：我是否应该参与？（环境风险 + 安全边际 + 系统边界）
+2) 再问：我参与多少？（1R 固定 + 风险预算档位 + 同时持仓上限）
+3) 最后问：我是否保持选择权？（回撤触发 → 自动防守；执行偏差 → 降档位）</div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="图表化理解">
+        <div class="hd"><h2>图表化理解（至少两张）</h2><div class="hint">用表格/流程把进攻与防守写成系统</div></div>
+        <div class="bd">
+          <div class="tag"><span class="dot good"></span><b>图 1｜环境 × 自身：进攻/防守决策矩阵（学习用）</b></div>
+          <div class="table-wrap" role="region" aria-label="进攻防守矩阵表格" tabindex="0">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:170px">输入</th>
+                  <th>防守（降风险）</th>
+                  <th>中性（常规）</th>
+                  <th>进攻（提参与度）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>系统优势（Edge）</b></td>
+                  <td>优势不清晰；无效点模糊；样本不足</td>
+                  <td>优势一般；规则可执行；样本中等</td>
+                  <td>优势清晰；条件满足度高；无效点明确</td>
+                </tr>
+                <tr>
+                  <td><b>周期/情绪温度</b></td>
+                  <td>过热或过冷且脆弱；尾部风险高</td>
+                  <td>温度中性；风险回报分布稳定</td>
+                  <td>温度对你策略更友好；安全边际更厚</td>
+                </tr>
+                <tr>
+                  <td><b>个人风险状态</b></td>
+                  <td>回撤触发；执行偏差；疲劳/焦虑</td>
+                  <td>状态稳定；能按流程执行</td>
+                  <td>状态佳；执行一致；可承受波动</td>
+                </tr>
+                <tr>
+                  <td><b>你的动作（示例）</b></td>
+                  <td>降低风险预算档位；减少交易频率；只做最A+的机会</td>
+                  <td>按常规档位；严格 1R；保持复盘</td>
+                  <td>在边界内上调档位；仍固定 1R；更重视“退出与风控”</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot"></span><b>图 2｜三档风险预算（示例模板）</b><span class="t-muted">把进攻/防守落到数字</span></div>
+              <div class="table-wrap" role="region" aria-label="三档风险预算表格" tabindex="0">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:170px">档位</th>
+                      <th>单笔风险（1R）</th>
+                      <th>周风险上限</th>
+                      <th>最大同时持仓</th>
+                      <th>适用条件（简写）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><b>防守</b></td>
+                      <td>小（例如：常规的 50%）</td>
+                      <td>低（例如：常规的 50%）</td>
+                      <td>1–2</td>
+                      <td>回撤/执行偏差/环境脆弱</td>
+                    </tr>
+                    <tr>
+                      <td><b>中性</b></td>
+                      <td>常规</td>
+                      <td>常规</td>
+                      <td>2–4</td>
+                      <td>优势一般 + 状态稳定</td>
+                    </tr>
+                    <tr>
+                      <td><b>进攻</b></td>
+                      <td>仍固定为 1R（不因自信而放大到“不可承受”）</td>
+                      <td>中高（例如：常规的 120%）</td>
+                      <td>3–6（仍有限制）</td>
+                      <td>优势清晰 + 温度友好 + 状态佳</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="small">说明：这是学习模板。你可以把“常规”定义为自己能长期坚持、不会扭曲行为的水平。关键不是数值，而是 <b>预先写好切换条件</b>。</div>
+            </div>
+            <div>
+              <div class="tag"><span class="dot warn"></span><b>图 3｜切换闸门流程（内联 SVG）</b><span class="t-muted">先排除，再选择档位</span></div>
+              <div class="svg-wrap" role="img" aria-label="进攻防守切换闸门流程图">
+                <svg viewBox="0 0 980 520" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stop-color="rgba(110,231,255,.28)"/>
+                      <stop offset="1" stop-color="rgba(167,243,208,.18)"/>
+                    </linearGradient>
+                    <style>
+                      .box{fill:rgba(255,255,255,.06);stroke:rgba(255,255,255,.18);stroke-width:2}
+                      .box2{fill:url(#g1);stroke:rgba(255,255,255,.20);stroke-width:2}
+                      .t{fill:rgba(255,255,255,.92);font: 14px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+                      .m{fill:rgba(255,255,255,.70);font: 12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+                      .a{stroke:rgba(255,255,255,.28);stroke-width:2;fill:none}
+                      .p{stroke:rgba(255,255,255,.28);stroke-width:2;fill:none;marker-end:url(#arrow)}
+                    </style>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(255,255,255,.45)"/>
+                    </marker>
+                  </defs>
+                  <rect x="18" y="18" width="944" height="484" rx="18" class="box" />
+
+                  <rect x="60" y="58" width="260" height="92" rx="16" class="box2"/>
+                  <text x="80" y="92" class="t">闸门 0：学习边界</text>
+                  <text x="80" y="116" class="m">不加杠杆/不冲动短线/不超系统</text>
+
+                  <rect x="360" y="58" width="260" height="92" rx="16" class="box"/>
+                  <text x="380" y="92" class="t">闸门 1：个人状态</text>
+                  <text x="380" y="116" class="m">回撤？疲劳？执行偏差？</text>
+
+                  <rect x="660" y="58" width="260" height="92" rx="16" class="box"/>
+                  <text x="680" y="92" class="t">闸门 2：环境温度</text>
+                  <text x="680" y="116" class="m">过热/中性/过冷（脆弱性）</text>
+
+                  <path d="M 320 104 L 360 104" class="p"/>
+                  <path d="M 620 104 L 660 104" class="p"/>
+
+                  <rect x="120" y="210" width="300" height="110" rx="16" class="box"/>
+                  <text x="140" y="246" class="t">闸门 3：系统优势（Edge）</text>
+                  <text x="140" y="272" class="m">条件满足度高？无效点明确？</text>
+                  <text x="140" y="296" class="m">样本/统计是否支持？</text>
+
+                  <rect x="560" y="210" width="300" height="110" rx="16" class="box"/>
+                  <text x="580" y="246" class="t">选择风险预算档位</text>
+                  <text x="580" y="272" class="m">防守 / 中性 / 进攻</text>
+                  <text x="580" y="296" class="m">仍固定 1R + 上限约束</text>
+
+                  <path d="M 790 150 L 790 210" class="p"/>
+                  <path d="M 490 150 L 270 210" class="p"/>
+                  <path d="M 420 265 L 560 265" class="p"/>
+
+                  <rect x="120" y="370" width="300" height="100" rx="16" class="box"/>
+                  <text x="140" y="406" class="t">执行层：进入/退出/复盘</text>
+                  <text x="140" y="432" class="m">计划写清楚 → 执行一致 → 复盘纠偏</text>
+
+                  <rect x="560" y="370" width="300" height="100" rx="16" class="box2"/>
+                  <text x="580" y="406" class="t">回撤触发 → 自动降档</text>
+                  <text x="580" y="432" class="m">保护选择权：降风险/暂停/复盘</text>
+
+                  <path d="M 710 320 L 710 370" class="p"/>
+                  <path d="M 270 320 L 270 370" class="p"/>
+                </svg>
+              </div>
+              <div class="small">读法：这张图的核心不是“进攻怎么做”，而是“<b>什么时候禁止进攻</b>”。先把不可交易状态写死，你的系统会更稳。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="交易场景案例">
+        <div class="hd"><h2>交易场景案例（虚构，仅用于学习）</h2><div class="hint">同一情景：Tharp vs Marks vs 融合判断</div></div>
+        <div class="bd">
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot"></span><b>市场背景（虚构）</b><span class="t-muted">“机会很多，但你刚经历回撤”</span></div>
+              <ul class="list-tight">
+                <li>过去 2 周市场波动放大，热点来回切换；你有 3 笔连续亏损，权益回撤到你设定的“黄色预警”。</li>
+                <li>今天出现一个你策略常见的形态，你很想“这次一定要把握住”。</li>
+              </ul>
+              <div class="divider"></div>
+              <div class="badline" role="note">
+                <span class="dot bad"></span>
+                <div><b>常见错误（学习用）：</b>把“机会”当作命令 → 直接上调仓位/增加次数/忽略计划；本质是用进攻来补偿情绪与回撤。</div>
+              </div>
+            </div>
+            <div>
+              <div class="tag"><span class="dot good"></span><b>更稳健的做法（融合）</b><span class="t-muted">“先过闸门，再选档位”</span></div>
+              <div class="codebox" aria-label="融合判断示例">Step 1｜个人状态闸门
+- 你处于黄色预警回撤：允许交易，但必须降档位（防守或中性）。
+
+Step 2｜环境温度闸门
+- 波动放大且热点轮动：环境分布变坏，尾部风险上升 → 不适合激进进攻。
+
+Step 3｜Edge 闸门
+- 形态满足，但样本优势是否稳定？若不确定，只允许“小成本试错”。
+
+结论（学习用）
+- 选择“防守档位”：固定 1R 更小，减少频率，只做最A+的机会；
+- 若出现新的执行偏差（临时改规则/追涨杀跌），立刻暂停与复盘。</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot"></span><b>Tharp 会怎么看？</b><span class="t-muted">系统与风险预算</span></div>
+              <ul class="list-tight">
+                <li>你现在的关键问题不是“是否抓住机会”，而是“<b>回撤阶段是否允许上调风险</b>”。答案通常是否定的。</li>
+                <li>把这笔机会当作一笔样本：<b>严格 1R + 预设退出</b>，并把执行一致性当作主要 KPI。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="tag"><span class="dot warn"></span><b>Marks 会怎么看？</b><span class="t-muted">周期、心理与安全边际</span></div>
+              <ul class="list-tight">
+                <li>热点轮动与波动放大提示：风险回报分布可能正在变坏；此时更应保护选择权。</li>
+                <li>当你“很想赢回来”时，你离被淘汰更近：因为你会忽略安全边际与脆弱性。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日反思练习">
+        <div class="hd"><h2>今日反思练习（可执行）</h2><div class="hint">15–25 分钟</div></div>
+        <div class="bd">
+          <div class="tag"><span class="dot good"></span><b>练习：写下你的“进攻/防守切换表”</b><span class="t-muted">把主观冲动变成客观档位</span></div>
+          <div class="codebox" aria-label="练习模板（可直接填写）">请填空（学习用，不用于给出买卖建议）：
+
+1) 我的三档风险预算
+- 防守档位：1R = ____；周风险上限 = ____；最大同时持仓 = ____；
+  触发条件（满足任一即进入）：回撤 ≥ ____ / 连续违规则 ≥ ____ / 环境温度（过热或过冷）且脆弱信号 ≥ ____。
+
+- 中性档位：1R = ____；周风险上限 = ____；最大同时持仓 = ____；
+  触发条件：优势一般 + 执行稳定 + 环境中性。
+
+- 进攻档位：1R = ____（仍可承受）；周风险上限 = ____；最大同时持仓 = ____；
+  触发条件（必须全部满足）：优势清晰 + 安全边际更厚 + 最近 N 笔执行一致 + 未触发回撤阈值。
+
+2) 我的“禁止进攻”清单（写 3 条）
+- ________
+- ________
+- ________
+
+3) 我如何证明自己“不是情绪化进攻”
+- 证明方式：每笔交易在下单前必须写：入场条件/无效点/1R/退出计划/档位。若写不出 → 不交易。</div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="今日检查清单">
+        <div class="hd"><h2>今日检查清单（≤5 条）</h2><div class="hint">只保留最关键</div></div>
+        <div class="bd">
+          <ul class="list-tight">
+            <li>我能一句话说清：<b>进攻＝提高参与度</b>，不是提高赌性。</li>
+            <li>我有明确的 <b>回撤触发 → 自动防守</b> 规则（不用临场纠结）。</li>
+            <li>我在任何档位都能坚持：<b>单笔风险用 1R 固定</b>，并写出无效点。</li>
+            <li>我知道当前环境更像：过热/中性/过冷，并能写出 1 条证据（学习用）。</li>
+            <li>我会在“很想赢回来”时识别自己：这是 <b>需要降档位</b> 的信号。</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1" aria-label="明日预告">
+        <div class="hd"><h2>明日预告：Day 12｜系统化复盘与交易日志</h2><div class="hint">把切换规则写进日志</div></div>
+        <div class="bd">
+          <div class="row">
+            <div>
+              <div class="tag"><span class="dot"></span><b>Day 12 主题</b><span class="t-muted">复盘不是总结感受，是更新系统</span></div>
+              <ul class="list-tight">
+                <li>你今天写出的“切换表”，必须在明天进入日志：每次交易都记录当时档位、环境温度、个人状态。</li>
+                <li>把“我今天进攻/防守得对吗？”变成可复查证据：是否按闸门、是否按 1R、是否遵守上限。</li>
+              </ul>
+            </div>
+            <div>
+              <div class="okline" role="note">
+                <span class="dot good"></span>
+                <div><b>承上启下：</b>Day 11 给你“规则”；Day 12 给你“证据”。没有日志与复盘，进攻/防守只会变成一句口号。</div>
+              </div>
+              <div class="footer">你在做的是学习型系统构建：把风险、周期与行为都写成可执行的边界条件。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F2FS cp_wait / write_end_io UAF 技术报告</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --panel-2: #f1f3f7;
+      --ink: #19191d;
+      --muted: #575b69;
+      --subtle: #7a8194;
+      --line: #dce1ea;
+      --accent: #5e6ad2;
+      --accent-2: #0e9f7f;
+      --danger: #c43c3c;
+      --warn: #b7791f;
+      --code: #111318;
+      --code-ink: #edf0ff;
+      --shadow: 0 20px 60px rgba(24, 29, 44, 0.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101116;
+        --panel: #171820;
+        --panel-2: #20222c;
+        --ink: #f3f4f8;
+        --muted: #c1c5d3;
+        --subtle: #9499ad;
+        --line: #2b2e3a;
+        --accent: #8f98ff;
+        --accent-2: #46d3b5;
+        --danger: #ff7676;
+        --warn: #f3bd58;
+        --code: #08090d;
+        --code-ink: #f1f3ff;
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font-family: var(--sans); line-height: 1.72; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: .92em; padding: .1em .35em; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); }
+    .shell { display: grid; grid-template-columns: 292px minmax(0, 1fr); min-height: 100vh; }
+    .toc { position: sticky; top: 0; height: 100vh; padding: 22px; border-right: 1px solid var(--line); background: rgba(255,255,255,.58); backdrop-filter: blur(18px); overflow: auto; }
+    @media (prefers-color-scheme: dark) { .toc { background: rgba(16,17,22,.68); } }
+    .toc h1 { margin: 0 0 8px; font-size: 18px; line-height: 1.2; }
+    .toc p { margin: 0 0 18px; color: var(--subtle); font-size: 12px; line-height: 1.5; }
+    .toc nav { display: grid; gap: 4px; }
+    .toc a { display: block; padding: 8px 10px; color: var(--muted); border-radius: 8px; font-size: 13px; line-height: 1.35; }
+    .toc a:hover { color: var(--ink); background: var(--panel-2); text-decoration: none; }
+    .content { min-width: 0; padding: 42px clamp(22px, 5vw, 74px) 88px; }
+    .hero { max-width: 1160px; margin: 0 auto 26px; padding: 34px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+    .hero h2 { margin: 0; max-width: 1040px; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: 0; }
+    .hero .lead { max-width: 980px; margin: 20px 0 0; color: var(--muted); font-size: 18px; line-height: 1.75; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+    .meta { padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+    .meta strong { display: block; font-size: 12px; color: var(--subtle); text-transform: uppercase; }
+    .meta span { display: block; margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+    section { max-width: 1160px; margin: 18px auto; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+    section h2 { margin: 0 0 14px; font-size: 28px; line-height: 1.22; letter-spacing: 0; }
+    section h3 { margin: 24px 0 8px; font-size: 20px; line-height: 1.3; }
+    p { margin: 12px 0; color: var(--muted); }
+    ul, ol { color: var(--muted); padding-left: 1.25em; }
+    li { margin: 8px 0; }
+    .callout { margin: 18px 0; padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; background: var(--panel-2); }
+    .callout strong { color: var(--ink); }
+    .danger { border-left-color: var(--danger); }
+    .warn { border-left-color: var(--warn); }
+    .ok { border-left-color: var(--accent-2); }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+    .card h3 { margin-top: 0; }
+    .card p { font-size: 14px; }
+    .diagram { margin: 20px 0; padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+    .diagram-title { margin-bottom: 12px; color: var(--subtle); font-size: 12px; font-weight: 760; text-transform: uppercase; }
+    .flow { display: grid; gap: 10px; min-width: 780px; }
+    .flow-row { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; align-items: stretch; }
+    .flow-row.three { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+    .flow-row.four { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+    .flow-row.six { grid-template-columns: repeat(6, minmax(120px, 1fr)); }
+    .box { min-height: 84px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+    .box b { display: block; color: var(--ink); font-size: 13px; line-height: 1.35; }
+    .box span { display: block; margin-top: 5px; color: var(--subtle); font-size: 12px; line-height: 1.45; }
+    .arrow { display: grid; place-items: center; color: var(--accent); font-weight: 800; }
+    .table { width: 100%; border-collapse: collapse; margin: 18px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; table-layout: fixed; }
+    .table th, .table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+    .table th { color: var(--subtle); background: var(--panel-2); font-size: 12px; text-transform: uppercase; }
+    .table td { color: var(--muted); }
+    pre { overflow: auto; padding: 16px; color: var(--code-ink); background: var(--code); border-radius: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+    .source-list { display: grid; gap: 10px; }
+    .source-list a { display: block; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .toc { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .toc nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .meta-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .content { padding: 20px 14px 64px; }
+      section, .hero { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="toc">
+    <h1>F2FS cp_wait UAF</h1>
+    <p>独立技术报告 · 2026-05-27 · write_end_io、checkpoint wait、unmount lifetime。</p>
+    <nav>
+      <a href="#summary">0. 结论先行</a>
+      <a href="#facts">1. Patch 事实</a>
+      <a href="#model">2. CP data writeback 模型</a>
+      <a href="#old-flow">3. 旧路径的问题</a>
+      <a href="#race">4. UAF 如何发生</a>
+      <a href="#fix">5. 修复策略</a>
+      <a href="#wait">6. 等待队列语义</a>
+      <a href="#source-walk">7. 逐函数导读</a>
+      <a href="#state-machine">8. 状态机</a>
+      <a href="#failure-modes">9. 失败形态</a>
+      <a href="#review">10. Review 检查点</a>
+      <a href="#debug">11. 调试和验证</a>
+      <a href="#ufs">12. 对 UFS 的启发</a>
+      <a href="#sources">资料来源</a>
+    </nav>
+  </aside>
+  <main class="content">
+    <header class="hero">
+      <p class="eyebrow">Technical Deep Dive</p>
+      <h2>F2FS cp_wait / write_end_io UAF：一个计数归零点如何变成对象生命周期边界</h2>
+      <p class="lead">这份报告分析 patch <code>f2fs: avoid cp_wait use-after-free in f2fs_write_end_io()</code>。它表面上只是调整 <code>F2FS_WB_CP_DATA</code> 完成计数和 <code>cp_wait</code> 唤醒方式，实质上是在修复一个更深的边界问题：当 writeback completion 把 checkpoint data 的页面计数降到 0 时，等待 unmount 的线程可能立刻继续并释放 <code>sbi</code>，而 end_io 回调自己还没有停止访问 <code>sbi->cp_wait</code>。</p>
+      <div class="meta-grid">
+        <div class="meta"><strong>Patchwork ID</strong><span>14594166</span></div>
+        <div class="meta"><strong>提交时间</strong><span>2026-05-26 03:44 UTC</span></div>
+        <div class="meta"><strong>作者</strong><span>Wenjie Qi</span></div>
+        <div class="meta"><strong>影响文件</strong><span>fs/f2fs/checkpoint.c, fs/f2fs/data.c</span></div>
+      </div>
+    </header>
+
+    <section id="summary">
+      <p class="eyebrow">0. Executive Summary</p>
+      <h2>结论先行：真正危险的是“最后一个完成者”</h2>
+      <p>这条 patch 的核心不是普通的 UAF，也不是简单地多加一个锁。它修的是 F2FS 中一个很典型的生命周期错位：<code>f2fs_write_end_io()</code> 在处理 DATA writeback completion 时，会递减 <code>sbi->nr_pages[F2FS_WB_CP_DATA]</code>。如果这次 completion 正好把计数降到 0，等待 <code>f2fs_wait_on_all_pages(sbi, F2FS_WB_CP_DATA)</code> 的线程就可能被唤醒。这个等待者可能是 unmount 路径；它一旦继续，就可能进入 <code>f2fs_put_super()</code> 并释放 <code>sbi</code>。但旧代码在计数归零后还要检查 <code>sbi->cp_wait</code> 是否有 sleeper，并调用 wakeup。也就是说，end_io 自己制造了“别人可以释放我还要访问的对象”的窗口。</p>
+      <p>patch 采用两个配套动作来修复。第一，在 completion 侧，对 <code>F2FS_WB_CP_DATA</code> 使用 <code>atomic_dec_and_lock_irqsave()</code>，把计数从 1 到 0 的转变和 <code>cp_wait</code> 唤醒放在同一把 waitqueue lock 下。第二，在等待侧，引入 <code>f2fs_prepare_cp_wait()</code>，让 waiter 先进入等待队列，再在 <code>cp_wait.lock</code> 下重新读取计数，避免错过刚刚发生的 wakeup。换句话说，这个 patch 同时修 UAF 窗口和 missed wakeup 窗口。</p>
+      <div class="callout danger"><strong>关键不变量：</strong>当某个计数从非零变为零会释放对象生命周期时，最后一个递减者不能在递减之后继续无保护地访问该对象。这个“归零点”必须被当作 release boundary。</div>
+      <div class="diagram">
+        <div class="diagram-title">Problem in one screen</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>DATA writeback 完成</b><span>end_io 正在处理 CP data folio。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>计数降到 0</b><span><code>F2FS_WB_CP_DATA</code> 没有未完成页面。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>unmount 被放行</b><span>等待者从 <code>f2fs_wait_on_all_pages()</code> 返回。</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="box"><b>释放 sbi</b><span>unmount 继续执行，进入 superblock 清理。</span></div>
+            <div class="arrow">↘</div>
+            <div class="box"><b>end_io 仍访问 cp_wait</b><span>旧代码归零后还会看 waitqueue 并 wakeup。</span></div>
+            <div class="arrow">→</div>
+            <div class="box"><b>UAF / missed wakeup</b><span>对象生命周期和等待队列可见性都不稳。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="facts">
+      <p class="eyebrow">1. Patch Facts</p>
+      <h2>事实层：patch 改了两个函数</h2>
+      <p>这条 patch 是 v2，当前 Patchwork 状态为 new。它修改两个位置：<code>fs/f2fs/checkpoint.c</code> 中的 <code>f2fs_wait_on_all_pages()</code>，以及 <code>fs/f2fs/data.c</code> 中的 <code>f2fs_write_end_io()</code>。提交信息明确指出问题链路：<code>f2fs_write_end_io()</code> 先递减 writeback page counter，再唤醒 <code>sbi->cp_wait</code>；如果递减动作让 <code>F2FS_WB_CP_DATA</code> 计数变为 0，等待 unmount 的路径可能继续执行并释放 <code>sbi</code>，而 end_io 还要访问 <code>sbi->cp_wait</code>。</p>
+      <p>patch 的 <code>Fixes</code> 指向 <code>ce2739e482bc</code>，即早前用于避免 <code>f2fs_write_end_io()</code> UAF 的修复。提交说明还提到另一个历史修复 <code>2d9c4a4ed4ee</code>：那个修复把 warm-node-list 相关的 <code>sbi</code> 访问移动到 <code>dec_page_count()</code> 之前。这说明维护者已经意识到一个原则：当 <code>dec_page_count()</code> 可能让等待者释放 <code>sbi</code> 时，递减之后继续访问 <code>sbi</code> 就不安全。这次 patch 是把同一原则补完整。</p>
+      <table class="table">
+        <thead><tr><th>位置</th><th>旧语义</th><th>新语义</th><th>意义</th></tr></thead>
+        <tbody>
+          <tr><td><code>f2fs_write_end_io()</code></td><td>先普通递减 <code>nr_pages[type]</code>，再检查 <code>cp_wait</code> 并唤醒。</td><td>对 <code>F2FS_WB_CP_DATA</code> 使用原子递减加 waitqueue lock，归零时锁内唤醒。</td><td>把归零和唤醒做成一个同步事件，避免归零后继续无保护访问 <code>sbi</code>。</td></tr>
+          <tr><td><code>f2fs_wait_on_all_pages()</code></td><td>先读计数，后加入等待队列，再睡眠。</td><td>准备等待后，在 <code>cp_wait.lock</code> 下重新读取计数。</td><td>避免 waiter 在检查计数和进入睡眠之间错过 wakeup。</td></tr>
+        </tbody>
+      </table>
+      <div class="callout ok"><strong>解释边界：</strong>以上来自 patch 本身和本地 Linux 源码。下面的等待图、调试建议和 UFS 映射是基于这些事实做的工程解释。</div>
+    </section>
+
+    <section id="model">
+      <p class="eyebrow">2. CP Data Writeback Model</p>
+      <h2>先理解 <code>F2FS_WB_CP_DATA</code> 是什么</h2>
+      <p>F2FS 用 <code>nr_pages[]</code> 统计多类页面状态。<code>F2FS_WB_DATA</code> 是普通 data writeback；<code>F2FS_WB_CP_DATA</code> 是 checkpoint 需要保证的数据写回。二者的区别不是“写到哪里”，而是“这个 writeback 是否被 checkpoint 一致性边界依赖”。在 <code>WB_DATA_TYPE()</code> 宏里，如果 folio 被认为需要 checkpoint guarantee，就会归入 <code>F2FS_WB_CP_DATA</code>。</p>
+      <p>checkpoint 和 unmount 路径不能只看 dirty data 是否已经提交，它还要确认那些被 checkpoint 语义保护的数据 writeback 已经完成。否则 checkpoint pack、node/meta 状态和 data block 的可见性可能不一致。所以 <code>f2fs_wait_on_all_pages(sbi, F2FS_WB_CP_DATA)</code> 是一个很重的同步边界：它等待的是“所有 checkpoint 相关 data writeback 都完成”。</p>
+      <div class="diagram">
+        <div class="diagram-title">CP data writeback lifecycle</div>
+        <div class="flow">
+          <div class="flow-row six">
+            <div class="box"><b>dirty data</b><span>普通写入或 fsync/checkpoint 相关数据。</span></div>
+            <div class="box"><b>writeback start</b><span>F2FS 准备 bio，folio 进入 writeback。</span></div>
+            <div class="box"><b>count++</b><span><code>F2FS_WB_CP_DATA</code> 计数增加。</span></div>
+            <div class="box"><b>bio completion</b><span><code>f2fs_write_end_io()</code> 被调用。</span></div>
+            <div class="box"><b>count--</b><span>最后一个完成者可能把计数降到 0。</span></div>
+            <div class="box"><b>wake cp_wait</b><span>checkpoint/unmount 等待者可以继续。</span></div>
+          </div>
+        </div>
+      </div>
+      <p>这里的危险在于最后两步。递减计数不是单纯更新统计值，它可能释放等待者；等待者释放后又可能释放 <code>sbi</code>。因此 <code>count--</code> 不是一个普通原子操作，而是对象生命周期上的边界。</p>
+    </section>
+
+    <section id="old-flow">
+      <p class="eyebrow">3. Old Flow</p>
+      <h2>旧路径的问题：计数、唤醒、对象释放不是一个原子关系</h2>
+      <p>旧代码在 <code>f2fs_write_end_io()</code> 中对所有类型都调用 <code>dec_page_count(sbi, type)</code>。随后如果类型是 <code>F2FS_WB_CP_DATA</code>，并且计数已经为 0，而且 <code>cp_wait</code> 上有等待者，就调用 <code>wake_up(&sbi->cp_wait)</code>。这个写法直观上没问题：最后一个 I/O 完成后唤醒等待者。但它忽略了一个事实：递减到 0 和访问 waitqueue 之间没有生命周期保护。</p>
+      <pre>// 解释性伪代码，表示旧顺序
+end_io(bio):
+  for each folio:
+    type = WB_DATA_TYPE(folio)
+    dec_page_count(sbi, type)
+
+    if type == F2FS_WB_CP_DATA and get_pages(sbi, type) == 0:
+      if cp_wait has sleeper:
+        wake_up(cp_wait)
+
+    folio_end_writeback(folio)</pre>
+      <p>如果没有 unmount 并发，这种顺序大概率可以工作。等待者被唤醒，end_io 继续收尾，folio writeback 被清掉。但 unmount 改变了语义：unmount 本身就是对象生命周期收尾路径，它等待 CP data writeback 完成的目的，就是确保可以销毁文件系统内部对象。因此，一旦最后一个 completion 把计数降到 0，另一个 CPU 上的 unmount 线程就有理由继续释放 <code>sbi</code>。</p>
+      <div class="diagram">
+        <div class="diagram-title">The unsafe gap</div>
+        <div class="flow-row four">
+          <div class="box"><b>CPU0 end_io</b><span>递减 <code>nr_pages[F2FS_WB_CP_DATA]</code>。</span></div>
+          <div class="box"><b>计数变 0</b><span>等待条件满足。</span></div>
+          <div class="box"><b>CPU1 unmount</b><span>等待路径返回，继续释放 superblock 私有数据。</span></div>
+          <div class="box"><b>CPU0 继续访问</b><span>仍要检查和唤醒 <code>sbi->cp_wait</code>。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="race">
+      <p class="eyebrow">4. Failure Timeline</p>
+      <h2>UAF 形成过程：不是“没加锁”，而是“锁保护的对象错了”</h2>
+      <p>这类 bug 容易被误解为简单的 waitqueue lock 使用问题。更准确的说法是：旧代码没有把 <code>nr_pages</code> 的零转变和 <code>cp_wait</code> 的唤醒合并成一个受保护的临界区。<code>nr_pages</code> 是一个原子计数，但原子计数只能保护自己的数值变化，不能自动保护“数值变化导致的对象释放”。</p>
+      <table class="table">
+        <thead><tr><th>时间</th><th>CPU0: writeback end_io</th><th>CPU1: unmount/checkpoint wait</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>T0</td><td>进入 <code>f2fs_write_end_io()</code>，处理 CP data folio。</td><td>已经在 <code>f2fs_wait_on_all_pages()</code> 等待。</td><td><code>F2FS_WB_CP_DATA == 1</code></td></tr>
+          <tr><td>T1</td><td>调用 <code>dec_page_count()</code>。</td><td>等待条件即将满足。</td><td>计数从 1 变 0。</td></tr>
+          <tr><td>T2</td><td>还没执行 waitqueue 检查。</td><td>被唤醒或超时重检后继续 unmount。</td><td><code>sbi</code> 生命周期开始结束。</td></tr>
+          <tr><td>T3</td><td>继续访问 <code>sbi->cp_wait</code>。</td><td>可能已经经过 <code>f2fs_put_super()</code>。</td><td>UAF 窗口。</td></tr>
+        </tbody>
+      </table>
+      <p>这个时间线还有另一个伴生风险：missed wakeup。等待侧旧逻辑先检查计数，再加入等待队列。如果 completion 恰好在这两个动作之间发生并完成唤醒，那么等待者可能在条件已经满足后才睡下，只能等默认 timeout。这个问题未必导致 UAF，但会制造不必要的长尾延迟。</p>
+    </section>
+
+    <section id="fix">
+      <p class="eyebrow">5. Fix Logic</p>
+      <h2>修复策略：把“归零”和“唤醒”变成同一个同步事件</h2>
+      <p>patch 在 completion 侧使用 <code>atomic_dec_and_lock_irqsave()</code>。这个 API 的语义正好适合这里：只有当原子变量递减后变成 0 时，才获取指定 spinlock 并返回 true。F2FS 用的锁是 <code>sbi->cp_wait.lock</code>。因此“最后一个 CP data completion”会在持有 waitqueue lock 的情况下执行 wakeup；非最后一个 completion 不需要拿这个锁。</p>
+      <pre>// 解释性伪代码，表示新顺序
+if type == F2FS_WB_CP_DATA:
+  if atomic_dec_and_lock(nr_pages[type], cp_wait.lock):
+    wake_up_locked(cp_wait)
+    unlock(cp_wait.lock)
+else:
+  dec_page_count(sbi, type)</pre>
+      <p>等待侧新增 <code>f2fs_prepare_cp_wait()</code>，先调用 <code>prepare_to_wait()</code>，再拿 <code>cp_wait.lock</code> 读取计数。这样，waiter 不会在“检查条件”和“正式入队睡眠”之间留下可见性空洞。如果 completion 已经把计数降到 0，waiter 会在锁内看到条件已满足并直接跳出；如果 completion 之后才发生，completion 会在同一把锁下唤醒 waiter。</p>
+      <div class="diagram">
+        <div class="diagram-title">Fixed synchronization</div>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="box"><b>waiter</b><span>加入 <code>cp_wait</code>，拿 waitqueue lock 重检计数。</span></div>
+            <div class="arrow">↔</div>
+            <div class="box"><b>same lock</b><span><code>cp_wait.lock</code> 序列化 wait condition 和 wakeup。</span></div>
+            <div class="arrow">↔</div>
+            <div class="box"><b>completion</b><span>最后一个 completion 归零时锁内 wake。</span></div>
+          </div>
+        </div>
+      </div>
+      <p>这个修复没有改变 F2FS 的 checkpoint 策略，也没有改变 data writeback 的提交方式。它只重新定义了同步边界：<code>F2FS_WB_CP_DATA</code> 的最后一个完成者必须持有 <code>cp_wait.lock</code> 完成归零和 wakeup，等待者必须在同一把锁下验证自己是否真的还需要睡眠。</p>
+    </section>
+
+    <section id="wait">
+      <p class="eyebrow">6. Waitqueue Semantics</p>
+      <h2>为什么这不是普通 wakeup，而是 release/acquire 风格的协议</h2>
+      <p>等待队列的正确用法通常包含三个动作：把当前任务放到等待队列，检查条件，条件不满足再睡眠。这里难点在于条件变量不只是一个普通布尔值，而是 <code>nr_pages[F2FS_WB_CP_DATA]</code>。这个计数的零值会让 unmount 这种释放路径继续推进。也就是说，等待条件和对象生命周期绑定在一起。</p>
+      <p>因此，completion 侧的 <code>wake_up_locked()</code> 不只是为了让等待者更快醒来；它还表达了“在我释放这批 CP data writeback 之前，等待者已经能以一致方式观察到计数为 0”。等待侧的重检也不是多余，它防止在睡眠前错过已经发生的最后 completion。</p>
+      <div class="grid-3">
+        <div class="card"><h3>普通计数</h3><p>递增和递减只影响统计值，读者下一次读到即可。</p></div>
+        <div class="card"><h3>等待条件</h3><p>计数为 0 会唤醒睡眠线程，需要防 missed wakeup。</p></div>
+        <div class="card"><h3>生命周期边界</h3><p>计数为 0 还可能让对象释放路径继续，这时最后递减者必须更保守。</p></div>
+      </div>
+      <p>这也是为什么旧注释“应该在 <code>folio_end_writeback()</code> 前访问 <code>sbi</code>”并不够。真正危险的不是 <code>folio_end_writeback()</code> 本身，而是 <code>dec_page_count()</code> 已经可以让等待者推进。patch 把这个更早的 release boundary 显式化了。</p>
+    </section>
+
+    <section id="source-walk">
+      <p class="eyebrow">7. Source Walkthrough</p>
+      <h2>逐函数导读：这条 patch 应该怎样沿源码读</h2>
+      <p>读这条 patch 时，不建议只盯着 <code>f2fs_write_end_io()</code> 的 diff。正确路径应该从三个方向同时读：谁增加 <code>F2FS_WB_CP_DATA</code> 计数，谁等待这个计数归零，谁在归零后可能释放 <code>sbi</code>。这三个方向合起来，才能解释为什么一个 waitqueue wakeup 会变成 UAF。</p>
+      <table class="table">
+        <thead><tr><th>源码位置</th><th>要看什么</th><th>和本 patch 的关系</th></tr></thead>
+        <tbody>
+          <tr><td><code>fs/f2fs/f2fs.h</code></td><td><code>WB_DATA_TYPE()</code>、<code>enum count_type</code>、<code>nr_pages[]</code>、<code>cp_wait</code>。</td><td>定义了 CP data writeback 的计数对象和等待队列对象。</td></tr>
+          <tr><td><code>fs/f2fs/data.c</code></td><td><code>f2fs_write_end_io()</code> 如何处理 bio 中每个 folio。</td><td>completion 侧在这里递减计数、处理错误、清 gcing 标志、结束 writeback。</td></tr>
+          <tr><td><code>fs/f2fs/checkpoint.c</code></td><td><code>f2fs_wait_on_all_pages()</code> 如何等待 dirty meta 或 CP data writeback。</td><td>waiter 侧在这里提交 merged DATA write、入队等待、睡眠和重检。</td></tr>
+          <tr><td><code>fs/f2fs/super.c</code></td><td>unmount 路径如何 flush merged writes 并等待 <code>F2FS_WB_CP_DATA</code>。</td><td>说明等待返回后为什么可能进入对象释放路径。</td></tr>
+          <tr><td><code>mm/filemap.c</code></td><td><code>folio_end_writeback()</code> 如何清 writeback 并唤醒等待者。</td><td>帮助区分 folio writeback 完成和 F2FS 内部计数归零这两个边界。</td></tr>
+        </tbody>
+      </table>
+      <p>这里最容易混淆的是两个“完成”。第一个完成是设备 I/O 完成，block layer 调用 bio end_io；第二个完成是文件系统和 page cache 收尾完成，F2FS 递减内部计数并调用 <code>folio_end_writeback()</code>。这条 patch 修的是第二个完成中的顺序。设备已经把 I/O 完成上报了，但文件系统 completion 回调还没有安全结束。</p>
+      <p>另一个容易混淆的点是 <code>F2FS_WB_CP_DATA</code> 和 <code>F2FS_WB_DATA</code>。普通 data writeback 完成后，等待者通常不会因此释放整个 <code>sbi</code>；CP data writeback 完成则可能是 checkpoint/unmount 的最后一道门。它的归零语义更强，所以 patch 只特殊处理 <code>F2FS_WB_CP_DATA</code>，而不是把所有 data writeback 都改成 waitqueue lock 下递减。</p>
+      <div class="diagram">
+        <div class="diagram-title">Source reading route</div>
+        <div class="flow-row five">
+          <div class="box"><b>f2fs.h</b><span>确认计数和 waitqueue 对象。</span></div>
+          <div class="box"><b>data.c</b><span>找到 completion 侧归零点。</span></div>
+          <div class="box"><b>checkpoint.c</b><span>找到 waiter 如何睡眠。</span></div>
+          <div class="box"><b>super.c</b><span>找到 unmount 如何释放对象。</span></div>
+          <div class="box"><b>filemap.c</b><span>区分 folio writeback 完成边界。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="state-machine">
+      <p class="eyebrow">8. State Machine</p>
+      <h2>把问题画成状态机：关键是从 <code>count=1</code> 到 <code>count=0</code></h2>
+      <p>这条 patch 的状态机很小，但非常严格。<code>F2FS_WB_CP_DATA</code> 大于 0 时，checkpoint/unmount 不能继续释放相关对象；等于 0 时，等待者可以继续。于是状态机的危险边就是 <code>1 -> 0</code>。这条边由最后一个 writeback completion 触发。如果这个 completion 触发了等待者继续运行，那么它自己在这条边之后就不能再随意访问 <code>sbi</code>。</p>
+      <div class="diagram">
+        <div class="diagram-title">CP data writeback state machine</div>
+        <div class="flow-row four">
+          <div class="box"><b>Active</b><span><code>nr_pages[CP_DATA] > 0</code>，还有 CP data writeback 未完成。</span></div>
+          <div class="box"><b>Last completion</b><span>end_io 处理最后一个 folio。</span></div>
+          <div class="box"><b>Zero transition</b><span>计数变 0，等待条件满足。</span></div>
+          <div class="box"><b>Release allowed</b><span>checkpoint/unmount 可以继续。</span></div>
+        </div>
+      </div>
+      <p>旧代码的问题是把 <code>Zero transition</code> 当作普通原子递减。新代码把它提升为同步事件：只有最后一个 completion 才拿 <code>cp_wait.lock</code>，并在锁内唤醒等待者。这相当于把状态机的边从“无保护数值变化”改成“受 waitqueue lock 保护的发布事件”。</p>
+      <p>等待侧的状态机也要配套。waiter 不能先读计数再入队，因为这样会有一个窗口：completion 已经完成 wakeup，但 waiter 还没进入队列，随后 waiter 继续睡眠。新代码先准备等待，再在锁内读条件。如果条件已经满足，就不睡；如果条件未满足，后续 completion 会在同一把锁下 wake。这个模式是典型的条件等待协议。</p>
+      <pre>安全状态机约束：
+1. waiter 入队和条件重检必须同锁排序。
+2. 最后 completion 的归零和 wakeup 必须同锁排序。
+3. 归零之后 completion 侧不能再无保护访问可能被释放的 sbi 字段。
+4. 非 CP data writeback 不应无谓进入这个慢路径。</pre>
+    </section>
+
+    <section id="failure-modes">
+      <p class="eyebrow">9. Failure Modes</p>
+      <h2>这类问题的表现不只有 UAF，也可能是超时和长尾</h2>
+      <p>提交信息的主线是 UAF，但同一类顺序错误也会制造 missed wakeup。missed wakeup 的表现更隐蔽：没有崩溃，没有明确的 use-after-free，只是某个等待者睡到 <code>DEFAULT_SCHEDULE_TIMEOUT</code> 才醒。用户看到的是 unmount、关机、fsync 或 checkpoint 偶发慢；设备侧可能没有异常，因为 I/O 已经完成了，问题发生在 completion 收尾之后。</p>
+      <p>这对排查很重要。很多存储长尾不是单纯设备延迟，也不是单纯文件系统慢，而是等待条件已经满足但等待者没有及时观察到。这个 patch 通过把 waiter 重检和 completion wakeup 放到同一把 waitqueue lock 下，减少了这种“条件已满足但任务还睡着”的窗口。</p>
+      <table class="table">
+        <thead><tr><th>失败形态</th><th>外部表现</th><th>应该抓的证据</th></tr></thead>
+        <tbody>
+          <tr><td>UAF</td><td>KASAN 报告，位置可能靠近 <code>cp_wait</code> 或 <code>sbi</code>。</td><td>end_io 递减到 0 后，unmount 进入释放路径，completion 仍访问 <code>sbi</code>。</td></tr>
+          <tr><td>missed wakeup</td><td>checkpoint/unmount 偶发睡满 timeout。</td><td>计数已经为 0，但 waiter 没有及时被唤醒。</td></tr>
+          <tr><td>假性设备长尾</td><td>用户感知存储慢，但 UFS command latency 正常。</td><td>设备 completion 到 F2FS wait 返回之间出现异常间隔。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="review">
+      <p class="eyebrow">7. Review Checklist</p>
+      <h2>读这条 patch 时应该检查什么</h2>
+      <p>第一，检查所有 <code>F2FS_WB_CP_DATA</code> 的递增路径是否仍然和这个递减路径匹配。F2FS 在写 bio 构造时增加计数，在 completion 中减少计数；这次 patch 只特殊处理 CP data 类型，所以普通 <code>F2FS_WB_DATA</code> 不应该受影响。</p>
+      <p>第二，检查等待侧是否有双重入队问题。patch 的等待循环里会在进入 sleep 前和循环开头都调用准备函数，因此必须保证 <code>finish_wait()</code> 的位置正确，不会让同一个 wait entry 留在队列里，也不会在错误路径泄漏等待状态。</p>
+      <p>第三，检查锁顺序。<code>cp_wait.lock</code> 是 waitqueue 自带锁；completion 侧在 bio end_io 上下文中运行，不能引入可能睡眠的锁。当前 patch 用 spinlock/irqsave 语义，符合 completion 路径约束。等待侧在准备睡眠和重检条件时短暂持锁，也没有在锁内提交 I/O 或睡眠。</p>
+      <table class="table">
+        <thead><tr><th>检查项</th><th>应该成立</th><th>为什么重要</th></tr></thead>
+        <tbody>
+          <tr><td>最后递减者</td><td>只有 <code>F2FS_WB_CP_DATA</code> 归零时拿 <code>cp_wait.lock</code> 并 wake。</td><td>避免普通 data writeback 被无意义加锁拖慢。</td></tr>
+          <tr><td>等待者重检</td><td>入队后在同一 waitqueue lock 下检查 <code>get_pages()</code>。</td><td>避免 missed wakeup 和 timeout 长尾。</td></tr>
+          <tr><td>错误路径</td><td>CP error 或 close 场景能正确跳出并 <code>finish_wait()</code>。</td><td>避免等待队列状态泄漏。</td></tr>
+          <tr><td>completion 约束</td><td>不在 end_io 中睡眠，不持锁执行复杂逻辑。</td><td>避免把修复变成新的 completion path 风险。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="debug">
+      <p class="eyebrow">8. Debugging</p>
+      <h2>如果要复现或验证，应该抓哪些信号</h2>
+      <p>这个 bug 的复现条件比较苛刻，因为需要 CP data writeback completion、checkpoint/unmount 等待和对象释放在很窄的窗口里交错。比起直接写一个简单 workload，更现实的方法是用 fault injection、KASAN、tracepoint 和延迟注入扩大窗口。</p>
+      <div class="diagram">
+        <div class="diagram-title">Trace plan</div>
+        <div class="flow-row four">
+          <div class="box"><b>F2FS counters</b><span>记录 <code>F2FS_WB_CP_DATA</code> 从 1 到 0 的时刻。</span></div>
+          <div class="box"><b>end_io</b><span>记录 <code>f2fs_write_end_io()</code> 进入、递减、wakeup、退出。</span></div>
+          <div class="box"><b>unmount</b><span>记录 <code>f2fs_wait_on_all_pages()</code> 返回和 <code>f2fs_put_super()</code> 进入。</span></div>
+          <div class="box"><b>KASAN/KCSAN</b><span>观察 UAF 或竞态告警。</span></div>
+        </div>
+      </div>
+      <pre>建议观察点：
+- f2fs_write_end_io(): type, nr_pages before/after, bio status
+- f2fs_wait_on_all_pages(): type, wait start/end, timeout count
+- f2fs_put_super(): start/end and sbi release timing
+- block completion latency: DATA write bio completion distribution
+- KASAN/KCSAN: UAF or race report around cp_wait / sbi</pre>
+      <p>性能上也要看 timeout 长尾。如果旧路径发生 missed wakeup，不一定马上 UAF，但可能让 waiter 睡到 <code>DEFAULT_SCHEDULE_TIMEOUT</code>。在移动设备上，这种 timeout 可能表现为卸载、关机、重启、应用数据同步过程中的偶发长尾。</p>
+    </section>
+
+    <section id="ufs">
+      <p class="eyebrow">9. UFS Implication</p>
+      <h2>对 UFS 固件/性能分析的启发</h2>
+      <p>这条 patch 不是 UFS patch，但它对 UFS 性能分析很有价值。用户看到的“存储卡住”不一定发生在设备请求执行阶段。这里的问题发生在 bio completion 之后、filesystem waitqueue 和 superblock lifetime 之间。设备已经完成 I/O，block layer 已经回调，真正出错的是上层 completion 收尾和等待者释放路径的顺序。</p>
+      <p>做 UFS 固件分析时，不能只看 command latency。如果某个场景出现关机、卸载、fsync 或 checkpoint 长尾，而 UFS 侧命令延迟并不高，需要继续向上看 F2FS 的 writeback counters、checkpoint wait、folio writeback/end_io。尤其是最后一个 I/O completion，它在设备侧看起来只是普通 completion，在文件系统里却可能是释放整个等待链的事件。</p>
+      <div class="grid-2">
+        <div class="card"><h3>设备侧视角</h3><p>UFS command 正常完成，CQ/interrupt/completion 都没有明显异常。</p></div>
+        <div class="card"><h3>文件系统视角</h3><p>completion 清理顺序错误，等待队列和对象生命周期交错，导致 UAF 或 timeout 长尾。</p></div>
+      </div>
+      <p>因此，端到端 trace 应该把 UFS completion timestamp 和 F2FS <code>f2fs_write_end_io()</code> timestamp 对齐。只有这样才能区分“设备完成慢”和“设备完成后上层收尾慢”。</p>
+    </section>
+
+    <section id="sources">
+      <p class="eyebrow">Sources</p>
+      <h2>资料来源</h2>
+      <div class="source-list">
+        <a href="https://patchwork.kernel.org/project/f2fs/patch/20260526034439.1017521-1-qiwenjie@xiaomi.com/">Patchwork: f2fs: avoid cp_wait use-after-free in f2fs_write_end_io()</a>
+        <a href="https://lore.kernel.org/linux-f2fs-devel/20260526034439.1017521-1-qiwenjie@xiaomi.com">Lore archive: patch mail</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/data.c">Linux source: fs/f2fs/data.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/checkpoint.c">Linux source: fs/f2fs/checkpoint.c</a>
+        <a href="https://github.com/torvalds/linux/blob/master/fs/f2fs/f2fs.h">Linux source: fs/f2fs/f2fs.h</a>
+        <a href="https://github.com/torvalds/linux/blob/master/mm/filemap.c">Linux source: mm/filemap.c</a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

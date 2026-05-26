@@ -21,11 +21,27 @@
           <p class="eyebrow">Scheduled reports</p>
           <h1>Storage Reading Reports</h1>
           <p class="lead">每周二、周四、周六由 Codex 侧 GPT 生成真正的技术报告：梳理背景、问题结构、修复逻辑和阅读检查点。</p>
-          <div class="report-stats"><span>4 reports</span><span>Tue / Thu / Sat</span><span>GPT-side</span></div>
+          <div class="report-stats"><span>6 reports</span><span>Tue / Thu / Sat</span><span>GPT-side</span></div>
         </header>
         <section class="report-section">
           <div class="report-section-head"><p class="eyebrow">Archive</p><h2>Generated Reports</h2></div>
           <div class="report-index-list">
+            <a class="report-index-item" href="./f2fs-cp-wait-write-end-io-uaf-technical-report-2026-05-27.html">
+              <div>
+                <div class="report-meta"><span>2026-05-27T00:37:33+08:00</span><span>1 topic</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>F2FS cp_wait / write_end_io UAF 技术报告</strong>
+                <p>深入解释 F2FS_WB_CP_DATA 计数归零、cp_wait 唤醒、unmount 生命周期和 f2fs_write_end_io() UAF 的形成与修复逻辑。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a class="report-index-item" href="./f2fs-large-folio-read-bio-submit-technical-report-2026-05-27.html">
+              <div>
+                <div class="report-meta"><span>2026-05-27T00:37:33+08:00</span><span>1 topic</span><span>GPT-5.5 / Codex-side</span></div>
+                <strong>F2FS large folio read bio 提交边界技术报告</strong>
+                <p>深入解释 large folio readahead 中 pending read bio 未提交如何导致 locked folio 无 completion，以及错误路径应如何维护 bio submit 边界。</p>
+              </div>
+              <span aria-hidden="true">→</span>
+            </a>
             <a class="report-index-item" href="./report-2026-05-26-gpt-linux-storage.html">
               <div>
                 <div class="report-meta"><span>2026-05-26T05:25:43+08:00</span><span>5 topics</span><span>GPT-5.5 / Codex-side</span></div>

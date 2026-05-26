@@ -2,6 +2,30 @@
   "generatedAt": "2026-05-26T05:25:43+08:00",
   "reports": [
     {
+      "id": "f2fs-cp-wait-write-end-io-uaf-technical-report-2026-05-27",
+      "title": "F2FS cp_wait / write_end_io UAF 技术报告",
+      "date": "2026-05-27",
+      "generatedAt": "2026-05-27T00:37:33+08:00",
+      "snapshotGeneratedAt": null,
+      "insightsGeneratedAt": null,
+      "model": "GPT-5.5 / Codex-side",
+      "itemCount": 1,
+      "path": "./reports/f2fs-cp-wait-write-end-io-uaf-technical-report-2026-05-27.html",
+      "summary": "深入解释 F2FS_WB_CP_DATA 计数归零、cp_wait 唤醒、unmount 生命周期和 f2fs_write_end_io() UAF 的形成与修复逻辑。"
+    },
+    {
+      "id": "f2fs-large-folio-read-bio-submit-technical-report-2026-05-27",
+      "title": "F2FS large folio read bio 提交边界技术报告",
+      "date": "2026-05-27",
+      "generatedAt": "2026-05-27T00:37:33+08:00",
+      "snapshotGeneratedAt": null,
+      "insightsGeneratedAt": null,
+      "model": "GPT-5.5 / Codex-side",
+      "itemCount": 1,
+      "path": "./reports/f2fs-large-folio-read-bio-submit-technical-report-2026-05-27.html",
+      "summary": "深入解释 large folio readahead 中 pending read bio 未提交如何导致 locked folio 无 completion，以及错误路径应如何维护 bio submit 边界。"
+    },
+    {
       "id": "report-2026-05-26-gpt-linux-storage",
       "title": "Linux Storage Technical Reading · 2026-05-26 · GPT",
       "date": "2026-05-26",

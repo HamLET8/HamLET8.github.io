@@ -3,58 +3,38 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Day 2：建立 FTL 通用语言</title>
+	<title>Day 2：模块要深，语言要准确</title>
 	<style>
 		:root {
-			--canvas: #ffffff;
-			--canvas-dark: #0a0a0a;
-			--surface: #f7f7f7;
-			--surface-soft: #fafafa;
-			--surface-code: #1c1c1e;
-			--hairline: #e5e5e5;
-			--hairline-soft: #ededed;
-			--ink: #0a0a0a;
-			--charcoal: #1c1c1e;
-			--slate: #3a3a3c;
-			--steel: #5a5a5c;
-			--mint: #00d4a4;
-			--mint-soft: #e8fff8;
-			--tag-blue: #3772cf;
-			--warn: #c37d0d;
-			--error: #d45656;
-			--radius-sm: 6px;
-			--radius-md: 8px;
-			--radius-lg: 12px;
-			--radius-full: 9999px;
+			--bg: #ffffff;
+			--ink: #141414;
+			--muted: #5e6470;
+			--soft: #f6f7f9;
+			--line: #e4e7ec;
+			--green: #0b8f6a;
+			--green-soft: #e9f8f3;
+			--blue: #2d5bd1;
+			--blue-soft: #eef3ff;
+			--amber: #a76707;
+			--amber-soft: #fff5e4;
+			--red: #b42318;
+			--red-soft: #fff0ee;
+			--code: #17181c;
+			--radius: 8px;
 		}
-
-		* {
-			box-sizing: border-box;
-		}
-
-		html {
-			scroll-behavior: smooth;
-		}
-
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
 		body {
 			margin: 0;
-			background: var(--canvas);
+			background: var(--bg);
 			color: var(--ink);
 			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
 				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 			font-size: 16px;
-			line-height: 1.55;
+			line-height: 1.65;
 		}
-
-		a {
-			color: var(--ink);
-			text-decoration: none;
-		}
-
-		a:hover {
-			text-decoration: underline;
-		}
-
+		a { color: inherit; text-decoration: none; }
+		a:hover { text-decoration: underline; }
 		.topbar {
 			position: sticky;
 			top: 0;
@@ -64,1092 +44,1044 @@
 			justify-content: space-between;
 			gap: 16px;
 			min-height: 58px;
-			padding: 12px 32px;
-			border-bottom: 1px solid var(--hairline);
-			background: rgba(255, 255, 255, 0.92);
+			padding: 12px 30px;
+			border-bottom: 1px solid var(--line);
+			background: rgba(255, 255, 255, 0.94);
 			backdrop-filter: blur(14px);
 		}
-
 		.brand {
-			display: flex;
+			display: inline-flex;
 			align-items: center;
 			gap: 10px;
 			font-size: 14px;
-			font-weight: 600;
+			font-weight: 700;
 		}
-
-		.brand-dot {
-			width: 10px;
-			height: 10px;
-			border-radius: var(--radius-full);
-			background: var(--mint);
-			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		.brand-mark {
+			width: 11px;
+			height: 11px;
+			border-radius: 999px;
+			background: var(--green);
+			box-shadow: 0 0 0 5px rgba(11, 143, 106, 0.12);
 		}
-
 		.top-actions {
 			display: flex;
 			flex-wrap: wrap;
 			justify-content: flex-end;
 			gap: 8px;
 		}
-
 		.pill {
 			display: inline-flex;
 			align-items: center;
-			min-height: 32px;
-			padding: 7px 14px;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-full);
-			background: var(--canvas);
-			color: var(--charcoal);
+			min-height: 31px;
+			padding: 6px 12px;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: #fff;
+			color: var(--muted);
 			font-size: 13px;
-			font-weight: 500;
+			font-weight: 650;
 			white-space: nowrap;
 		}
-
-		.pill.primary {
-			border-color: var(--canvas-dark);
-			background: var(--canvas-dark);
-			color: #ffffff;
+		.pill.active {
+			border-color: var(--ink);
+			background: var(--ink);
+			color: #fff;
 		}
-
-		.docs-shell {
+		.shell {
 			display: grid;
-			grid-template-columns: 200px minmax(0, 1fr);
-			gap: 24px;
+			grid-template-columns: 220px minmax(0, 1fr) 180px;
+			gap: 28px;
 			max-width: 1600px;
 			margin: 0 auto;
-			padding: 34px 32px 72px;
+			padding: 34px 30px 72px;
 		}
-
-		.sidebar,
-		.toc {
+		.sidebar, .toc {
 			position: sticky;
-			top: 86px;
+			top: 84px;
 			align-self: start;
 			max-height: calc(100vh - 108px);
 			overflow: auto;
 		}
-
-		.toc {
-			display: none;
-		}
-
-		.sidebar-section {
-			margin-bottom: 24px;
-		}
-
-		.sidebar-title,
-		.toc-title {
+		.side-title, .toc-title {
 			margin: 0 0 10px;
-			color: var(--steel);
+			color: var(--muted);
 			font-size: 11px;
-			font-weight: 700;
-			letter-spacing: 0.5px;
+			font-weight: 800;
+			letter-spacing: 0.04em;
 			text-transform: uppercase;
 		}
-
-		.nav-list,
-		.toc-list {
+		.nav-list, .toc-list {
 			display: grid;
 			gap: 2px;
-			margin: 0;
+			margin: 0 0 24px;
 			padding: 0;
 			list-style: none;
 		}
-
-		.nav-list a,
-		.toc-list a {
+		.nav-list a, .nav-list span, .toc-list a {
 			display: block;
-			padding: 7px 12px;
-			border-radius: var(--radius-sm);
-			color: var(--steel);
+			padding: 7px 10px;
+			border-radius: 6px;
+			color: var(--muted);
 			font-size: 14px;
 			line-height: 1.35;
 		}
-
+		.toc-list a { padding-left: 0; padding-right: 0; font-size: 13px; }
 		.nav-list a.active {
-			background: var(--surface);
+			background: var(--soft);
 			color: var(--ink);
-			font-weight: 600;
+			font-weight: 700;
 		}
-
-		.toc-list a {
-			padding: 5px 0;
-			border-radius: 0;
-			font-size: 13px;
-		}
-
-		main {
-			min-width: 0;
-		}
-
+		main { min-width: 0; }
 		.hero {
-			padding: 42px 0 28px;
+			padding: 36px 0 30px;
+			border-bottom: 1px solid var(--line);
 		}
-
 		.kicker {
-			display: inline-flex;
-			align-items: center;
-			gap: 8px;
-			margin: 0 0 18px;
-			color: var(--steel);
+			margin: 0 0 14px;
+			color: var(--green);
 			font-size: 13px;
-			font-weight: 600;
+			font-weight: 800;
+			letter-spacing: 0.03em;
+			text-transform: uppercase;
 		}
-
-		.kicker::before {
-			content: "";
-			width: 7px;
-			height: 7px;
-			border-radius: var(--radius-full);
-			background: var(--mint);
-		}
-
-		h1,
-		h2,
-		h3 {
+		h1, h2, h3 {
 			margin: 0;
 			color: var(--ink);
-			font-weight: 600;
+			font-weight: 720;
 			letter-spacing: 0;
-			line-height: 1.2;
+			line-height: 1.22;
 		}
-
-		h1 {
-			max-width: 880px;
-			font-size: 46px;
-			letter-spacing: -1px;
-		}
-
+		h1 { max-width: 980px; font-size: 42px; }
 		h2 {
-			margin-top: 48px;
-			padding-top: 34px;
-			border-top: 1px solid var(--hairline);
+			margin-top: 46px;
+			padding-top: 26px;
+			border-top: 1px solid var(--line);
 			font-size: 28px;
 		}
-
-		h3 {
-			margin-top: 26px;
-			font-size: 20px;
-		}
-
-		p {
-			margin: 12px 0;
-			color: var(--charcoal);
-		}
-
+		h3 { margin-top: 24px; font-size: 19px; }
+		p { margin: 12px 0; color: #2d3138; }
 		.lead {
-			max-width: 820px;
+			max-width: 980px;
 			margin-top: 18px;
-			color: var(--slate);
+			color: var(--muted);
 			font-size: 18px;
-			line-height: 1.5;
+			line-height: 1.62;
 		}
-
-		.meta-row {
+		.badge-row {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 8px;
-			margin-top: 24px;
+			margin-top: 22px;
 		}
-
 		.badge {
 			display: inline-flex;
 			align-items: center;
-			min-height: 26px;
+			min-height: 27px;
 			padding: 3px 9px;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-full);
-			background: var(--surface);
-			color: var(--steel);
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: var(--soft);
+			color: var(--muted);
 			font-size: 12px;
-			font-weight: 600;
+			font-weight: 700;
 		}
-
-		.badge.mint {
-			border-color: rgba(0, 212, 164, 0.32);
-			background: var(--mint-soft);
-			color: #006b55;
-		}
-
-		.summary-grid {
+		.badge.green { border-color: #bde7da; background: var(--green-soft); color: #07664d; }
+		.grid {
 			display: grid;
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 			gap: 12px;
-			margin-top: 28px;
+			margin-top: 20px;
 		}
-
 		.card {
-			padding: 22px;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-lg);
-			background: var(--canvas);
+			padding: 18px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: #fff;
 		}
-
-		.card.soft {
-			background: var(--surface-soft);
-		}
-
-		.card h3 {
-			margin-top: 0;
-			font-size: 18px;
-		}
-
-		.card p:last-child {
-			margin-bottom: 0;
-		}
-
+		.card.soft { background: var(--soft); }
+		.card.green { background: var(--green-soft); border-color: #bde7da; }
+		.card.blue { background: var(--blue-soft); border-color: #c9d7ff; }
+		.card.amber { background: var(--amber-soft); border-color: #f2d19a; }
+		.card.red { background: var(--red-soft); border-color: #ffc9c2; }
+		.card h3 { margin-top: 0; font-size: 17px; }
+		.card p { margin-bottom: 0; font-size: 14px; }
 		.callout {
 			margin: 18px 0;
-			padding: 18px 20px;
-			border: 1px solid var(--hairline);
-			border-left: 4px solid var(--mint);
-			border-radius: var(--radius-lg);
-			background: var(--surface-soft);
+			padding: 16px 18px;
+			border: 1px solid var(--line);
+			border-left: 4px solid var(--green);
+			border-radius: var(--radius);
+			background: var(--soft);
 		}
-
-		.callout.warning {
-			border-left-color: var(--warn);
-			background: #fffaf0;
-		}
-
 		.callout.bad {
-			border-left-color: var(--error);
-			background: #fff7f7;
+			border-left-color: var(--red);
+			background: var(--red-soft);
 		}
-
-		.diagram {
-			margin: 20px 0;
-			padding: 20px;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-lg);
-			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
-			overflow-x: auto;
-		}
-
-		.diagram svg {
-			display: block;
-			width: 100%;
-			min-width: 760px;
-			height: auto;
-		}
-
 		.table-wrap {
 			width: 100%;
 			margin: 18px 0;
 			overflow-x: visible;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-lg);
-			background: var(--canvas);
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: #fff;
 		}
-
 		table {
 			width: 100%;
-			min-width: 0;
 			border-collapse: collapse;
 			table-layout: fixed;
 			font-size: 14px;
 		}
-
-		th,
-		td {
-			padding: 14px 16px;
-			border-bottom: 1px solid var(--hairline-soft);
-			vertical-align: top;
+		th, td {
+			padding: 13px 14px;
+			border-bottom: 1px solid var(--line);
 			text-align: left;
+			vertical-align: top;
 			overflow-wrap: anywhere;
-			word-break: normal;
 		}
-
 		th {
-			background: var(--surface);
-			color: var(--steel);
+			background: var(--soft);
+			color: var(--muted);
 			font-size: 12px;
-			font-weight: 700;
-			letter-spacing: 0.3px;
+			font-weight: 800;
 			text-transform: uppercase;
 		}
-
-		tr:last-child td {
-			border-bottom: 0;
-		}
-
-		.code-panel {
+		tr:last-child td { border-bottom: 0; }
+		.diagram {
 			margin: 20px 0;
-			overflow: hidden;
-			border-radius: var(--radius-md);
-			background: var(--surface-code);
+			padding: 18px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+			overflow-x: auto;
 		}
-
+		.diagram svg {
+			display: block;
+			width: 100%;
+			min-width: 860px;
+			height: auto;
+		}
+		.code-panel {
+			margin: 18px 0;
+			overflow: hidden;
+			border-radius: var(--radius);
+			background: var(--code);
+		}
 		.code-title {
 			display: flex;
 			justify-content: space-between;
 			gap: 12px;
-			padding: 10px 16px;
-			border-bottom: 1px solid #2a2a2d;
-			color: #b3b3b3;
+			padding: 10px 14px;
+			border-bottom: 1px solid #2b2e36;
+			color: #c8ccd5;
 			font-size: 13px;
 		}
-
 		pre {
 			margin: 0;
-			padding: 18px;
+			padding: 16px;
 			overflow-x: auto;
-			color: #ffffff;
-			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			color: #f7f7f7;
+			font-family: "SFMono-Regular", Menlo, Consolas, monospace;
 			font-size: 13px;
-			line-height: 1.5;
+			line-height: 1.55;
 			white-space: pre;
 		}
-
-		code {
-			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
-		}
-
+		code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
 		.inline-code {
-			padding: 2px 6px;
-			border: 1px solid var(--hairline);
-			border-radius: 4px;
-			background: var(--surface);
-			color: var(--charcoal);
-			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
-			font-size: 13px;
-			font-weight: 500;
+			padding: 2px 5px;
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			background: var(--soft);
+			font-size: 0.9em;
 		}
-
-		.scenario-grid {
+		.checklist {
 			display: grid;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: 12px;
-			margin-top: 18px;
+			gap: 10px;
+			margin: 16px 0;
+			padding: 0;
+			list-style: none;
 		}
-
-		.scenario-card {
-			padding: 18px;
-			border: 1px solid var(--hairline);
-			border-radius: var(--radius-lg);
-			background: var(--surface-soft);
+		.checklist li {
+			padding: 12px 14px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: #fff;
 		}
-
-		.scenario-card h3 {
-			margin-top: 0;
-			font-size: 16px;
+		@media (max-width: 1280px) {
+			.shell { grid-template-columns: 220px minmax(0, 1fr); }
+			.toc { display: none; }
 		}
-
-		.scenario-card p {
-			font-size: 14px;
+		@media (max-width: 980px) {
+			.shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar { position: static; max-height: none; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+			.grid { grid-template-columns: 1fr; }
 		}
-
-		@media (min-width: 1500px) {
-			.docs-shell {
-				grid-template-columns: 220px minmax(0, 1fr) 180px;
-				gap: 28px;
-			}
-
-			.toc {
-				display: block;
-			}
-		}
-
-		@media (max-width: 1080px) {
-			.docs-shell {
-				grid-template-columns: minmax(0, 1fr);
-				padding: 24px 20px 56px;
-			}
-
-			.sidebar,
-			.toc {
-				position: static;
-				max-height: none;
-			}
-
-			.sidebar {
-				border-bottom: 1px solid var(--hairline);
-				padding-bottom: 18px;
-			}
-		}
-
 		@media (max-width: 760px) {
-			.topbar {
-				align-items: flex-start;
-				flex-direction: column;
-				padding: 12px 18px;
-			}
-
-			.docs-shell {
-				padding: 18px 16px 44px;
-			}
-
-			.hero {
-				padding-top: 24px;
-			}
-
-			h1 {
-				font-size: 34px;
-				letter-spacing: -0.5px;
-			}
-
-			h2 {
-				margin-top: 38px;
-				padding-top: 26px;
-				font-size: 24px;
-			}
-
-			.summary-grid,
-			.scenario-grid {
-				grid-template-columns: 1fr;
-			}
-
-			.card,
-			.scenario-card {
-				padding: 18px;
-			}
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			h1 { font-size: 34px; }
+			h2 { font-size: 24px; }
+			th, td { padding: 11px 10px; font-size: 13px; }
 		}
 	</style>
 </head>
 <body>
 	<header class="topbar">
 		<a class="brand" href="index.html" aria-label="返回索引">
-			<span class="brand-dot"></span>
-			<span>SSD / FTL Design Reports</span>
+			<span class="brand-mark"></span>
+			<span>Design Reading Course</span>
 		</a>
 		<nav class="top-actions" aria-label="页面导航">
 			<a class="pill" href="plan.html">15 天计划</a>
-			<a class="pill primary" href="#summary">Day 2 报告</a>
+			<a class="pill" href="day-01.html">Day 1</a>
+			<a class="pill active" href="day-02.html">Day 2</a>
 		</nav>
 	</header>
 
-	<div class="docs-shell">
-		<aside class="sidebar" aria-label="报告导航">
-			<div class="sidebar-section">
-				<p class="sidebar-title">Learning Path</p>
+	<div class="shell">
+		<aside class="sidebar" aria-label="课程导航">
+			<p class="side-title">Learning Path</p>
+			<ul class="nav-list">
+				<li><a href="plan.html">15 天计划表</a></li>
+				<li><a href="day-01.html">Day 1：可工作还不够</a></li>
+				<li><a class="active" href="day-02.html">Day 2：深模块与语言</a></li>
+				<li><span>Day 3-15：待按新框架重写</span></li>
+			</ul>
+			<p class="side-title">Today</p>
 				<ul class="nav-list">
-					<li><a href="plan.html">15 天计划表</a></li>
-					<li><a href="day-01.html">Day 1：模块边界</a></li>
-					<li><a class="active" href="day-02.html">Day 2：领域语言</a></li>
-					<li><a href="day-03.html">Day 3：接口深度</a></li>
-					<li><a href="day-04.html">Day 4：Host Write</a></li>
-					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
-					<li><a href="day-06.html">Day 6：错误路径</a></li>
-					<li><a href="day-07.html">Day 7：状态机</a></li>
-					<li><a href="day-08.html">Day 8：Journal</a></li>
-					<li><a href="day-09.html">Day 9：Recovery</a></li>
-					<li><a href="day-10.html">Day 10：GC 服务</a></li>
-					<li><a href="day-11.html">Day 11：策略分离</a></li>
-					<li><a href="day-12.html">Day 12：WriteBooster</a></li>
+					<li><a href="#reading">阅读范围</a></li>
+					<li><a href="#progression">与 Day 1 的递进</a></li>
+					<li><a href="#new-concepts">新增概念</a></li>
+					<li><a href="#slow-reading">概念慢读</a></li>
+					<li><a href="#vocabulary">术语重建</a></li>
+					<li><a href="#ftl">FTL 练习</a></li>
+					<li><a href="#case-study">接口推导</a></li>
+					<li><a href="#code">反例与改写</a></li>
+					<li><a href="#refactor-walkthrough">重构走读</a></li>
+					<li><a href="#quiz">自测题</a></li>
 				</ul>
-			</div>
-			<div class="sidebar-section">
-				<p class="sidebar-title">Today</p>
-				<ul class="nav-list">
-					<li><a href="#summary">顶部摘要</a></li>
-					<li><a href="#reading">阅读重点</a></li>
-					<li><a href="#fusion">融合判断</a></li>
-					<li><a href="#scenarios">FTL 场景</a></li>
-					<li><a href="#bad-code">反例代码</a></li>
-					<li><a href="#better-code">改进代码</a></li>
-					<li><a href="#tables">责任与落点表</a></li>
-				</ul>
-			</div>
 		</aside>
 
 		<main>
 			<section class="hero" id="summary">
-				<p class="kicker">Day 2 · SSD / FTL 代码设计判断</p>
-				<h1>建立 FTL 通用语言：不要让 type、mode、flag 偷走设计判断</h1>
+				<p class="kicker">Day 2 · Reading First</p>
+				<h1>模块要深，语言要准确：把理解变成接口、名称和所有权</h1>
 				<p class="lead">
-					今天的核心判断是：FTL 的领域词汇必须进入代码边界。
-					<span class="inline-code">lba</span>、<span class="inline-code">ppa</span>、<span class="inline-code">open block</span>、
-					<span class="inline-code">victim block</span>、<span class="inline-code">mapping commit</span>、
-					<span class="inline-code">relocation</span> 不是注释里的术语，而应该成为 struct、enum、接口名、journal record 和错误语义。
+					Day 1 解决“为什么可工作还不够”。Day 2 开始回答“怎么把理解落实到代码结构”。
+					今天的关键词不是简单的“起好名字”，而是让模块接口隐藏复杂度，让语言承载不变量，让同一份知识只归一个地方所有。
 				</p>
-				<div class="meta-row">
-					<span class="badge mint">一句话判断</span>
-					<span class="badge">用领域词汇替代 type / mode / flag</span>
-					<span class="badge">涉及：Mapping / GC / Journal / Block Manager / WriteBooster</span>
-					<span class="badge">关键词：通用语言 · 限界上下文 · DRY · 概念完整性</span>
-				</div>
-				<div class="summary-grid">
-					<div class="card soft">
-						<h3>今日设计判断</h3>
-						<p>
-							如果一个接口需要调用者传 <span class="inline-code">type = 2</span>、
-							<span class="inline-code">mode = 1</span>、<span class="inline-code">flags = 0x10</span>，
-							它已经把领域判断压扁成参数猜谜。FTL 代码应该把 host write、GC relocation、SLC flush、metadata commit 明确建模。
-						</p>
-					</div>
-					<div class="card soft">
-						<h3>今日涉及模块</h3>
-						<p>
-							Mapping Table、Block Manager、GC、Metadata Journal、SLC Cache manager / WriteBooster、
-							FTL Recovery、NAND Program / Erase / Read Flow。
-						</p>
-					</div>
+				<div class="badge-row">
+					<span class="badge green">今日主问题：语言如何承载设计知识</span>
+					<span class="badge">阅读主轴：深模块、DRY、正交性、通用语言</span>
+					<span class="badge">练习场：FTL 术语与接口改写</span>
 				</div>
 			</section>
 
 			<section id="reading">
-				<h2>今日阅读重点：通用语言不是命名美化</h2>
+				<h2>今日阅读范围</h2>
 				<p>
-					Day 2 要掌握的知识，不是“变量名起得好一点”。在 SSD / FTL 里，语言直接决定模块能不能保持边界：
-					同一个词在不同模块里含义不一致，错误路径、恢复语义和 GC 协作都会变得不可审查。
+					今天四本书都在推进同一件事：设计知识不能只留在脑子里或文档里，它必须进入模块边界、参数类型、函数名和团队语言。
 				</p>
-
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th>思想来源</th>
-								<th>今天必须掌握的概念</th>
-								<th>落到 SSD / FTL 的判断</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>《软件设计哲学》</td>
-								<td>
-									晦涩是复杂度的一种。调用者必须记住 magic number、flag 组合和隐含前置条件时，复杂度已经从模块内部泄漏到接口。
-								</td>
-								<td>
-									用 <span class="inline-code">struct ftl_mapping_delta</span> 表达 mapping 变更，
-									比 <span class="inline-code">update_map(lba, old, new, 3)</span> 更能隔离复杂度。
-								</td>
-							</tr>
-							<tr>
-								<td>《程序员修炼之道》</td>
-								<td>
-									DRY 约束的是知识重复。通用语言可以让“什么是 relocation”“什么是 committed mapping”只出现一个定义。
-								</td>
-								<td>
-									GC、Recovery、Journal 如果各自解释 relocation，就会出现三套恢复边界；应由共享领域结构和接口统一。
-								</td>
-							</tr>
-							<tr>
-								<td>《设计的设计》</td>
-								<td>
-									概念完整性要求设计有少数稳定主概念。名词太少会退化成 flag，名词太多会变成伪模型。
-								</td>
-								<td>
-									Day 2 只固定核心词汇：LBA、PPA、write origin、page role、mapping delta、journal record、relocation intent。
-								</td>
-							</tr>
-							<tr>
-								<td>《领域驱动设计》</td>
-								<td>
-									通用语言必须在限界上下文内有效。Host 视角的 LBA、NAND 视角的 PPA、GC 视角的 victim block 不能混成一个泛化 ID。
-								</td>
-								<td>
-									接口和结构体要体现上下文：Mapping 负责 LBA/PPA 关系，Block Manager 负责 block 生命周期，Journal 负责可恢复事件。
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</section>
-
-			<section id="fusion">
-				<h2>概念融合解释：词汇必须绑定责任</h2>
-				<p>
-					通用语言不是把缩写写进代码，而是把领域判断压进类型、接口和记录格式。
-					FTL 代码里最危险的语言坏味道，是一个词没有稳定边界：<span class="inline-code">page</span>
-					有时表示 NAND page，有时表示 logical page，有时表示 cache entry；<span class="inline-code">block</span>
-					有时表示 open block，有时表示 victim block，有时表示 bad block candidate。
-				</p>
-				<div class="callout">
-					<strong>统一判断：</strong>
-					每个核心词汇都要回答三个问题：它在哪个上下文有效，谁拥有它的不变量，哪个接口可以改变它。
-					回答不了这三个问题的词汇，不应该进入公共头文件。
-				</div>
-
-				<div class="diagram" aria-label="FTL 通用语言进入代码的路径">
-					<svg viewBox="0 0 960 360" role="img">
-						<defs>
-							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
-							</marker>
-							<style>
-								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
-								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
-								.bad { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
-								.t { font: 600 15px Inter, sans-serif; fill: #0a0a0a; }
-								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
-								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
-								.warn { stroke: #d45656; stroke-width: 1.2; fill: none; marker-end: url(#arrow); stroke-dasharray: 5 5; }
-							</style>
-						</defs>
-						<rect class="bad" x="30" y="48" width="180" height="76" rx="12"></rect>
-						<text class="t" x="120" y="78" text-anchor="middle">type / mode / flag</text>
-						<text class="s" x="120" y="102" text-anchor="middle">压扁领域意图</text>
-						<path class="warn" d="M210 86 L292 86"></path>
-						<rect class="bad" x="292" y="48" width="180" height="76" rx="12"></rect>
-						<text class="t" x="382" y="78" text-anchor="middle">调用者猜语义</text>
-						<text class="s" x="382" y="102" text-anchor="middle">错误路径不可审查</text>
-
-						<rect class="key" x="30" y="210" width="180" height="76" rx="12"></rect>
-						<text class="t" x="120" y="240" text-anchor="middle">领域词汇</text>
-						<text class="s" x="120" y="264" text-anchor="middle">LBA / PPA / relocation</text>
-						<path class="line" d="M210 248 L292 248"></path>
-						<rect class="box" x="292" y="210" width="180" height="76" rx="12"></rect>
-						<text class="t" x="382" y="240" text-anchor="middle">struct / enum</text>
-						<text class="s" x="382" y="264" text-anchor="middle">显式表达不变量</text>
-						<path class="line" d="M472 248 L554 248"></path>
-						<rect class="box" x="554" y="210" width="180" height="76" rx="12"></rect>
-						<text class="t" x="644" y="240" text-anchor="middle">模块接口</text>
-						<text class="s" x="644" y="264" text-anchor="middle">提交领域动作</text>
-						<path class="line" d="M734 248 L816 248"></path>
-						<rect class="key" x="816" y="210" width="120" height="76" rx="12"></rect>
-						<text class="t" x="876" y="240" text-anchor="middle">Recovery</text>
-						<text class="s" x="876" y="264" text-anchor="middle">可重放语义</text>
-
-						<path class="line" d="M644 210 C644 164, 644 142, 644 124"></path>
-						<rect class="box" x="554" y="48" width="180" height="76" rx="12"></rect>
-						<text class="t" x="644" y="78" text-anchor="middle">Journal Record</text>
-						<text class="s" x="644" y="102" text-anchor="middle">记录领域事件</text>
-						<path class="line" d="M734 86 L816 210"></path>
-					</svg>
-				</div>
-
-				<p>
-					这张图的重点是：语言不是文档层装饰，而是工程路径。讨论中的词汇如果没有进入
-					<span class="inline-code">enum</span>、<span class="inline-code">struct</span>、接口和 journal record，
-					它就不能约束实现；实现里如果只剩 <span class="inline-code">flag</span>，设计讨论也会失去抓手。
-				</p>
-			</section>
-
-			<section id="scenarios">
-				<h2>SSD / FTL 设计场景</h2>
-				<div class="scenario-grid">
-					<div class="scenario-card">
-						<h3>Mapping Table</h3>
-						<p>
-							不要用 <span class="inline-code">update(lba, ppa, type)</span>。
-							用 <span class="inline-code">mapping_delta</span> 表达 old PPA、new PPA、origin 和提交语义。
-						</p>
-					</div>
-					<div class="scenario-card">
-						<h3>GC Relocation</h3>
-						<p>
-							GC 搬移有效页不是普通 write。它应被命名为 relocation，并要求 Mapping 做条件提交，
-							避免覆盖 host write 的更新。
-						</p>
-					</div>
-					<div class="scenario-card">
-						<h3>Metadata Journal</h3>
-						<p>
-							Journal 记录的不是“写了几个数字”，而是 mapping commit、relocation commit、block erase commit 这些可重放事件。
-						</p>
-					</div>
-					<div class="scenario-card">
-						<h3>WriteBooster</h3>
-						<p>
-							SLC cache 写入不应只是 <span class="inline-code">mode = FAST</span>。
-							它是 host write 的吸收路径，后续 flush 到 TLC 时语义要保持可追踪。
-						</p>
-					</div>
-					<div class="scenario-card">
-						<h3>Bad Block Management</h3>
-						<p>
-							program fail candidate、confirmed bad block、retired block 不是同一个状态。
-							语言不分清，错误路径就会过早退役或重复分配。
-						</p>
-					</div>
-					<div class="scenario-card">
-						<h3>Power Loss Recovery</h3>
-						<p>
-							Recovery 只能重放稳定语言。若 journal 里只有 type 和 flag，恢复代码就必须猜测掉电前的领域意图。
-						</p>
-					</div>
-				</div>
-			</section>
-
-			<section id="bad-code">
-				<h2>反例代码：参数看似通用，实际让语义消失</h2>
-				<div class="callout bad">
-					<strong>坏味道：</strong>
-					这个例子把 host write、GC relocation、SLC flush、metadata write 全部压进 type/mode/flags。
-					调用点短，系统语义却散了；错误路径和 Recovery 都只能反向猜测参数组合的含义。
-				</div>
-				<div class="code-panel">
-					<div class="code-title">
-						<span>反例：领域语言被 magic 参数吞掉</span>
-						<span>C</span>
-					</div>
-					<pre><code>#define WRITE_TYPE_HOST		0
-#define WRITE_TYPE_GC		1
-#define WRITE_TYPE_META		2
-#define WRITE_MODE_FAST		1
-#define WRITE_MODE_SAFE		2
-#define WRITE_FLAG_SYNC		0x01
-#define WRITE_FLAG_MOVE		0x02
-#define WRITE_FLAG_CACHE	0x04
-
-int ftl_do_write(struct ftl_dev *ftl, u64 a, u64 b, void *buf,
-		 int type, int mode, unsigned int flags)
-{
-	int old;
-	int new;
-	int ret;
-
-	if (type == WRITE_TYPE_GC &amp;&amp; (flags &amp; WRITE_FLAG_MOVE))
-		old = (int)a;
-	else
-		old = ftl-&gt;l2p[a];
-
-	if (mode == WRITE_MODE_FAST || (flags &amp; WRITE_FLAG_CACHE))
-		new = alloc_page(ftl, 1);
-	else
-		new = alloc_page(ftl, 0);
-
-	ret = nand_program(ftl-&gt;nand, new, buf);
-	if (ret)
-		return ret;
-
-	if (flags &amp; WRITE_FLAG_SYNC)
-		journal_add(ftl-&gt;journal, type, a, old, new, flags);
-
-	if (type == WRITE_TYPE_GC)
-		ftl-&gt;l2p[b] = new;
-	else
-		ftl-&gt;l2p[a] = new;
-
-	return 0;
-}</code></pre>
-				</div>
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th>坏味道</th>
-								<th>具体表现</th>
-								<th>FTL 后果</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>领域语言丢失</td>
-								<td><span class="inline-code">a</span>、<span class="inline-code">b</span> 在不同 type 下含义不同。</td>
-								<td>调用者必须查实现才能知道传 LBA、old PPA 还是 new LBA。</td>
-							</tr>
-							<tr>
-								<td>限界上下文混合</td>
-								<td>Mapping、GC、WriteBooster、Journal 语义塞进一个函数。</td>
-								<td>任一上下文变化都会修改同一段代码。</td>
-							</tr>
-							<tr>
-								<td>恢复语义不可读</td>
-								<td>Journal 记录 type 和 flags，而不是领域事件。</td>
-								<td>Power Loss Recovery 必须复制写路径里的 if/else 才能重放。</td>
-							</tr>
-							<tr>
-								<td>错误路径不可演进</td>
-								<td>NAND fail 没有区分 host write、relocation、metadata write。</td>
-								<td>Bad Block、orphan page、mapping rollback 无法按意图补偿。</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</section>
-
-			<section id="better-code">
-				<h2>改进代码：用领域结构承载接口语义</h2>
-				<p>
-					改进版不是把名字写长，而是让每个公开结构都带有明确上下文：
-					写入来源、目标介质、mapping delta、relocation intent 和 journal record 分别表达不同领域判断。
-				</p>
-
-				<div class="code-panel">
-					<div class="code-title">
-						<span>ftl_domain.h：把核心语言放进公共边界</span>
-						<span>C</span>
-					</div>
-					<pre><code>#ifndef FTL_DOMAIN_H
-#define FTL_DOMAIN_H
-
-#include &lt;linux/types.h&gt;
-#include &lt;linux/errno.h&gt;
-
-enum ftl_write_origin {
-	FTL_WRITE_HOST = 0,
-	FTL_WRITE_SLC_FLUSH,
-	FTL_WRITE_GC_RELOCATE,
-	FTL_WRITE_METADATA,
-};
-
-enum ftl_page_role {
-	FTL_PAGE_USER_DATA = 0,
-	FTL_PAGE_MAPPING_META,
-	FTL_PAGE_JOURNAL_META,
-};
-
-enum ftl_commit_reason {
-	FTL_COMMIT_HOST_WRITE = 0,
-	FTL_COMMIT_RELOCATION,
-	FTL_COMMIT_RECOVERY_REPLAY,
-};
-
-struct ftl_ppa {
-	u32 ch;
-	u32 lun;
-	u32 blk;
-	u32 page;
-};
-
-struct ftl_mapping_delta {
-	u64 lba;
-	struct ftl_ppa old_ppa;
-	struct ftl_ppa new_ppa;
-	enum ftl_commit_reason reason;
-};
-
-struct ftl_relocation_intent {
-	u64 lba;
-	struct ftl_ppa victim_ppa;
-	enum ftl_page_role page_role;
-};
-
-int ftl_ppa_valid(const struct ftl_ppa *ppa);
-
-#endif</code></pre>
-				</div>
-
-				<div class="code-panel">
-					<div class="code-title">
-						<span>gc_relocate.c：GC 用 relocation 语言，而不是普通 write flag</span>
-						<span>C</span>
-					</div>
-					<pre><code>static int gc_build_relocation_delta(struct ftl_dev *ftl,
-				     const struct ftl_relocation_intent *intent,
-				     struct ftl_mapping_delta *delta)
-{
-	struct block_alloc_req alloc_req;
-	int ret;
-
-	if (!intent || !delta)
-		return -EINVAL;
-
-	ret = map_lookup_l2p(ftl-&gt;map, intent-&gt;lba, &amp;delta-&gt;old_ppa);
-	if (ret)
-		return ret;
-
-	if (!ftl_ppa_equal(&amp;delta-&gt;old_ppa, &amp;intent-&gt;victim_ppa))
-		return -ESTALE;
-
-	alloc_req.origin = FTL_WRITE_GC_RELOCATE;
-	alloc_req.page_role = intent-&gt;page_role;
-	alloc_req.lba = intent-&gt;lba;
-
-	ret = block_alloc_page_for_write(ftl-&gt;bm, &amp;alloc_req,
-					 &amp;delta-&gt;new_ppa);
-	if (ret)
-		return ret;
-
-	delta-&gt;lba = intent-&gt;lba;
-	delta-&gt;reason = FTL_COMMIT_RELOCATION;
-
-	return 0;
-}
-
-int gc_relocate_valid_page(struct ftl_dev *ftl,
-			   const struct ftl_relocation_intent *intent)
-{
-	struct ftl_mapping_delta delta;
-	int ret;
-
-	ret = gc_build_relocation_delta(ftl, intent, &amp;delta);
-	if (ret)
-		return ret;
-
-	ret = nand_copy_page(ftl-&gt;nand, &amp;intent-&gt;victim_ppa,
-			     &amp;delta.new_ppa);
-	if (ret)
-		goto err_copy;
-
-	ret = journal_append_mapping_delta(ftl-&gt;journal, &amp;delta);
-	if (ret)
-		goto err_journal;
-
-	ret = map_commit_delta(ftl-&gt;map, &amp;delta);
-	if (ret)
-		goto err_mapping;
-
-	block_invalidate_page(ftl-&gt;bm, &amp;intent-&gt;victim_ppa);
-	return 0;
-
-err_mapping:
-	ftl_mark_recovery_required(ftl, FTL_RECOVERY_JOURNAL_REPLAY);
-	return ret;
-
-err_journal:
-	block_discard_uncommitted_page(ftl-&gt;bm, &amp;delta.new_ppa);
-	return ret;
-
-err_copy:
-	block_report_relocation_failure(ftl-&gt;bm, &amp;intent-&gt;victim_ppa);
-	return ret;
-}</code></pre>
-				</div>
-			</section>
-
-			<section id="tables">
-				<h2>状态表与责任表</h2>
-				<h3>FTL 领域语言责任表</h3>
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th>词汇</th>
-								<th>所属上下文</th>
-								<th>谁拥有不变量</th>
-								<th>推荐代码形态</th>
-								<th>避免的问题</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>LBA</td>
-								<td>Host / Mapping</td>
-								<td>Mapping Table</td>
-								<td><span class="inline-code">u64 lba</span>，只在 Mapping API 中解释。</td>
-								<td>避免把 host 地址和 NAND 物理地址混用。</td>
-							</tr>
-							<tr>
-								<td>PPA</td>
-								<td>NAND / Block Manager</td>
-								<td>Block Manager</td>
-								<td><span class="inline-code">struct ftl_ppa</span>。</td>
-								<td>避免用 int ppn 泄漏 geometry 编码。</td>
-							</tr>
-							<tr>
-								<td>Open Block</td>
-								<td>Block Manager</td>
-								<td>Block Manager</td>
-								<td><span class="inline-code">block_alloc_page_for_write()</span>。</td>
-								<td>避免 FTL Core 直接推进 write pointer。</td>
-							</tr>
-							<tr>
-								<td>Victim Block</td>
-								<td>GC</td>
-								<td>GC policy + Block Manager</td>
-								<td><span class="inline-code">struct gc_victim</span>。</td>
-								<td>避免把可回收块和坏块候选混为一谈。</td>
-							</tr>
-							<tr>
-								<td>Mapping Commit</td>
-								<td>Mapping / Journal</td>
-								<td>Mapping Table</td>
-								<td><span class="inline-code">struct ftl_mapping_delta</span>。</td>
-								<td>避免 journal、mapping、recovery 各自解释更新语义。</td>
-							</tr>
-							<tr>
-								<td>Relocation</td>
-								<td>GC / Recovery</td>
-								<td>GC service</td>
-								<td><span class="inline-code">struct ftl_relocation_intent</span>。</td>
-								<td>避免把 GC 搬移误建模为普通 host write。</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-
-				<h3>命名到错误路径的映射</h3>
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th>领域动作</th>
-								<th>典型失败</th>
-								<th>推荐错误语义</th>
-								<th>补偿归属</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>Host write mapping commit</td>
-								<td>journal append fail</td>
-								<td><span class="inline-code">-EIO</span> 或 <span class="inline-code">-ENOSPC</span></td>
-								<td>Block Manager 丢弃未提交 page，FTL Core 返回 host 写失败。</td>
-							</tr>
-							<tr>
-								<td>GC relocation</td>
-								<td>old PPA 已被 host write 替换</td>
-								<td><span class="inline-code">-ESTALE</span></td>
-								<td>GC 跳过该 page，不更新 Mapping。</td>
-							</tr>
-							<tr>
-								<td>SLC flush</td>
-								<td>TLC 分配失败</td>
-								<td><span class="inline-code">-ENOSPC</span></td>
-								<td>WriteBooster 保留 SLC 数据并请求 GC。</td>
-							</tr>
-							<tr>
-								<td>Metadata journal replay</td>
-								<td>record checksum mismatch</td>
-								<td><span class="inline-code">-EILSEQ</span></td>
-								<td>Recovery 停止重放该 segment，进入扫描校验。</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-
-				<h3>四本书思想落点表</h3>
 				<div class="table-wrap">
 					<table>
 						<thead>
 							<tr>
 								<th>书</th>
-								<th>思想</th>
-								<th>SSD / FTL 设计位置</th>
-								<th>约束了什么</th>
-								<th>帮助避免什么问题</th>
+								<th>今天阅读的主题块</th>
+								<th>读完要能回答的问题</th>
 							</tr>
 						</thead>
 						<tbody>
 							<tr>
 								<td>《软件设计哲学》</td>
-								<td>消除晦涩，接口应该暴露意图而非实现猜谜。</td>
-								<td>Mapping、GC、Journal 的公共头文件。</td>
-								<td>禁止 magic type/mode/flag 作为主要语义载体。</td>
-								<td>避免调用者必须阅读实现才能正确调用。</td>
+								<td>深模块、信息隐藏、信息泄漏，以及更通用的模块为什么通常更深。</td>
+								<td>一个接口是把复杂度藏起来了，还是把内部知识推给调用者了？</td>
 							</tr>
 							<tr>
 								<td>《程序员修炼之道》</td>
-								<td>DRY 是知识单一来源，正交性要求词汇变化影响可控。</td>
-								<td>Relocation、mapping commit、bad block candidate 的统一定义。</td>
-								<td>同一领域词只能有一个主定义。</td>
-								<td>避免 GC、Recovery、Journal 三套解释互相漂移。</td>
+								<td>DRY、正交性、可逆性。</td>
+								<td>同一份知识是否被重复表达？一个决策变化会不会污染多个方向？</td>
 							</tr>
 							<tr>
 								<td>《设计的设计》</td>
-								<td>概念完整性来自稳定、有限、可组合的设计概念。</td>
-								<td>FTL 写入、搬移、提交、恢复的核心词汇集合。</td>
-								<td>不要为每个临时分支发明新名词，也不要把所有意图压成 flag。</td>
-								<td>避免领域模型过瘦或过度膨胀。</td>
+								<td>概念完整性、设计约束与早期设计决策如何限制后续空间。</td>
+								<td>哪些核心概念必须保持稳定，否则系统会变成补丁集合？</td>
 							</tr>
 							<tr>
 								<td>《领域驱动设计》</td>
-								<td>通用语言必须进入代码，并受限界上下文约束。</td>
-								<td>LBA、PPA、open block、victim block、journal record。</td>
-								<td>每个词必须说明上下文、所有者和可变更接口。</td>
-								<td>避免同名不同义和跨上下文误用。</td>
+								<td>通用语言、模型与实现绑定。</td>
+								<td>团队说出的词，是否能在代码结构中找到对应物？</td>
 							</tr>
 						</tbody>
 					</table>
 				</div>
 			</section>
+
+			<section id="progression">
+				<h2>与 Day 1 的递进</h2>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Day 1 建立的问题</th>
+								<th>Day 2 推进的答案</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>复杂度会让可工作代码变得难改。</td>
+								<td>用深模块和信息隐藏把复杂度放到少数所有者内部。</td>
+							</tr>
+							<tr>
+								<td>务实工程需要反馈。</td>
+								<td>用 DRY、正交性和可逆性让反馈能定位到单一知识来源。</td>
+							</tr>
+							<tr>
+								<td>设计是在约束中探索。</td>
+								<td>用少数稳定概念约束后续设计，防止每个场景都新增一个 flag。</td>
+							</tr>
+							<tr>
+								<td>模型必须能进入实现。</td>
+								<td>用通用语言把模型固定到函数名、类型、状态和错误语义中。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="new-concepts">
+				<h2>今日新增概念：语言不是标签，而是知识所有权</h2>
+				<div class="grid">
+					<div class="card green">
+						<h3>深模块</h3>
+						<p>深模块不是“函数很多”或“代码藏起来”，而是用小接口承担大功能。调用者不需要知道内部算法、状态组合和例外处理。</p>
+					</div>
+					<div class="card blue">
+						<h3>知识单一来源</h3>
+						<p>DRY 要保护的是知识，不是文本。一个状态含义、映射规则或错误分类，如果散在多个模块，就已经重复。</p>
+					</div>
+					<div class="card amber">
+						<h3>概念完整性</h3>
+						<p>概念完整性不是口号，而是限制新增概念的纪律：每个新状态、新类型、新接口都必须能解释系统主模型。</p>
+					</div>
+					<div class="card red">
+						<h3>通用语言</h3>
+						<p>DDD 的语言不是术语表。只有当词汇进入代码、测试、日志、讨论和文档，它才真的成为模型的一部分。</p>
+					</div>
+				</div>
+				<div class="callout">
+					<strong>今天的教学判断：</strong>
+					如果一个 FTL 接口叫 <span class="inline-code">do_update(type, flags)</span>，
+					问题不只是名字丑，而是调用者必须知道 <span class="inline-code">type</span> 和
+					<span class="inline-code">flags</span> 背后的隐含知识。语言没有承载设计，复杂度就会回到调用点。
+				</div>
+				</section>
+
+				<section id="slow-reading">
+					<h2>概念慢读：从“看懂代码”推进到“接口替你守住知识”</h2>
+					<p>
+						Day 1 的重点是识别“可工作但不可解释”的风险。Day 2 不再停留在风险识别，而是进入具体设计手段：
+						哪些知识应该被藏进模块内部，哪些语言必须暴露在接口上，哪些变化轴不能混在一起。
+						如果 Day 2 读完后只得到“命名要清楚”，那仍然太浅。今天要学的是：语言、接口、类型和模块边界共同决定知识归属。
+					</p>
+					<h3>1. 深模块：小接口不是少写参数，而是少泄漏知识</h3>
+					<p>
+						一个浅接口的问题不一定是参数多，而是参数背后有很多隐含规则。比如
+						<span class="inline-code">alloc_page(type, flags, ctx)</span> 参数看似少，但调用者必须知道：
+						哪种 type 可以配哪种 flag，GC 分配是否允许跳过 journal，hot data 是否应该进入独立 block，
+						recovery replay 能否复用普通 host write 分配路径。这些知识本应属于 Block Manager 或策略模块，
+						却被接口推给了调用者。
+					</p>
+					<p>
+						深模块的目标不是把接口做成黑箱，而是让调用者只表达领域意图。调用者说“我要为 host write 分配一个 page”，
+						Block Manager 再决定 open block、冷热分区、free pool、write pointer 和磨损约束。这样调用者不必理解内部策略，
+						也不会在多个地方重复策略判断。
+					</p>
+					<h3>2. 信息隐藏：隐藏的是变化原因，不是字段本身</h3>
+					<p>
+						信息隐藏常被误读成“把结构体字段设成 private”。在 C 风格系统里，即使没有语言级 private，也可以通过接口和文件边界隐藏变化原因。
+						例如 block 的 <span class="inline-code">free_pages</span> 计数可能因为 host write、GC relocation、erase finish、bad block retire 而变化。
+						如果外部模块都能直接改这个计数，那么真正泄漏的不是字段，而是“什么事件会影响空间状态”这份知识。
+					</p>
+					<p>
+						因此今天要把信息隐藏理解成：一个模块拥有一类变化原因，外部模块只提交事件或请求，不直接修改内部事实。
+						这为后续 Day 7 的状态机打基础，但 Day 2 还不讲完整状态机，只讲接口如何先把知识归属划出来。
+					</p>
+					<h3>3. DRY 与正交性：避免同一规则以不同形状出现</h3>
+					<p>
+						DRY 不是看到重复代码就抽函数。真正危险的是同一条规则在不同地方以不同形状出现。
+						例如“GC relocation 不能把数据写进普通 host write 的 open block”这条规则，
+						如果同时出现在调用点的 flag 组合、Block Manager 的 if 分支、GC 的预检查、Recovery 的补偿逻辑里，
+						那么以后规则变化时必然漏改。
+					</p>
+					<p>
+						正交性则要求变化轴不要互相污染。数据冷热是一条变化轴，写入来源是一条变化轴，是否需要稳定提交是另一条变化轴。
+						把它们全部塞进 <span class="inline-code">flags</span> 后，一个策略变化会牵动所有调用点。
+						这就是“看似灵活，实际耦合”。
+					</p>
+					<h3>4. 通用语言：不是把中文词翻成英文函数名</h3>
+					<p>
+						DDD 的通用语言要求团队讨论、代码结构和测试场景使用同一套词。但这不等于把
+						“写入意图”翻译成 <span class="inline-code">write_intent</span> 就完成了。
+						要检查这个词是否真的承载了规则：它是否区分 host write 与 GC relocation？是否说明 mapping 何时可见？
+						是否影响 journal 记录？是否让错误路径能说清楚写入停在哪个阶段？
+					</p>
+					<p>
+						如果一个词只出现在注释里，不出现在类型、接口、测试和日志中，它还不是模型语言。
+						Day 2 的核心任务就是把“语言”从说明文字推进到可执行边界。
+					</p>
+				</section>
+
+				<section id="differences">
+					<h2>四书差异：今天它们各自约束什么</h2>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>今天关注的对象</th>
+								<th>它会如何审查一个 FTL 接口</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>接口是否浅，是否泄漏内部复杂度。</td>
+								<td>问调用者是否必须理解 block 状态、page cursor、bad block 策略和 journal 顺序。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>知识是否重复，变化轴是否正交。</td>
+								<td>问 allocation policy、write intent、temperature、GC pressure 是否被混进同一个 flag。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>概念集合是否一致，是否能长期承受约束变化。</td>
+								<td>问新概念是稳定抽象，还是为某个 bug 临时添加的例外通道。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>语言是否连接领域讨论和代码实现。</td>
+								<td>问 open block、host write、relocation、mapping commit 是否在代码里是明确类型或事件。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				</section>
+
+				<section id="vocabulary">
+					<h2>术语重建：哪些词必须变成代码里的概念</h2>
+					<p>
+						旧版报告经常把“领域语言”当成泛泛的命名建议。Day 2 要更具体：下面这些词如果只存在于文章中，
+						但没有进入接口和类型，系统仍然会退回 <span class="inline-code">type</span>、
+						<span class="inline-code">mode</span>、<span class="inline-code">flags</span> 的世界。
+					</p>
+					<div class="table-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th>领域词</th>
+									<th>它承载的知识</th>
+									<th>应该进入哪里</th>
+									<th>不应该退化成什么</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>Host Write</td>
+									<td>来自主机的新写入，要求最终成为 LBA 当前版本。</td>
+									<td><span class="inline-code">struct ftl_host_write_alloc</span>、mapping commit 接口、journal record。</td>
+									<td><span class="inline-code">type = 0</span></td>
+								</tr>
+								<tr>
+									<td>Relocation</td>
+									<td>GC 搬迁有效页，不代表主机提交了新数据。</td>
+									<td><span class="inline-code">struct ftl_relocation_alloc</span>、victim block 上下文、old PPA 证据。</td>
+									<td><span class="inline-code">FTL_ALLOC_GC</span> flag</td>
+								</tr>
+								<tr>
+									<td>Replay</td>
+									<td>恢复流程按 journal 证据重建事实，不能等同普通写路径。</td>
+									<td><span class="inline-code">struct ftl_replay_alloc</span>、journal seq、幂等检查。</td>
+									<td><span class="inline-code">ctx</span> 指针</td>
+								</tr>
+								<tr>
+									<td>Stable Commit</td>
+									<td>写入是否需要在对外可见前留下可恢复证据。</td>
+									<td>commit policy 字段、journal 决策、错误返回。</td>
+									<td><span class="inline-code">FTL_ALLOC_SYNC</span> 与 <span class="inline-code">NO_JOURNAL</span> 混用</td>
+								</tr>
+								<tr>
+									<td>Temperature</td>
+									<td>数据冷热影响放置策略，但不等于写入来源。</td>
+									<td><span class="inline-code">enum ftl_data_temperature</span> 或独立 placement hint。</td>
+									<td>和 GC / sync 混在同一个 flags 中。</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<p>
+						这个表的教学意义在于：每个词都要说明“它承载什么知识”。如果一个词不能改变接口、类型、日志或测试，
+						就还只是描述性文字。真正的通用语言必须能减少调用者需要记住的隐含规则。
+					</p>
+				</section>
+
+				<section id="ftl">
+					<h2>SSD / FTL 练习：把模糊接口改成领域语言</h2>
+				<p>
+					今天的练习不是重新设计整个 FTL，而是把“万能函数 + flags”的接口改成能表达意图和不变量的接口。
+					改写时要问：这个名字是否说明调用者想做什么？参数是否携带必要语义？哪些知识被模块拥有？
+				</p>
+				<div class="diagram" aria-label="从模糊接口到领域语言">
+					<svg viewBox="0 0 1060 360" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5e6470"></path>
+							</marker>
+							<style>
+								.box { fill: #fff; stroke: #cfd5df; stroke-width: 1.4; }
+								.bad { fill: #fff0ee; stroke: #b42318; }
+								.good { fill: #e9f8f3; stroke: #0b8f6a; }
+								.blue { fill: #eef3ff; stroke: #2d5bd1; }
+								.t { font: 700 15px Inter, sans-serif; fill: #141414; }
+								.s { font: 12px Inter, sans-serif; fill: #5e6470; }
+								.line { stroke: #5e6470; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="bad" x="52" y="70" width="242" height="86" rx="12"></rect>
+						<text class="t" x="173" y="103" text-anchor="middle">type / mode / flags</text>
+						<text class="s" x="173" y="128" text-anchor="middle">语义藏在调用者脑子里</text>
+						<path class="line" d="M294 113 L386 113"></path>
+						<rect class="blue" x="386" y="70" width="288" height="86" rx="12"></rect>
+						<text class="t" x="530" y="103" text-anchor="middle">识别领域意图</text>
+						<text class="s" x="530" y="128" text-anchor="middle">host write / relocation / flush / recovery</text>
+						<path class="line" d="M674 113 L766 113"></path>
+						<rect class="good" x="766" y="70" width="242" height="86" rx="12"></rect>
+						<text class="t" x="887" y="103" text-anchor="middle">专门接口和类型</text>
+						<text class="s" x="887" y="128" text-anchor="middle">知识归属到模块内部</text>
+						<rect class="box" x="164" y="226" width="732" height="70" rx="12"></rect>
+						<text class="t" x="530" y="254" text-anchor="middle">审查标准</text>
+						<text class="s" x="530" y="278" text-anchor="middle">调用者是否能只表达意图，而不理解内部状态组合和策略细节？</text>
+					</svg>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>旧接口信号</th>
+								<th>说明的问题</th>
+								<th>Day 2 改写方向</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td><span class="inline-code">int type</span></td>
+								<td>领域意图被压成数字，调用者和被调用者共享隐含知识。</td>
+								<td>改成 <span class="inline-code">enum ftl_write_intent_kind</span> 或更具体的请求结构。</td>
+							</tr>
+							<tr>
+								<td><span class="inline-code">unsigned long flags</span></td>
+								<td>多个变化轴混在一起，破坏正交性。</td>
+								<td>拆成 temperature、durability、source、journal policy 等独立字段。</td>
+							</tr>
+							<tr>
+								<td><span class="inline-code">void *ctx</span></td>
+								<td>调用契约无法从类型看出，维护者必须读实现。</td>
+								<td>为 host write、GC relocation、recovery replay 分别建上下文类型。</td>
+							</tr>
+							<tr>
+								<td><span class="inline-code">update()</span></td>
+								<td>函数名没有表达领域动作，也无法说明不变量由谁维护。</td>
+								<td>改成 commit mapping、reserve page、mark orphan、finish erase 等动作。</td>
+							</tr>
+						</tbody>
+					</table>
+					</div>
+				</section>
+
+				<section id="case-study">
+					<h2>接口推导：为什么不能只把函数改个名字</h2>
+					<p>
+						很多“改进版”只会把 <span class="inline-code">ftl_alloc_page()</span> 改名成
+						<span class="inline-code">ftl_alloc_for_host_write()</span>，但参数仍然是
+						<span class="inline-code">type</span>、<span class="inline-code">flags</span>、<span class="inline-code">ctx</span>。
+						这不是模型进步，只是把旧问题包了一层更好看的名字。真正的推导要从调用者意图开始。
+					</p>
+					<h3>第一步：列出调用者真正想表达的意图</h3>
+					<p>
+						Host Write 想表达的是“主机写入一个 LBA，希望最终成为当前版本”；GC Relocation 想表达的是“从 victim block 搬迁一个仍然有效的旧 PPA”；
+						Recovery Replay 想表达的是“根据 journal 证据重放一个之前已经承认过的事实”。这三件事都需要物理 page，
+						但它们的前置条件、错误语义、journal 要求和统计归属不同。如果共享一个万能接口，调用者就必须知道这些区别。
+					</p>
+					<h3>第二步：把不同前置条件放进不同请求类型</h3>
+					<p>
+						请求类型不是为了形式感。它应该让非法组合无法自然出现。Host Write 需要 LBA、temperature、stable commit 需求；
+						Relocation 需要 old PPA、victim block、原 LBA；Replay 需要 journal sequence 和幂等识别。
+						如果一个字段对某类请求没有意义，它就不应该出现在这类请求结构里。
+					</p>
+					<h3>第三步：让模块内部拥有策略变化</h3>
+					<p>
+						拆出三个接口后，并不表示内部要复制三套分配算法。Block Manager 仍然可以调用同一个内部 helper，
+						但 helper 接收的是已经归一化后的 placement decision，而不是让外部调用者传入随意组合的 flags。
+						外部接口表达意图，内部策略计算结果，这就是深模块和 DRY 同时成立的方式。
+					</p>
+					<div class="table-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th>设计步骤</th>
+									<th>如果没做到</th>
+									<th>做到以后有什么变化</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>识别不同意图</td>
+									<td>所有调用点都传 <span class="inline-code">type</span>。</td>
+									<td>调用者不再共享隐含数字约定。</td>
+								</tr>
+								<tr>
+									<td>拆分请求类型</td>
+									<td>无意义字段到处存在，非法组合靠 if 检查。</td>
+									<td>类型本身表达可用字段和前置条件。</td>
+								</tr>
+								<tr>
+									<td>策略留在模块内部</td>
+									<td>冷热、GC、journal、sync 规则散在调用点。</td>
+									<td>规则变化时主要修改 Block Manager 或策略模块。</td>
+								</tr>
+								<tr>
+									<td>错误语义按意图返回</td>
+									<td>所有失败都变成 <span class="inline-code">-EINVAL</span> 或 <span class="inline-code">-EIO</span>。</td>
+									<td>host write 可返回空间压力，relocation 可返回 victim stale，replay 可返回 journal conflict。</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</section>
+
+				<section id="code">
+					<h2>反例与改写：从万能分配函数到深接口</h2>
+				<div class="callout bad">
+					<strong>反例目标：</strong>
+					这段代码看似灵活，实际把多个知识轴混进 <span class="inline-code">type</span> 和
+					<span class="inline-code">flags</span>。它违反的不是“命名风格”，而是深模块、DRY、正交性和通用语言。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：万能接口让调用者背负内部知识</span>
+						<span>C</span>
+					</div>
+					<pre><code>#define FTL_ALLOC_HOT		BIT(0)
+#define FTL_ALLOC_GC		BIT(1)
+#define FTL_ALLOC_SYNC		BIT(2)
+#define FTL_ALLOC_NO_JOURNAL	BIT(3)
+
+int ftl_alloc_page_bad(struct ftl_dev *ftl, int type, unsigned long flags,
+		       u64 lba, void *ctx, struct ftl_ppa *ppa)
+{
+	if (type == 0 &amp;&amp; (flags &amp; FTL_ALLOC_GC))
+		return -EINVAL;
+	if ((flags &amp; FTL_ALLOC_NO_JOURNAL) &amp;&amp; !(flags &amp; FTL_ALLOC_SYNC))
+		return -EINVAL;
+
+	if (flags &amp; FTL_ALLOC_HOT)
+		return alloc_hot_page(ftl, lba, ppa);
+	if (flags &amp; FTL_ALLOC_GC)
+		return alloc_gc_page(ftl, ctx, ppa);
+
+	return alloc_normal_page(ftl, lba, ppa);
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>问题</th>
+								<th>为什么是 Day 2 的问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>接口浅</td>
+								<td>调用者必须知道 hot、GC、sync、journal 之间的合法组合。</td>
+							</tr>
+							<tr>
+								<td>知识重复</td>
+								<td>合法 flag 组合会在调用点、分配函数、测试和文档中重复。</td>
+							</tr>
+							<tr>
+								<td>变化轴混合</td>
+								<td>写入来源、冷热、持久化策略、同步语义被塞进一个 flags。</td>
+							</tr>
+							<tr>
+								<td>语言贫血</td>
+								<td>代码没有表达 host write、GC relocation、recovery replay 这些真实领域动作。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="code-panel">
+					<div class="code-title">
+						<span>改写：接口按领域意图拆开，策略知识归模块所有</span>
+						<span>C</span>
+					</div>
+					<pre><code>enum ftl_data_temperature {
+	FTL_DATA_COLD = 0,
+	FTL_DATA_WARM,
+	FTL_DATA_HOT,
+};
+
+struct ftl_host_write_alloc {
+	u64 lba;
+	enum ftl_data_temperature temperature;
+	bool needs_stable_commit;
+};
+
+struct ftl_relocation_alloc {
+	struct ftl_ppa old_ppa;
+	u64 lba;
+	u32 victim_block;
+};
+
+struct ftl_replay_alloc {
+	u64 lba;
+	u64 journal_seq;
+};
+
+int block_alloc_for_host_write(struct ftl_block_manager *bm,
+			       const struct ftl_host_write_alloc *req,
+			       struct ftl_ppa *ppa);
+int block_alloc_for_relocation(struct ftl_block_manager *bm,
+			       const struct ftl_relocation_alloc *req,
+			       struct ftl_ppa *ppa);
+int block_alloc_for_replay(struct ftl_block_manager *bm,
+			   const struct ftl_replay_alloc *req,
+			   struct ftl_ppa *ppa);
+
+int ftl_prepare_host_write(struct ftl_dev *ftl, u64 lba,
+			   enum ftl_data_temperature temperature,
+			   struct ftl_ppa *ppa)
+{
+	struct ftl_host_write_alloc req = {
+		.lba = lba,
+		.temperature = temperature,
+		.needs_stable_commit = true,
+	};
+
+	return block_alloc_for_host_write(ftl-&gt;blocks, &amp;req, ppa);
+}</code></pre>
+				</div>
+					<p>
+						这个改写不是为了多写几个结构体，而是让语言变成约束。Host write、relocation、replay 的合法组合不同，
+						所以它们不应该共享一个万能 flag 接口。Block Manager 内部仍可复用分配算法，但外部接口必须表达调用意图。
+					</p>
+				</section>
+
+				<section id="refactor-walkthrough">
+					<h2>重构走读：从 flags 接口走到深模块接口</h2>
+					<p>
+						Day 2 的改写容易被误解成“多建几个结构体”。为了避免这个误解，需要把重构过程拆成更细的判断。
+						下面不是新的最终方案，而是一条审查路径：每一步都要说明删掉了哪类隐含知识，又把哪类知识交给了更合适的所有者。
+					</p>
+					<h3>第一步：不要先问函数应该叫什么，先问调用者为什么调用它</h3>
+					<p>
+						坏接口的第一个问题是 <span class="inline-code">ftl_alloc_page_bad()</span> 这个名字太宽。
+						它没有说明调用者要为哪种写入分配 page。Host write、GC relocation、Recovery replay 都需要 page，
+						但它们不是同一个领域动作。Host write 面向主机可见性；relocation 面向空间回收；replay 面向恢复证据。
+						如果函数名只说“分配 page”，调用者就必须用额外参数补充真正意图，于是 <span class="inline-code">type</span> 和
+						<span class="inline-code">flags</span> 开始膨胀。
+					</p>
+					<p>
+						正确的第一步不是立即写三个函数，而是列出三类调用者的前置条件和失败后果。
+						如果两类调用者的失败后果不同，就不应该强行共用同一个外部接口。
+						例如 host write 分配失败可能要向上返回空间压力；relocation 分配失败可能意味着 GC 需要换 victim 或触发紧急回收；
+						replay 分配失败则可能说明 journal 证据和当前介质状态冲突。这些不是同一个 <span class="inline-code">-ENOSPC</span> 能表达的。
+					</p>
+					<h3>第二步：把 flags 拆成独立变化轴</h3>
+					<p>
+						<span class="inline-code">FTL_ALLOC_HOT</span>、<span class="inline-code">FTL_ALLOC_GC</span>、
+						<span class="inline-code">FTL_ALLOC_SYNC</span>、<span class="inline-code">FTL_ALLOC_NO_JOURNAL</span>
+						看起来只是四个 bit，实际上代表四类完全不同的问题：数据温度、写入来源、提交持久性、journal 策略。
+						它们放在同一个 flags 里后，调用者可以组合出很多没有领域意义的状态，例如 GC relocation + no journal + sync。
+						然后实现不得不用 if 去排除非法组合，测试也必须覆盖这些组合，文档还要解释这些组合。
+						这就是知识重复。
+					</p>
+					<p>
+						拆分变化轴后，数据温度进入 host write 请求；GC 来源进入 relocation 请求；journal sequence 进入 replay 请求；
+						commit policy 成为单独策略。这样每个字段都有明确上下文。更重要的是，非法组合不再是运行时才发现的神秘错误，
+						而是在接口层面就不自然。
+					</p>
+					<h3>第三步：区分外部深接口和内部复用</h3>
+					<p>
+						很多人担心拆接口会导致代码重复。这里要区分外部接口和内部实现。外部接口应该按领域意图拆开，
+						因为调用者需要表达不同意图；内部实现可以共享算法，因为 Block Manager 最终都要选择一个物理 page。
+						一个常见结构是：外部接口分别解析 host write、relocation、replay 请求，然后转换成内部
+						<span class="inline-code">placement_request</span>，再由统一的 placement engine 处理。
+					</p>
+					<p>
+						这样既不是万能函数，也不是复制三套算法。它满足《软件设计哲学》的深模块，因为调用者不再理解内部策略；
+						满足《程序员修炼之道》的 DRY，因为放置规则只在内部策略中定义；
+						满足《设计的设计》的概念完整性，因为外部概念集合稳定；
+						也满足 DDD 的通用语言，因为代码接口使用真实领域动作。
+					</p>
+					<div class="table-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th>重构前问题</th>
+									<th>错误修法</th>
+									<th>正确修法</th>
+									<th>检查结果</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>函数名过宽。</td>
+									<td>只改名成 <span class="inline-code">alloc_for_write()</span>。</td>
+									<td>按 host write、relocation、replay 拆分外部意图。</td>
+									<td>调用点不再用数字补充语义。</td>
+								</tr>
+								<tr>
+									<td>flags 混合变化轴。</td>
+									<td>增加更多 flag 或宏注释。</td>
+									<td>把温度、来源、commit policy、journal 证据拆到各自请求类型。</td>
+									<td>非法组合减少，规则归属更清晰。</td>
+								</tr>
+								<tr>
+									<td>调用者知道内部策略。</td>
+									<td>把策略判断移动到另一个 helper，但参数不变。</td>
+									<td>调用者只提交意图，Block Manager 内部计算 placement decision。</td>
+									<td>策略变化不污染上层调用点。</td>
+								</tr>
+								<tr>
+									<td>错误语义太粗。</td>
+									<td>继续返回 <span class="inline-code">-EINVAL</span>。</td>
+									<td>按意图区分 no space、stale victim、journal conflict、unsupported policy。</td>
+									<td>失败能指导恢复、重试或上报。</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<h3>第四步：检查语言是否真的进入测试</h3>
+					<p>
+						最后一步看测试名字。如果测试仍然叫 <span class="inline-code">test_alloc_flags()</span>，
+						说明语言没有真正改变。更好的测试应该像：
+						<span class="inline-code">host_write_allocation_keeps_gc_blocks_separate</span>、
+						<span class="inline-code">relocation_allocation_rejects_stale_victim</span>、
+						<span class="inline-code">replay_allocation_requires_matching_journal_seq</span>。
+						这些名字不是装饰，它们让测试成为通用语言的一部分。
+					</p>
+					<p>
+						到这里，Day 2 和 Day 1 的差异就很清楚了：Day 1 让你看见“可工作但不可解释”的问题；
+						Day 2 要求你把解释能力落实到外部接口、请求类型、错误语义和测试语言中。
+					</p>
+				</section>
+
+				<section id="review-drill">
+					<h2>代码审查演练：看到一个接口时先问五个问题</h2>
+					<p>
+						Day 2 的知识应该能用于代码审查。以后看到任何 FTL 接口，不要先评价名字好不好听，
+						而是用下面五个问题判断它是否真的承载了设计知识。
+					</p>
+					<div class="table-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th>问题</th>
+									<th>为什么重要</th>
+									<th>在分配接口中的例子</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>调用者表达的是意图，还是内部策略？</td>
+									<td>深模块要求调用者少知道内部决策。</td>
+									<td>表达 host write，而不是传 hot + sync + no journal。</td>
+								</tr>
+								<tr>
+									<td>同一条规则是否只出现一次？</td>
+									<td>DRY 保护规则的单一归属。</td>
+									<td>GC relocation 的合法目标 block 不应在多个调用点重复判断。</td>
+								</tr>
+								<tr>
+									<td>变化轴是否被分开？</td>
+									<td>正交性决定未来修改的影响范围。</td>
+									<td>temperature 不应和 write source 混在同一个 flags。</td>
+								</tr>
+								<tr>
+									<td>领域词是否进入类型和测试？</td>
+									<td>通用语言必须可执行。</td>
+									<td>测试名应能出现 host write allocation、relocation allocation、replay allocation。</td>
+								</tr>
+								<tr>
+									<td>错误返回是否能说明哪条规则失败？</td>
+									<td>反馈决定系统是否可维护。</td>
+									<td>区分 no free block、victim stale、journal conflict，而不是统一返回 -EINVAL。</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</section>
+
+				<section id="quiz">
+					<h2>自测题：确认你能区分命名和模型</h2>
+				<ul class="checklist">
+					<li>
+						<strong>问题 1：</strong>
+						深模块和“大模块”有什么区别？
+						<br>
+						<strong>参考要点：</strong>
+						深模块用小接口承担大量内部复杂度；大模块只是代码多。深度看调用者少知道了多少内部事实。
+					</li>
+					<li>
+						<strong>问题 2：</strong>
+						为什么 DRY 不是“不要复制代码”？
+						<br>
+						<strong>参考要点：</strong>
+						DRY 保护知识单一来源。两段代码不同，但如果表达同一条规则，也可能违反 DRY。
+					</li>
+					<li>
+						<strong>问题 3：</strong>
+						一个函数名从 <span class="inline-code">update()</span> 改成 <span class="inline-code">mapping_commit_host_write()</span>，
+						什么时候只是改名，什么时候是模型进步？
+						<br>
+						<strong>参考要点：</strong>
+						如果只是换字符串，不算进步；如果接口参数、错误语义、测试和调用边界都围绕 commit host write 改变，才是模型进入实现。
+					</li>
+					<li>
+						<strong>问题 4：</strong>
+						为什么万能 flags 会破坏正交性？
+						<br>
+						<strong>参考要点：</strong>
+						flags 常把来源、策略、持久化、冷热、错误处理混在一起，一个变化会影响多个方向，调用者也必须理解组合规则。
+					</li>
+				</ul>
+			</section>
+
+			<section id="next">
+				<h2>明日预告</h2>
+				<p>
+					Day 3 会继续读接口深度、抽象层、曳光弹、原型和分层架构。重点会从“语言承载知识”推进到“接口如何隐藏策略并支持探索”。
+				</p>
+			</section>
 		</main>
 
 		<aside class="toc" aria-label="本页目录">
 			<p class="toc-title">On this page</p>
-			<ul class="toc-list">
-				<li><a href="#summary">顶部摘要</a></li>
-				<li><a href="#reading">今日阅读重点</a></li>
-				<li><a href="#fusion">概念融合解释</a></li>
-				<li><a href="#scenarios">SSD / FTL 场景</a></li>
-				<li><a href="#bad-code">反例代码</a></li>
-				<li><a href="#better-code">改进代码</a></li>
-				<li><a href="#tables">责任表与落点表</a></li>
-			</ul>
+				<ul class="toc-list">
+					<li><a href="#reading">今日阅读范围</a></li>
+					<li><a href="#progression">与 Day 1 的递进</a></li>
+					<li><a href="#new-concepts">新增概念</a></li>
+					<li><a href="#differences">四书差异</a></li>
+					<li><a href="#slow-reading">概念慢读</a></li>
+					<li><a href="#vocabulary">术语重建</a></li>
+					<li><a href="#ftl">FTL 练习</a></li>
+					<li><a href="#case-study">接口推导</a></li>
+					<li><a href="#code">反例与改写</a></li>
+					<li><a href="#refactor-walkthrough">重构走读</a></li>
+					<li><a href="#review-drill">审查演练</a></li>
+					<li><a href="#quiz">自测题</a></li>
+				</ul>
 		</aside>
 	</div>
 </body>

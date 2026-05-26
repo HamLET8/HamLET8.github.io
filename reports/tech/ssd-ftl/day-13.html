@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Day 13：Read Retry、ECC 与读路径决策</title>
+	<style>
+		:root {
+			--canvas: #ffffff;
+			--canvas-dark: #0a0a0a;
+			--surface: #f7f7f7;
+			--surface-soft: #fafafa;
+			--surface-code: #1c1c1e;
+			--hairline: #e5e5e5;
+			--hairline-soft: #ededed;
+			--ink: #0a0a0a;
+			--charcoal: #1c1c1e;
+			--slate: #3a3a3c;
+			--steel: #5a5a5c;
+			--mint: #00d4a4;
+			--mint-soft: #e8fff8;
+			--warn: #c37d0d;
+			--error: #d45656;
+			--radius-sm: 6px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-full: 9999px;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			background: var(--canvas);
+			color: var(--ink);
+			font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+				"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+		a { color: var(--ink); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.topbar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			min-height: 58px;
+			padding: 12px 32px;
+			border-bottom: 1px solid var(--hairline);
+			background: rgba(255, 255, 255, 0.92);
+			backdrop-filter: blur(14px);
+		}
+		.brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+		.brand-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+			box-shadow: 0 0 0 5px rgba(0, 212, 164, 0.12);
+		}
+		.top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			min-height: 32px;
+			padding: 7px 14px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--canvas);
+			color: var(--charcoal);
+			font-size: 13px;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+		.pill.primary { border-color: var(--canvas-dark); background: var(--canvas-dark); color: #ffffff; }
+		.docs-shell {
+			display: grid;
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: 24px;
+			max-width: 1600px;
+			margin: 0 auto;
+			padding: 34px 32px 72px;
+		}
+		.sidebar, .toc {
+			position: sticky;
+			top: 86px;
+			align-self: start;
+			max-height: calc(100vh - 108px);
+			overflow: auto;
+		}
+		.toc { display: none; }
+		.sidebar-section { margin-bottom: 24px; }
+		.sidebar-title, .toc-title {
+			margin: 0 0 10px;
+			color: var(--steel);
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+		.nav-list, .toc-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+		.nav-list a, .toc-list a {
+			display: block;
+			padding: 7px 12px;
+			border-radius: var(--radius-sm);
+			color: var(--steel);
+			font-size: 14px;
+			line-height: 1.35;
+		}
+		.nav-list a.active { background: var(--surface); color: var(--ink); font-weight: 600; }
+		.toc-list a { padding: 5px 0; border-radius: 0; font-size: 13px; }
+		main { min-width: 0; }
+		.hero { padding: 42px 0 28px; }
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 18px;
+			color: var(--steel);
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.kicker::before {
+			content: "";
+			width: 7px;
+			height: 7px;
+			border-radius: var(--radius-full);
+			background: var(--mint);
+		}
+		h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+		h1 { max-width: 980px; font-size: 46px; letter-spacing: -1px; }
+		h2 { margin-top: 48px; padding-top: 34px; border-top: 1px solid var(--hairline); font-size: 28px; }
+		h3 { margin-top: 26px; font-size: 20px; }
+		p { margin: 12px 0; color: var(--charcoal); }
+		.lead { max-width: 900px; margin-top: 18px; color: var(--slate); font-size: 18px; line-height: 1.5; }
+		.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			min-height: 26px;
+			padding: 3px 9px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-full);
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 600;
+		}
+		.badge.mint { border-color: rgba(0, 212, 164, 0.32); background: var(--mint-soft); color: #006b55; }
+		.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+		.card {
+			padding: 22px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		.card.soft { background: var(--surface-soft); }
+		.card h3 { margin-top: 0; font-size: 18px; }
+		.card p:last-child { margin-bottom: 0; }
+		.callout {
+			margin: 18px 0;
+			padding: 18px 20px;
+			border: 1px solid var(--hairline);
+			border-left: 4px solid var(--mint);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.callout.bad { border-left-color: var(--error); background: #fff7f7; }
+		.callout.warning { border-left-color: var(--warn); background: #fffaf0; }
+		.diagram {
+			margin: 20px 0;
+			padding: 20px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+			overflow-x: auto;
+		}
+		.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+		.table-wrap {
+			width: 100%;
+			margin: 18px 0;
+			overflow-x: visible;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--canvas);
+		}
+		table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+		th, td {
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--hairline-soft);
+			vertical-align: top;
+			text-align: left;
+			overflow-wrap: anywhere;
+			word-break: normal;
+		}
+		th {
+			background: var(--surface);
+			color: var(--steel);
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+		tr:last-child td { border-bottom: 0; }
+		.code-panel { margin: 20px 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-code); }
+		.code-title {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 16px;
+			border-bottom: 1px solid #2a2a2d;
+			color: #b3b3b3;
+			font-size: 13px;
+		}
+		pre {
+			margin: 0;
+			padding: 18px;
+			overflow-x: auto;
+			color: #ffffff;
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			white-space: pre;
+		}
+		code { font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace; }
+		.inline-code {
+			padding: 2px 6px;
+			border: 1px solid var(--hairline);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--charcoal);
+			font-family: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+			font-size: 13px;
+			font-weight: 500;
+		}
+		.scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+		.scenario-card {
+			padding: 18px;
+			border: 1px solid var(--hairline);
+			border-radius: var(--radius-lg);
+			background: var(--surface-soft);
+		}
+		.scenario-card h3 { margin-top: 0; font-size: 16px; }
+		.scenario-card p { font-size: 14px; }
+		@media (min-width: 1500px) {
+			.docs-shell { grid-template-columns: 220px minmax(0, 1fr) 180px; gap: 28px; }
+			.toc { display: block; }
+		}
+		@media (max-width: 1080px) {
+			.docs-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 56px; }
+			.sidebar, .toc { position: static; max-height: none; }
+			.sidebar { border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+		}
+		@media (max-width: 760px) {
+			.topbar { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
+			.docs-shell { padding: 18px 16px 44px; }
+			.hero { padding-top: 24px; }
+			h1 { font-size: 34px; letter-spacing: -0.5px; }
+			h2 { margin-top: 38px; padding-top: 26px; font-size: 24px; }
+			.summary-grid, .scenario-grid { grid-template-columns: 1fr; }
+			.card, .scenario-card { padding: 18px; }
+		}
+	</style>
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="index.html" aria-label="返回索引">
+			<span class="brand-dot"></span>
+			<span>SSD / FTL Design Reports</span>
+		</a>
+		<nav class="top-actions" aria-label="页面导航">
+			<a class="pill" href="plan.html">15 天计划</a>
+			<a class="pill primary" href="#summary">Day 13 报告</a>
+		</nav>
+	</header>
+
+	<div class="docs-shell">
+		<aside class="sidebar" aria-label="报告导航">
+			<div class="sidebar-section">
+				<p class="sidebar-title">Learning Path</p>
+				<ul class="nav-list">
+					<li><a href="plan.html">15 天计划表</a></li>
+					<li><a href="day-01.html">Day 1：模块边界</a></li>
+					<li><a href="day-02.html">Day 2：领域语言</a></li>
+					<li><a href="day-03.html">Day 3：接口深度</a></li>
+					<li><a href="day-04.html">Day 4：Host Write</a></li>
+					<li><a href="day-05.html">Day 5：Mapping 所有权</a></li>
+					<li><a href="day-06.html">Day 6：错误路径</a></li>
+					<li><a href="day-07.html">Day 7：状态机</a></li>
+					<li><a href="day-08.html">Day 8：Journal</a></li>
+					<li><a href="day-09.html">Day 9：Recovery</a></li>
+					<li><a href="day-10.html">Day 10：GC 服务</a></li>
+					<li><a href="day-11.html">Day 11：策略分离</a></li>
+					<li><a href="day-12.html">Day 12：WriteBooster</a></li>
+					<li><a class="active" href="day-13.html">Day 13：ECC / Read Retry</a></li>
+				</ul>
+			</div>
+			<div class="sidebar-section">
+				<p class="sidebar-title">Today</p>
+				<ul class="nav-list">
+					<li><a href="#summary">顶部摘要</a></li>
+					<li><a href="#reading">阅读重点</a></li>
+					<li><a href="#fusion">融合判断</a></li>
+					<li><a href="#scenarios">FTL 场景</a></li>
+					<li><a href="#bad-code">反例代码</a></li>
+					<li><a href="#better-code">改进代码</a></li>
+					<li><a href="#tables">决策表与落点表</a></li>
+				</ul>
+			</div>
+		</aside>
+
+		<main>
+			<section class="hero" id="summary">
+				<p class="kicker">Day 13 · SSD / FTL 代码设计判断</p>
+				<h1>Read Retry、ECC 与读路径决策：返回数据可信度和恢复动作建议</h1>
+				<p class="lead">
+					今天的核心判断是：ECC / Read Retry 应返回数据可信度和恢复动作建议，而不是把 PHY 细节泄漏给 Mapping 或 Host Read。
+					读路径不只是“读成功或失败”，它还要判断数据是否可信、是否需要 read reclaim、是否要触发介质风险标记。
+				</p>
+				<div class="meta-row">
+					<span class="badge mint">一句话判断</span>
+					<span class="badge">介质读结果先转成 FTL 决策，再返回给上层</span>
+					<span class="badge">涉及：Read Path / ECC / Read Retry / Mapping / GC / Bad Block</span>
+					<span class="badge">关键词：data confidence · corrected bits · read reclaim · retry profile · media risk</span>
+				</div>
+				<div class="summary-grid">
+					<div class="card soft">
+						<h3>今日设计判断</h3>
+						<p>
+							Host Read 不应该理解 retry voltage、ECC syndrome、read threshold。它只应收到：
+							数据是否可信、是否已纠错、是否建议 read reclaim、是否应向介质健康模块报告风险。
+						</p>
+					</div>
+					<div class="card soft">
+						<h3>今日涉及模块</h3>
+						<p>
+							Read Service、NAND Read Flow、ECC、Read Retry、Mapping Table、Read Reclaim、GC、
+							Bad Block Management、Media Health、Power Loss Recovery。
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="reading">
+				<h2>今日阅读重点：读结果不是硬件状态码</h2>
+				<p>
+					NAND read 可能 clean、corrected、near-limit、retry recovered、uncorrectable。
+					这些状态对 Host Read、Mapping、GC 和 Bad Block Management 的含义不同。
+					设计目标不是把所有 PHY 细节向上传递，而是把介质证据转成稳定的 FTL 决策。
+				</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>思想来源</th>
+								<th>今天必须掌握的概念</th>
+								<th>落到 SSD / FTL 的判断</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块应隐藏低层复杂度。ECC syndrome 和 retry profile 是 NAND Read Service 内部知识。</td>
+								<td>上层接口暴露 <span class="inline-code">read_confidence</span> 与 <span class="inline-code">recovery_action</span>，不暴露 retry voltage 表。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>契约要明确，失败要可诊断。读路径需要区分可纠错成功、勉强恢复、不可恢复。</td>
+								<td>使用负 errno + 结构化 evidence，避免所有读问题都变成 <span class="inline-code">-EIO</span>。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>取舍要服务系统目标。读成功但纠错接近上限时，继续返回数据和立即搬迁是不同设计选择。</td>
+								<td>通过 action matrix 明确什么时候返回数据、什么时候同步 read reclaim、什么时候后台 scrub。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>领域语言把硬件现象转成业务事实。读结果应表达数据可信度和介质健康，不是寄存器位。</td>
+								<td>使用 trusted、corrected、retry-recovered、suspect、uncorrectable、media-risk 等领域词汇。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="fusion">
+				<h2>概念融合解释：把“能读出来”拆成可信度和动作</h2>
+				<p>
+					Read Path 的复杂点在于，NAND 返回的数据不是二元状态。ECC correctable 意味着数据可返回，但也可能说明介质正在退化；
+					Read Retry recovered 意味着这次可以读出，但应尽快 read reclaim；Uncorrectable 则要进入副本恢复、RAID/parity 或错误上报。
+					如果 Host Read 直接处理这些细节，Mapping 和 Bad Block Management 会被迫理解 PHY 语义。
+				</p>
+				<div class="callout">
+					<strong>统一判断：</strong>
+					Read Service 应作为 NAND/ECC 与 FTL 之间的防腐层。它接收低层 evidence，输出数据可信度、恢复动作、
+					介质风险信号和上层 errno。这样 Host Read 保持简单，GC 和 Bad Block 也能消费一致的健康语义。
+				</div>
+				<div class="diagram" aria-label="ECC Read Retry 到 FTL 决策">
+					<svg viewBox="0 0 1180 440" role="img">
+						<defs>
+							<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+								<path d="M0,0 L0,6 L9,3 z" fill="#5a5a5c"></path>
+							</marker>
+							<style>
+								.box { fill: #ffffff; stroke: #e5e5e5; stroke-width: 1.3; }
+								.key { fill: #e8fff8; stroke: #00d4a4; stroke-width: 1.6; }
+								.warn { fill: #fffaf0; stroke: #c37d0d; stroke-width: 1.3; }
+								.err { fill: #fff7f7; stroke: #d45656; stroke-width: 1.3; }
+								.t { font: 600 14px Inter, sans-serif; fill: #0a0a0a; }
+								.s { font: 12px Inter, sans-serif; fill: #5a5a5c; }
+								.line { stroke: #5a5a5c; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+								.dash { stroke: #5a5a5c; stroke-width: 1.2; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+							</style>
+						</defs>
+						<rect class="box" x="42" y="76" width="142" height="78" rx="12"></rect>
+						<text class="t" x="113" y="106" text-anchor="middle">Host Read</text>
+						<text class="s" x="113" y="130" text-anchor="middle">LBA request</text>
+						<path class="line" d="M184 115 L238 115"></path>
+						<rect class="box" x="238" y="76" width="142" height="78" rx="12"></rect>
+						<text class="t" x="309" y="106" text-anchor="middle">Mapping</text>
+						<text class="s" x="309" y="130" text-anchor="middle">current PPA</text>
+						<path class="line" d="M380 115 L434 115"></path>
+						<rect class="key" x="434" y="60" width="190" height="110" rx="12"></rect>
+						<text class="t" x="529" y="90" text-anchor="middle">Read Service</text>
+						<text class="s" x="529" y="114" text-anchor="middle">classify evidence</text>
+						<text class="s" x="529" y="132" text-anchor="middle">confidence + action</text>
+						<text class="s" x="529" y="150" text-anchor="middle">errno mapping</text>
+						<path class="line" d="M624 115 L678 115"></path>
+						<rect class="box" x="678" y="76" width="142" height="78" rx="12"></rect>
+						<text class="t" x="749" y="106" text-anchor="middle">NAND + ECC</text>
+						<text class="s" x="749" y="130" text-anchor="middle">read evidence</text>
+						<path class="dash" d="M529 170 C529 226, 328 232, 300 266"></path>
+						<path class="dash" d="M529 170 C529 226, 530 232, 530 266"></path>
+						<path class="dash" d="M529 170 C529 226, 726 232, 754 266"></path>
+						<rect class="key" x="198" y="282" width="204" height="82" rx="12"></rect>
+						<text class="t" x="300" y="312" text-anchor="middle">Return Data</text>
+						<text class="s" x="300" y="336" text-anchor="middle">trusted / corrected</text>
+						<rect class="warn" x="428" y="282" width="204" height="82" rx="12"></rect>
+						<text class="t" x="530" y="312" text-anchor="middle">Read Reclaim</text>
+						<text class="s" x="530" y="336" text-anchor="middle">retry recovered / near limit</text>
+						<rect class="err" x="658" y="282" width="204" height="82" rx="12"></rect>
+						<text class="t" x="760" y="312" text-anchor="middle">Recover / Fail</text>
+						<text class="s" x="760" y="336" text-anchor="middle">mirror / parity / uncorrectable</text>
+						<path class="line" d="M820 115 L906 115"></path>
+						<rect class="box" x="906" y="76" width="190" height="78" rx="12"></rect>
+						<text class="t" x="1001" y="106" text-anchor="middle">Media Health</text>
+						<text class="s" x="1001" y="130" text-anchor="middle">risk counters / bad block</text>
+					</svg>
+				</div>
+			</section>
+
+			<section id="scenarios">
+				<h2>SSD / FTL 设计场景</h2>
+				<div class="scenario-grid">
+					<div class="scenario-card">
+						<h3>ECC Correctable</h3>
+						<p>数据可返回，但 corrected bits 进入健康统计；接近阈值时返回 read reclaim 建议。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Read Retry Recovered</h3>
+						<p>通过 retry profile 读出数据时，数据可用但不应长期停留原 PPA；应提交后台迁移或 scrub。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Uncorrectable Read</h3>
+						<p>不可纠错不应直接污染 Mapping；Read Service 先尝试 mirror、parity、journal replay 或返回 <span class="inline-code">-EILSEQ</span>。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Read After Write</h3>
+						<p>Mapping 返回当前 PPA 后，Read Service 只对该 PPA 做介质判定；不在读路径里重新解释 LBA 版本。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Read Reclaim</h3>
+						<p>读路径输出 reclaim action，GC 或 dedicated reclaim worker 负责搬迁；Host Read 不直接写新 page。</p>
+					</div>
+					<div class="scenario-card">
+						<h3>Bad Block Risk</h3>
+						<p>多次 retry recovered 或 corrected bits 快速上升时，Media Health 消费风险信号，而不是让 ECC 模块直接 retire block。</p>
+					</div>
+				</div>
+			</section>
+
+			<section id="bad-code">
+				<h2>反例代码：Host Read 直接理解 PHY 细节</h2>
+				<div class="callout bad">
+					<strong>坏味道：</strong>
+					这段代码让 Host Read 直接处理 ECC bit 数、retry 电压、介质风险和 read reclaim。
+					读路径变成 NAND 细节的集散地，Mapping、GC、Bad Block 的边界都被绕开。
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>反例：读路径泄漏 ECC / Read Retry 细节</span>
+						<span>C</span>
+					</div>
+					<pre><code>int ftl_read_bad(struct ftl_dev *ftl, u64 lba, void *buf, u32 len)
+{
+	struct ftl_ppa ppa;
+	int corrected_bits;
+	int retry_level;
+	int ret;
+
+	ppa = ftl-&gt;l2p[lba];
+
+	ret = nand_read_page(ftl-&gt;nand, &amp;ppa, buf, len, &amp;corrected_bits);
+	if (!ret) {
+		if (corrected_bits &gt; 80) {
+			ftl-&gt;blocks[ppa.block].weak_reads++;
+			gc_move_page_now(ftl, lba, &amp;ppa);
+		}
+		return 0;
+	}
+
+	for (retry_level = 0; retry_level &lt; 7; retry_level++) {
+		nand_set_read_retry_voltage(ftl-&gt;nand, retry_level);
+		ret = nand_read_page(ftl-&gt;nand, &amp;ppa, buf, len,
+				     &amp;corrected_bits);
+		if (!ret) {
+			if (retry_level &gt; 3)
+				ftl-&gt;blocks[ppa.block].bad_candidate = true;
+			gc_move_page_now(ftl, lba, &amp;ppa);
+			return 0;
+		}
+	}
+
+	ftl-&gt;blocks[ppa.block].read_failures++;
+	if (ftl-&gt;blocks[ppa.block].read_failures &gt; 4)
+		ftl-&gt;blocks[ppa.block].bad = true;
+
+	return -EIO;
+}</code></pre>
+				</div>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>设计问题</th>
+								<th>代码表现</th>
+								<th>后果</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>PHY 细节泄漏</td>
+								<td>Host Read 调整 retry voltage。</td>
+								<td>上层读路径被 NAND 参数绑定，后续换 NAND profile 会影响 FTL Core。</td>
+							</tr>
+							<tr>
+								<td>错误语义模糊</td>
+								<td>最终统一返回 <span class="inline-code">-EIO</span>。</td>
+								<td>调用者无法区分 uncorrectable、retry exhausted、media risk、暂时性读失败。</td>
+							</tr>
+							<tr>
+								<td>职责跨界</td>
+								<td>读路径直接调用 <span class="inline-code">gc_move_page_now()</span>。</td>
+								<td>Host Read 被前台搬迁延迟污染，也绕过 relocation journal。</td>
+							</tr>
+							<tr>
+								<td>坏块误判</td>
+								<td>ECC 模块间接把 block 标成 bad。</td>
+								<td>Bad Block Management 的隔离策略和统计口径失效。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+
+			<section id="better-code">
+				<h2>改进代码：读服务返回可信度和动作建议</h2>
+				<p>
+					改进版把 NAND/ECC evidence 先转换为 FTL read decision。Host Read 只处理数据和 errno；
+					Read Reclaim、Media Health、Bad Block Management 通过结构化 action 消费介质信号。
+				</p>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>read_service.h：读路径领域接口</span>
+						<span>C</span>
+					</div>
+					<pre><code>#ifndef FTL_READ_SERVICE_H
+#define FTL_READ_SERVICE_H
+
+#include &lt;linux/types.h&gt;
+#include &lt;linux/errno.h&gt;
+
+enum read_confidence {
+	READ_CONFIDENCE_TRUSTED = 0,
+	READ_CONFIDENCE_CORRECTED,
+	READ_CONFIDENCE_RETRY_RECOVERED,
+	READ_CONFIDENCE_SUSPECT,
+	READ_CONFIDENCE_UNCORRECTABLE,
+};
+
+enum read_recovery_action {
+	READ_ACTION_NONE = 0,
+	READ_ACTION_RECORD_HEALTH,
+	READ_ACTION_READ_RECLAIM,
+	READ_ACTION_TRY_REDUNDANT_COPY,
+	READ_ACTION_REPORT_UNCORRECTABLE,
+};
+
+struct nand_read_evidence {
+	struct ftl_ppa ppa;
+	int nand_status;
+	u32 corrected_bits;
+	u32 retry_count;
+	bool retry_recovered;
+	bool uncorrectable;
+};
+
+struct ftl_read_decision {
+	int errno_value;
+	enum read_confidence confidence;
+	enum read_recovery_action action;
+	u32 health_score;
+	const char *reason;
+};
+
+struct ftl_read_req {
+	u64 lba;
+	void *buf;
+	u32 len;
+};
+
+struct ftl_read_result {
+	struct ftl_ppa ppa;
+	enum read_confidence confidence;
+	bool reclaim_queued;
+};
+
+int ftl_read_submit(struct read_service *svc, const struct ftl_read_req *req,
+		    struct ftl_read_result *result);
+void read_classify_evidence(const struct nand_read_evidence *evidence,
+			    struct ftl_read_decision *decision);
+
+#endif</code></pre>
+				</div>
+				<div class="code-panel">
+					<div class="code-title">
+						<span>read_service.c：先分类，再执行领域动作</span>
+						<span>C</span>
+					</div>
+					<pre><code>void read_classify_evidence(const struct nand_read_evidence *e,
+			    struct ftl_read_decision *d)
+{
+	memset(d, 0, sizeof(*d));
+
+	if (e-&gt;uncorrectable) {
+		d-&gt;errno_value = -EILSEQ;
+		d-&gt;confidence = READ_CONFIDENCE_UNCORRECTABLE;
+		d-&gt;action = READ_ACTION_TRY_REDUNDANT_COPY;
+		d-&gt;reason = "uncorrectable";
+		return;
+	}
+
+	if (e-&gt;retry_recovered) {
+		d-&gt;confidence = READ_CONFIDENCE_RETRY_RECOVERED;
+		d-&gt;action = READ_ACTION_READ_RECLAIM;
+		d-&gt;health_score = e-&gt;retry_count * 16 + e-&gt;corrected_bits;
+		d-&gt;reason = "retry recovered";
+		return;
+	}
+
+	if (e-&gt;corrected_bits &gt; READ_RECLAIM_ECC_THRESHOLD) {
+		d-&gt;confidence = READ_CONFIDENCE_SUSPECT;
+		d-&gt;action = READ_ACTION_READ_RECLAIM;
+		d-&gt;health_score = e-&gt;corrected_bits;
+		d-&gt;reason = "near ecc limit";
+		return;
+	}
+
+	if (e-&gt;corrected_bits) {
+		d-&gt;confidence = READ_CONFIDENCE_CORRECTED;
+		d-&gt;action = READ_ACTION_RECORD_HEALTH;
+		d-&gt;health_score = e-&gt;corrected_bits;
+		d-&gt;reason = "ecc corrected";
+		return;
+	}
+
+	d-&gt;confidence = READ_CONFIDENCE_TRUSTED;
+	d-&gt;action = READ_ACTION_NONE;
+	d-&gt;reason = "clean read";
+}
+
+int ftl_read_submit(struct read_service *svc, const struct ftl_read_req *req,
+		    struct ftl_read_result *result)
+{
+	struct nand_read_evidence evidence;
+	struct ftl_read_decision decision;
+	struct ftl_ppa ppa;
+	int ret;
+
+	ret = map_lookup_current_ppa(svc-&gt;map, req-&gt;lba, &amp;ppa);
+	if (ret)
+		return ret;
+
+	ret = nand_read_with_ecc_retry(svc-&gt;nand, &amp;ppa, req-&gt;buf, req-&gt;len,
+				       &amp;evidence);
+	if (ret &amp;&amp; ret != -EILSEQ)
+		return ret;
+
+	read_classify_evidence(&amp;evidence, &amp;decision);
+
+	switch (decision.action) {
+	case READ_ACTION_NONE:
+		break;
+	case READ_ACTION_RECORD_HEALTH:
+		media_health_record_read(svc-&gt;health, &amp;ppa, &amp;decision);
+		break;
+	case READ_ACTION_READ_RECLAIM:
+		media_health_record_read(svc-&gt;health, &amp;ppa, &amp;decision);
+		read_reclaim_queue(svc-&gt;reclaim, req-&gt;lba, &amp;ppa);
+		result-&gt;reclaim_queued = true;
+		break;
+	case READ_ACTION_TRY_REDUNDANT_COPY:
+		ret = read_recover_from_redundancy(svc, req, &amp;ppa);
+		if (ret)
+			return -EILSEQ;
+		decision.errno_value = 0;
+		decision.confidence = READ_CONFIDENCE_CORRECTED;
+		break;
+	case READ_ACTION_REPORT_UNCORRECTABLE:
+		return -EILSEQ;
+	}
+
+	result-&gt;ppa = ppa;
+	result-&gt;confidence = decision.confidence;
+	return decision.errno_value;
+}</code></pre>
+				</div>
+			</section>
+
+			<section id="tables">
+				<h2>决策表与思想落点表</h2>
+				<h3>ECC / Read Retry 到 FTL 决策矩阵</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>低层结果</th>
+								<th>FTL 可信度</th>
+								<th>返回给 Host Read</th>
+								<th>后续动作</th>
+								<th>所有者</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Clean read</td>
+								<td>TRUSTED</td>
+								<td>返回数据。</td>
+								<td>无。</td>
+								<td>Read Service</td>
+							</tr>
+							<tr>
+								<td>ECC corrected bits below threshold</td>
+								<td>CORRECTED</td>
+								<td>返回数据和 corrected 标记。</td>
+								<td>记录健康统计。</td>
+								<td>ECC / Media Health</td>
+							</tr>
+							<tr>
+								<td>ECC near limit</td>
+								<td>SUSPECT</td>
+								<td>返回数据，但标记风险。</td>
+								<td>排队 read reclaim。</td>
+								<td>Read Reclaim / GC</td>
+							</tr>
+							<tr>
+								<td>Read Retry recovered</td>
+								<td>RETRY_RECOVERED</td>
+								<td>返回数据，但提高风险权重。</td>
+								<td>尽快搬迁，更新介质风险。</td>
+								<td>Read Service / Media Health</td>
+							</tr>
+							<tr>
+								<td>Uncorrectable</td>
+								<td>UNCORRECTABLE</td>
+								<td>尝试冗余恢复；失败返回 <span class="inline-code">-EILSEQ</span>。</td>
+								<td>镜像、parity、RAID、坏块风险上报。</td>
+								<td>Recovery / Bad Block</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>读路径责任表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>模块</th>
+								<th>负责什么</th>
+								<th>不负责什么</th>
+								<th>接口输出</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Mapping Table</td>
+								<td>根据 LBA 返回当前 PPA。</td>
+								<td>不解释 ECC、retry、介质健康。</td>
+								<td>current PPA、mapping seq。</td>
+							</tr>
+							<tr>
+								<td>NAND / ECC</td>
+								<td>执行 read、ECC decode、retry profile。</td>
+								<td>不决定 Mapping 是否更新，不直接 retire block。</td>
+								<td>nand_read_evidence。</td>
+							</tr>
+							<tr>
+								<td>Read Service</td>
+								<td>把 evidence 转成可信度和动作建议。</td>
+								<td>不执行 GC 策略，不维护坏块表。</td>
+								<td>ftl_read_decision。</td>
+							</tr>
+							<tr>
+								<td>Read Reclaim</td>
+								<td>搬迁 suspect / retry recovered 数据。</td>
+								<td>不重新分类 ECC 结果。</td>
+								<td>relocation request。</td>
+							</tr>
+							<tr>
+								<td>Bad Block Management</td>
+								<td>消费风险信号，决定隔离、观察或退役。</td>
+								<td>不被单次 read retry 直接驱动退役。</td>
+								<td>media availability decision。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h3>四本书思想落点表</h3>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>书</th>
+								<th>思想</th>
+								<th>SSD / FTL 设计位置</th>
+								<th>它约束了什么</th>
+								<th>它帮助避免什么问题</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>《软件设计哲学》</td>
+								<td>深模块隐藏低层复杂度。</td>
+								<td>Read Service、nand_read_evidence、ftl_read_decision。</td>
+								<td>Host Read 不理解 PHY retry profile。</td>
+								<td>避免 NAND 细节扩散到 Mapping 和 FTL Core。</td>
+							</tr>
+							<tr>
+								<td>《程序员修炼之道》</td>
+								<td>契约清晰，失败可诊断。</td>
+								<td>read_confidence、recovery_action、负 errno。</td>
+								<td>读结果必须区分 corrected、retry recovered、uncorrectable。</td>
+								<td>避免所有读问题都退化成 <span class="inline-code">-EIO</span>。</td>
+							</tr>
+							<tr>
+								<td>《设计的设计》</td>
+								<td>设计取舍要围绕系统目标明确表达。</td>
+								<td>返回数据、read reclaim、media risk 的决策矩阵。</td>
+								<td>读成功但介质风险升高时必须有明确策略。</td>
+								<td>避免“能读出来就不管”的短视路径。</td>
+							</tr>
+							<tr>
+								<td>《领域驱动设计》</td>
+								<td>用领域语言包裹硬件事实。</td>
+								<td>trusted、suspect、retry recovered、read reclaim、media risk。</td>
+								<td>硬件状态先转成 FTL 领域语义再被消费。</td>
+								<td>避免 PHY 术语污染 Host Read、GC、Bad Block 模块。</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<aside class="toc" aria-label="本页目录">
+			<p class="toc-title">On this page</p>
+			<ul class="toc-list">
+				<li><a href="#summary">顶部摘要</a></li>
+				<li><a href="#reading">今日阅读重点</a></li>
+				<li><a href="#fusion">概念融合解释</a></li>
+				<li><a href="#scenarios">SSD / FTL 场景</a></li>
+				<li><a href="#bad-code">反例代码</a></li>
+				<li><a href="#better-code">改进代码</a></li>
+				<li><a href="#tables">决策表与落点表</a></li>
+			</ul>
+		</aside>
+	</div>
+</body>
+</html>
